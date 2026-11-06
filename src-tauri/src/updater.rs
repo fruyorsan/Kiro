@@ -15,7 +15,7 @@ const CHECK_TIMEOUT_SECS: u64 = 10;
 /// broken release cannot reach everyone within minutes of being published.
 const MIN_AUTO_INSTALL_AGE_SECS: i64 = 24 * 60 * 60;
 const STATE_FILE: &str = "update-state.json";
-const RELEASES_API: &str = "https://api.github.com/repos/kua8/Nectar/releases?per_page=10";
+const RELEASES_API: &str = "https://api.github.com/repos/fruyorsan/Nectar/releases?per_page=10";
 
 /// Serializes manifest requests so concurrent callers share a single network hit.
 static CHECK_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -54,7 +54,7 @@ fn channel_name(app: &AppHandle) -> &'static str {
 /// Manifest of the newest release, pre-releases included (GitHub's `latest` skips them).
 async fn newest_release_manifest() -> Option<tauri::Url> {
     let client = reqwest::Client::builder()
-        .user_agent("Nectar")
+        .user_agent("Kiro")
         .timeout(Duration::from_secs(CHECK_TIMEOUT_SECS))
         .build()
         .ok()?;

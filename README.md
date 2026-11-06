@@ -1,5 +1,29 @@
 <div align="center">
 
+## Kiro
+
+**Kiro is a fork of [Nectar](https://github.com/kua8/Nectar) by [kua8](https://github.com/kua8).**
+Same look, same features, plus the fixes and the automatic performance mode listed below.
+The original project and its concept belong to Nectar, which itself began as a fork of
+[Bloom](https://github.com/SehajveerSingh2005/bloom) by Sehajveer Singh.
+Licensed under GPL-3.0-only, like the original.
+
+**What is different in this fork**
+
+- Smoother dock/notch reveals: the memory saver no longer trims the renderers every
+  two seconds while you are about to hover an edge.
+- The side edge (volume/brightness) card now opens when you simply hold the cursor
+  at the edge, instead of only while moving.
+- Faster dock opening animation and a cheaper per-mouse-move path.
+- New **Automatic Performance Mode**: when a fullscreen game or app is in front,
+  Kiro stops capturing previews/icons, slows its background polling, disables blur
+  and animation work, and stops trimming memory. Everything returns on exit.
+- Separate identity (`com.fruyorsan.kiro`), so Kiro and Nectar can be installed
+  side by side and Kiro never updates into the upstream release. Existing Nectar
+  settings are copied over on first launch.
+
+<br />
+
 <img src="docs/logo.png" width="128" alt="Nectar logo" />
 
 <br />

@@ -13,13 +13,22 @@ use windows::Win32::System::Threading::{
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
-const SETTLE_MS: i64 = 3_000;
+// EmptyWorkingSet pushes pages out to the pagefile. Doing that every couple of
+// seconds keeps the always-on dock/notch renderers and the GPU process at a
+// near-zero working set, so the first hover after idle has to fault hundreds of
+// megabytes back in. That shows up as an input stutter, so trim once the app is
+// properly idle and then leave it alone for a long while.
+const SETTLE_MS: i64 = 10_000;
 
-const RETRIM_MS: i64 = 2_000;
+const RETRIM_MS: i64 = 120_000;
 
-const MEDIA_RETRIM_MS: i64 = 15_000;
+const MEDIA_RETRIM_MS: i64 = 300_000;
 
 const STARTUP_GRACE_MS: i64 = 8_000;
+
+// The cursor being this close to a hot edge means a reveal is seconds away, so
+// paging its renderer out now would only make that reveal stutter.
+const EDGE_GUARD_PX: i32 = 48;
 
 static BUSY: AtomicBool = AtomicBool::new(false);
 
@@ -71,6 +80,39 @@ fn foreground_is_ours() -> bool {
         let mut pid = 0u32;
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
         pid == std::process::id()
+    }
+}
+
+/// True when the cursor sits near a screen edge, where the dock, notch or the
+/// volume/brightness cards can reveal at any moment. Trimming the renderers then
+/// would turn the next hover into a page-fault stall.
+fn cursor_near_hot_edge() -> bool {
+    unsafe {
+        use windows::Win32::Foundation::POINT;
+        use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
+
+        let mut pt = POINT::default();
+        if GetCursorPos(&mut pt).is_err() {
+            return false;
+        }
+        // The primary monitor always sits at (0, 0) in virtual-screen coordinates.
+        let (mw, mh) = (
+            windows::Win32::UI::WindowsAndMessaging::GetSystemMetrics(
+                windows::Win32::UI::WindowsAndMessaging::SM_CXSCREEN,
+            ),
+            windows::Win32::UI::WindowsAndMessaging::GetSystemMetrics(
+                windows::Win32::UI::WindowsAndMessaging::SM_CYSCREEN,
+            ),
+        );
+        let (mx, my) = (0, 0);
+        let inside = pt.x >= mx && pt.x <= mx + mw && pt.y >= my && pt.y <= my + mh;
+        if !inside {
+            return false;
+        }
+        pt.x <= mx + EDGE_GUARD_PX
+            || pt.x >= mx + mw - EDGE_GUARD_PX
+            || pt.y <= my + EDGE_GUARD_PX
+            || pt.y >= my + mh - EDGE_GUARD_PX
     }
 }
 
@@ -177,6 +219,13 @@ pub fn start_reclaim_worker(app: tauri::AppHandle) {
                     continue;
                 }
 
+                // A fullscreen game owns the screen: paging our renderers out now
+                // would only fight it for disk I/O when the user comes back.
+                if crate::perf::active() {
+                    mark_interaction();
+                    continue;
+                }
+
                 let busy = BUSY.load(Ordering::Relaxed)
                     || crate::state::MENU_IS_OPEN.load(Ordering::Relaxed)
                     || crate::state::DOCK_IS_DRAGGING.load(Ordering::Relaxed)
@@ -189,6 +238,13 @@ pub fn start_reclaim_worker(app: tauri::AppHandle) {
 
                 let forced = TRIM_SOON.swap(false, Ordering::Relaxed);
                 if !forced && foreground_is_ours() {
+                    mark_interaction();
+                    continue;
+                }
+
+                // Keep the renderers resident while a reveal is likely, otherwise
+                // the next hover pays for the whole trim in page faults.
+                if !forced && cursor_near_hot_edge() {
                     mark_interaction();
                     continue;
                 }

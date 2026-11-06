@@ -8,7 +8,7 @@ use tauri::{AppHandle, Manager};
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const MAX_LOG_BYTES: u64 = 1_000_000;
-const LOG_FILE: &str = "nectar.log";
+const LOG_FILE: &str = "kiro.log";
 const REPORT_FILE: &str = "diagnostics.txt";
 const HITBOX_INTERVAL_MS: i64 = 250;
 
@@ -22,14 +22,14 @@ pub static HOOK_LAST_EVENT_MS: AtomicI64 = AtomicI64::new(0);
 
 pub fn init() {
     let Ok(appdata) = std::env::var("APPDATA") else { return };
-    let dir = PathBuf::from(appdata).join("com.kua8.nectar").join("logs");
+    let dir = PathBuf::from(appdata).join("com.fruyorsan.kiro").join("logs");
     if fs::create_dir_all(&dir).is_err() {
         return;
     }
     let _ = LOG_DIR.set(dir);
     install_panic_hook();
     log(&format!(
-        "---- Nectar {} starting (pid {}) ----",
+        "---- Kiro {} starting (pid {}) ----",
         env!("CARGO_PKG_VERSION"),
         std::process::id()
     ));
@@ -44,7 +44,7 @@ pub fn log(msg: &str) {
     let _guard = LOG_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let path = dir.join(LOG_FILE);
     if fs::metadata(&path).map(|m| m.len() > MAX_LOG_BYTES).unwrap_or(false) {
-        let _ = fs::rename(&path, dir.join("nectar.old.log"));
+        let _ = fs::rename(&path, dir.join("kiro.old.log"));
     }
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
         let stamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
@@ -209,9 +209,9 @@ pub fn build_report(app: &AppHandle) -> String {
     let hook_age = if last == 0 { "never".to_string() } else { format!("{}ms ago", now - last) };
 
     let report = format!(
-        "Nectar diagnostics\n\
+        "Kiro diagnostics\n\
          ==================\n\
-         Nectar: {version}\n\
+         Kiro: {version}\n\
          Windows: {windows}\n\
          WebView2: {webview}\n\
          GPU: {gpu}\n\

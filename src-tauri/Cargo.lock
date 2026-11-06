@@ -2388,6 +2388,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "kiro"
+version = "1.8.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "chrono-tz",
+ "image",
+ "keyring",
+ "reqwest 0.12.28",
+ "roxmltree",
+ "rrule",
+ "rustfft",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-drag",
+ "tauri-plugin-opener",
+ "tauri-plugin-updater",
+ "tokio",
+ "webview2-com",
+ "window-vibrancy 0.7.1",
+ "windows 0.61.3",
+ "windows-core 0.61.2",
+ "wmi",
+]
+
+[[package]]
 name = "kuchikiki"
 version = "0.8.8-speedreader"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2694,36 +2724,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys",
-]
-
-[[package]]
-name = "nectar"
-version = "1.8.0"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "chrono-tz",
- "image",
- "keyring",
- "reqwest 0.12.28",
- "roxmltree",
- "rrule",
- "rustfft",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-drag",
- "tauri-plugin-opener",
- "tauri-plugin-updater",
- "tokio",
- "webview2-com",
- "window-vibrancy 0.7.1",
- "windows 0.61.3",
- "windows-core 0.61.2",
- "wmi",
 ]
 
 [[package]]

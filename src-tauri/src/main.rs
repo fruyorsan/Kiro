@@ -28,6 +28,8 @@ mod memory_saver;
 mod webview_args;
 mod on_demand_windows;
 mod wallpaper;
+mod migrate;
+mod perf;
 
 use tauri::Manager;
 use windows::Win32::System::Console::SetConsoleCtrlHandler;
@@ -50,6 +52,10 @@ unsafe extern "system" fn ctrl_handler(ctrl_type: u32) -> BOOL {
 }
 
 fn main() {
+    // Bring the user's Nectar settings over on the very first launch, before
+    // anything reads the config folder.
+    migrate::run();
+
     let args: Vec<String> = std::env::args().collect();
     if let Some(code) = agent_api::run_cli(&args) {
         std::process::exit(code);
@@ -74,8 +80,8 @@ fn main() {
         use windows::Win32::System::Threading::{CreateMutexW, CreateEventW, OpenEventW, SetEvent, SYNCHRONIZATION_ACCESS_RIGHTS};
         use windows::Win32::Foundation::{GetLastError, CloseHandle};
 
-        let mutex_name: Vec<u16> = "NectarSingleInstance".encode_utf16().chain(std::iter::once(0)).collect();
-        let event_name: Vec<u16> = "NectarOpenSettings".encode_utf16().chain(std::iter::once(0)).collect();
+        let mutex_name: Vec<u16> = "KiroSingleInstance".encode_utf16().chain(std::iter::once(0)).collect();
+        let event_name: Vec<u16> = "KiroOpenSettings".encode_utf16().chain(std::iter::once(0)).collect();
 
         let h_mutex = CreateMutexW(None, true, windows::core::PCWSTR(mutex_name.as_ptr())).ok();
         let err = GetLastError();
@@ -188,6 +194,7 @@ fn main() {
             close_window,
             end_task,
             quit_nectar,
+            get_perf_mode,
             restart_nectar,
             uninstall_nectar,
             get_diagnostics,
@@ -378,7 +385,7 @@ fn main() {
                 let ah = app.handle().clone();
                 TrayIconBuilder::new()
                     .icon(app.default_window_icon().unwrap().clone())
-                    .tooltip("Nectar")
+                    .tooltip("Kiro")
                     .menu(&menu)
                     .on_menu_event(move |_, event| match event.id().as_ref() {
                         "quit" => {

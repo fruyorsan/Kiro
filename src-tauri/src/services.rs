@@ -401,6 +401,8 @@ unsafe extern "system" fn focus_event_proc(
 ) {
     if hwnd.0.is_null() { return; }
     // Foreground moved — e.g. Snipping Tool opened/closed or got minimised.
+    // Auto performance mode: skip thumbnail/icon work while a fullscreen app runs.
+    if crate::perf::active() { return; }
     CAPTURE_RECHECK.store(true, Ordering::Relaxed);
     use windows::Win32::UI::WindowsAndMessaging::{IsWindow, GetWindowLongW, GWL_EXSTYLE, WS_EX_TOOLWINDOW};
 
@@ -480,6 +482,9 @@ unsafe extern "system" fn thumbnail_capture_proc(
     _ms_event_time: u32,
 ) {
     if hwnd.0.is_null() { return; }
+
+    // Auto performance mode: skip thumbnail/icon work while a fullscreen app runs.
+    if crate::perf::active() { return; }
 
     // Only restore matters. On minimize start the window is mid-animation and
     // PrintWindow can grab a black frame over a good thumbnail.
@@ -1207,7 +1212,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     let len = windows::Win32::UI::WindowsAndMessaging::GetClassNameA(hwnd, &mut class_name);
                     let class_str = std::str::from_utf8(&class_name[..len as usize]).unwrap_or("");
                     
-                    let is_nectar = process_id == my_process_id || class_str.contains("Nectar");
+                    let is_nectar = process_id == my_process_id || class_str.contains("Kiro");
                     let is_visible = IsWindowVisible(hwnd).as_bool();
                     let is_iconic = IsIconic(hwnd).as_bool();
                     
@@ -1391,6 +1396,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     last_dock_shell_surface = Some(shell_on_dock);
                 }
                 CURRENT_FOREGROUND_FULLSCREEN.store(current_is_fs, Ordering::Relaxed);
+                crate::perf::update(&handle_visibility, current_is_fs);
                 let fullscreen_on_dock = current_is_fs && fg_on("dock");
                 CURRENT_FOREGROUND_FULLSCREEN_ON_DOCK.store(fullscreen_on_dock, Ordering::Relaxed);
                 if Some(fullscreen_on_dock) != last_dock_fullscreen || last_emit.elapsed() >= Duration::from_secs(3) {
@@ -1529,7 +1535,10 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     apply_capture_ui_state(&handle_visibility, active);
                 }
             }
-            std::thread::sleep(std::time::Duration::from_millis(150));
+            // Fullscreen apps hide the dock/notch anyway, so do not keep waking
+            // up this often while one owns the screen.
+            let tick_ms = if crate::perf::active() { 400 } else { 150 };
+            std::thread::sleep(std::time::Duration::from_millis(tick_ms));
         }
     });
 
@@ -1918,12 +1927,63 @@ static MOUSE_WORKER: OnceLock<std::thread::Thread> = OnceLock::new();
 const TOP_EDGE_DWELL_MS: i64 = 200;
 const TOP_EDGE_POLL_MS: u64 = 40;
 static TOP_EDGE_PENDING: AtomicBool = AtomicBool::new(false);
+// Same idea for the left/right volume and brightness cards: the dwell clock only
+// advances while the worker runs, and it stops running as soon as the cursor
+// stops. Without this the card only appeared if the user kept jiggling the
+// mouse along the edge.
+static SIDE_EDGE_PENDING: AtomicBool = AtomicBool::new(false);
+
+// process_mouse_move runs for every pointer pass the worker makes (~60 Hz).
+// Reading these from the settings cache there meant a mutex + String
+// allocation per key and a fresh monitor enumeration per pass, which showed up
+// as input latency. They change rarely, so sample them once a second instead.
+static MH_EDGE_DELAY_MS: AtomicI64 = AtomicI64::new(300);
+static MH_NOTCH_EDGE_DELAY_MS: AtomicI64 = AtomicI64::new(TOP_EDGE_DWELL_MS);
+static MH_VOLUME_RIGHT: AtomicBool = AtomicBool::new(false);
+static MH_BRIGHTNESS_RIGHT: AtomicBool = AtomicBool::new(true);
+static MH_PRIMARY_SCALE_MILLI: AtomicI64 = AtomicI64::new(1000);
+static MH_NECTAR_SCALE_MILLI: AtomicI64 = AtomicI64::new(1000);
+// Smart/peek notches can be suppressed by a fullscreen window, a fixed one cannot.
+static MH_NOTCH_FIXED: AtomicBool = AtomicBool::new(true);
+
+fn refresh_mouse_caches(app: &AppHandle) {
+    if let Ok(Some(m)) = app.primary_monitor() {
+        MH_PRIMARY_SCALE_MILLI.store((m.scale_factor() * 1000.0).round() as i64, Ordering::Relaxed);
+    }
+    MH_NECTAR_SCALE_MILLI.store(
+        (crate::utils::get_nectar_scale(app) * 1000.0).round() as i64,
+        Ordering::Relaxed,
+    );
+    if let Some(v) = crate::utils::get_setting_str(app, "nectar-edge-delay") {
+        MH_EDGE_DELAY_MS.store(v.parse::<i64>().unwrap_or(300).clamp(0, 3000), Ordering::Relaxed);
+    }
+    if let Some(v) = crate::utils::get_setting_str(app, "nectar-notch-edge-delay") {
+        MH_NOTCH_EDGE_DELAY_MS
+            .store(v.parse::<i64>().unwrap_or(TOP_EDGE_DWELL_MS).clamp(0, 2000), Ordering::Relaxed);
+    }
+    MH_VOLUME_RIGHT.store(
+        crate::utils::get_setting_str(app, "nectar-volume-side").as_deref() == Some("right"),
+        Ordering::Relaxed,
+    );
+    MH_BRIGHTNESS_RIGHT.store(
+        crate::utils::get_setting_str(app, "nectar-brightness-side").as_deref() == Some("right"),
+        Ordering::Relaxed,
+    );
+    MH_NOTCH_FIXED.store(
+        crate::monitors::resolve_mode_for_label(app, crate::types::WindowKind::Notch, "main") == "fixed",
+        Ordering::Relaxed,
+    );
+}
 
 fn top_edge_armed(app_handle: &AppHandle, label: &str, in_band: bool, now: i64) -> bool {
     let enter = crate::state::notch_edge_enter_ms();
     let armed = crate::state::notch_edge_armed();
     // A fixed notch is always visible, so no gate.
-    let fixed = crate::monitors::resolve_mode_for_label(app_handle, crate::types::WindowKind::Notch, label) == "fixed";
+    let fixed = if label == "main" {
+        MH_NOTCH_FIXED.load(Ordering::Relaxed)
+    } else {
+        crate::monitors::resolve_mode_for_label(app_handle, crate::types::WindowKind::Notch, label) == "fixed"
+    };
     if !in_band || fixed {
         crate::state::set_i64(enter, label, 0);
         crate::state::set_flag(armed, label, false);
@@ -1932,10 +1992,14 @@ fn top_edge_armed(app_handle: &AppHandle, label: &str, in_band: bool, now: i64) 
     if crate::state::get_flag(armed, label) {
         return true;
     }
-    let dwell_ms = crate::utils::get_setting_str(app_handle, "nectar-notch-edge-delay")
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(TOP_EDGE_DWELL_MS)
-        .clamp(0, 2000);
+    let dwell_ms = if label == "main" {
+        MH_NOTCH_EDGE_DELAY_MS.load(Ordering::Relaxed)
+    } else {
+        crate::utils::get_setting_str(app_handle, "nectar-notch-edge-delay")
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(TOP_EDGE_DWELL_MS)
+            .clamp(0, 2000)
+    };
     if dwell_ms <= 0 {
         crate::state::set_flag(armed, label, true);
         return true;
@@ -1960,7 +2024,7 @@ fn start_mouse_worker(app_handle: AppHandle) {
         .spawn(move || loop {
             // A pending dwell has to finish with a still cursor, but the hook only fires on movement,
             // so also wake on a timer.
-            if TOP_EDGE_PENDING.load(Ordering::Relaxed) {
+            if TOP_EDGE_PENDING.load(Ordering::Relaxed) || SIDE_EDGE_PENDING.load(Ordering::Relaxed) {
                 std::thread::park_timeout(Duration::from_millis(TOP_EDGE_POLL_MS));
                 MOUSE_DIRTY.store(true, Ordering::Relaxed);
             } else {
@@ -1974,7 +2038,11 @@ fn start_mouse_worker(app_handle: AppHandle) {
                 y: MOUSE_Y.load(Ordering::Relaxed),
             };
             unsafe { process_mouse_move(&app_handle, cursor) };
-            std::thread::sleep(Duration::from_millis(32));
+            // 16 ms keeps edge reveals feeling immediate without making the
+            // worker churn; the per-pass body now reads only cached values.
+            // In auto performance mode nobody is hovering the dock, so slow down.
+            let worker_ms = if crate::perf::active() { 48 } else { 16 };
+            std::thread::sleep(Duration::from_millis(worker_ms));
         });
     if let Ok(worker) = worker {
         let _ = MOUSE_WORKER.set(worker.thread().clone());
@@ -2006,6 +2074,20 @@ fn volume_mixer_physical_rect_for(app: &AppHandle) -> Option<(i32, i32, i32, i32
     Some((
         pos.x + (x * scale) as i32,
         pos.y + (y * scale) as i32,
+        (width * scale) as i32,
+        (height * scale) as i32,
+    ))
+}
+
+/// Same rect as `volume_mixer_physical_rect_for`, but from the values the mouse
+/// worker already caches, so the per-move hit test does not enumerate monitors.
+fn volume_mixer_physical_rect_cached() -> Option<(i32, i32, i32, i32)> {
+    let (x, y, width, height) = (*crate::state::VOLUME_MIXER_RECT.lock().ok()?)?;
+    let scale = MH_PRIMARY_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0;
+    let (mx, my) = (*MH_CACHED_MON_POS.lock().ok()?)?;
+    Some((
+        mx + (x * scale) as i32,
+        my + (y * scale) as i32,
         (width * scale) as i32,
         (height * scale) as i32,
     ))
@@ -2110,8 +2192,13 @@ fn in_show_desktop_corner(x: i32, y: i32) -> bool {
 
 /// Smart and Peek notches stay hidden while a fullscreen window covers their monitor.
 fn notch_suppressed(app_handle: &AppHandle, label: &str) -> bool {
-    crate::state::get_flag(crate::state::notch_fullscreen(), label)
-        && crate::monitors::resolve_mode_for_label(app_handle, crate::types::WindowKind::Notch, label) != "fixed"
+    if !crate::state::get_flag(crate::state::notch_fullscreen(), label) {
+        return false;
+    }
+    if label == "main" {
+        return !MH_NOTCH_FIXED.load(Ordering::Relaxed);
+    }
+    crate::monitors::resolve_mode_for_label(app_handle, crate::types::WindowKind::Notch, label) != "fixed"
 }
 
 fn dock_edge_hover_allowed(fullscreen_on_dock: bool, at_bottom_edge: bool, dock_hovered: bool) -> bool {
@@ -2121,6 +2208,7 @@ fn dock_edge_hover_allowed(fullscreen_on_dock: bool, at_bottom_edge: bool, dock_
 unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Foundation::POINT) {
     let now = now_ms();
     TOP_EDGE_PENDING.store(false, Ordering::Relaxed);
+    SIDE_EDGE_PENDING.store(false, Ordering::Relaxed);
     {
         {
 
@@ -2167,6 +2255,7 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                     *MH_CACHED_NOTCH_MON_POS.lock().unwrap() = Some((pos.x, pos.y));
                     *MH_CACHED_NOTCH_MON_SIZE.lock().unwrap() = Some((size.width, size.height));
                 }
+                refresh_mouse_caches(app_handle);
                 MH_LAST_MONITOR_UPDATE_MS.store(now, Ordering::Relaxed);
             }
 
@@ -2186,6 +2275,8 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
             let notch_cached_size = MH_CACHED_NOTCH_MON_SIZE.lock().unwrap().unwrap_or((mon_w as u32, mon_h as u32));
             let (notch_mon_x, notch_mon_y) = notch_cached_pos;
             let (notch_mon_w, _notch_mon_h) = (notch_cached_size.0 as i32, notch_cached_size.1 as i32);
+
+            let primary_scale = MH_PRIMARY_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0;
 
             let fg_fs = CURRENT_FOREGROUND_FULLSCREEN.load(Ordering::Relaxed);
             let dock_fg_fs = CURRENT_FOREGROUND_FULLSCREEN_ON_DOCK.load(Ordering::Relaxed);
@@ -2421,23 +2512,17 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
             }
 
             // Mixer open: its rect covers notch + panel, so it stays clickable.
-            let mixer_rect = volume_mixer_physical_rect_for(app_handle);
+            let mixer_rect = volume_mixer_physical_rect_cached();
             let in_mixer = mixer_rect.is_some_and(|(rx, ry, rw, rh)| {
                 cursor.x >= rx && cursor.x <= rx + rw && cursor.y >= ry && cursor.y <= ry + rh
             });
 
             // The overlay zooms by nectar-scale, so the cards are bigger than 42x196 off the default scale.
-            let overlay_nectar_scale = crate::utils::get_nectar_scale(app_handle);
+            let overlay_nectar_scale = MH_NECTAR_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0;
 
-            let side_of = |key: &str, default: &str| -> bool {
-                crate::utils::get_setting_str(app_handle, key).unwrap_or_else(|| default.to_string()) == "right"
-            };
-            let edge_dwell = crate::utils::get_setting_str(app_handle, "nectar-edge-delay")
-                .and_then(|v| v.parse::<i64>().ok())
-                .unwrap_or(300)
-                .clamp(0, 3000);
-            let volume_right = side_of("nectar-volume-side", "left");
-            let brightness_right = side_of("nectar-brightness-side", "right");
+            let edge_dwell = MH_EDGE_DELAY_MS.load(Ordering::Relaxed);
+            let volume_right = MH_VOLUME_RIGHT.load(Ordering::Relaxed);
+            let brightness_right = MH_BRIGHTNESS_RIGHT.load(Ordering::Relaxed);
 
             if !fg_fs {
                 let at_edge = |right: bool| {
@@ -2451,20 +2536,23 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                 let over_card = !at_volume_edge
                     && !in_mixer
                     && MH_LAST_LEFT_EDGE_HOVER.load(Ordering::Relaxed) != 0
-                    && app_handle.primary_monitor().ok().flatten().is_some_and(|m| {
-                        let ms = m.size();
-                        let mp = m.position();
-                        let sc = m.scale_factor() * overlay_nectar_scale;
+                    && {
+                        let sc = primary_scale * overlay_nectar_scale;
                         let nw = (42.0 * sc) as i32;
                         let nh = (196.0 * sc) as i32;
-                        let nx = if volume_right { mp.x + ms.width as i32 - nw } else { mp.x };
-                        let ny = mp.y + (ms.height as i32 / 2) - (nh / 2);
+                        let nx = if volume_right { mon_x + mon_w - nw } else { mon_x };
+                        let ny = mon_y + (mon_h / 2) - (nh / 2);
                         cursor.x >= nx && cursor.x <= nx + nw && cursor.y >= ny && cursor.y <= ny + nh
-                    });
+                    };
                 let volume_enter = if volume_right { &MH_RIGHT_ENTER_MS } else { &MH_LEFT_ENTER_MS };
                 let volume_confirmed = edge_dwell_met(volume_enter, at_volume_edge, now, edge_dwell);
                 if volume_confirmed || in_mixer || over_card {
                     MH_LEFT_EXPIRY_MS.store(now + 500, Ordering::Relaxed);
+                }
+                // Dwell still running on a resting cursor: keep the worker awake
+                // so the card appears without the user having to move again.
+                if at_volume_edge && !volume_confirmed {
+                    SIDE_EDGE_PENDING.store(true, Ordering::Relaxed);
                 }
                 let final_volume_hover = now < MH_LEFT_EXPIRY_MS.load(Ordering::Relaxed);
                 let prev = MH_LAST_LEFT_EDGE_HOVER.load(Ordering::Relaxed);
@@ -2476,8 +2564,12 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
 
                 let brightness_enter = if brightness_right { &MH_RIGHT_ENTER_MS } else { &MH_LEFT_ENTER_MS };
                 let brightness_band = at_edge(brightness_right) && brightness_right != volume_right;
-                if edge_dwell_met(brightness_enter, brightness_band, now, edge_dwell) {
+                let brightness_confirmed = edge_dwell_met(brightness_enter, brightness_band, now, edge_dwell);
+                if brightness_confirmed {
                     MH_RIGHT_EXPIRY_MS.store(now + 500, Ordering::Relaxed);
+                }
+                if brightness_band && !brightness_confirmed {
+                    SIDE_EDGE_PENDING.store(true, Ordering::Relaxed);
                 }
                 let final_brightness_hover = now < MH_RIGHT_EXPIRY_MS.load(Ordering::Relaxed);
                 let prev = MH_LAST_RIGHT_EDGE_HOVER.load(Ordering::Relaxed);
@@ -2505,27 +2597,20 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                         MH_LAST_OV_IGNORE.store(1, Ordering::Relaxed);
                     }
                 } else {
-                    let over_left = in_mixer || if let Ok(Some(m)) = ov_win.primary_monitor() {
-                        let ms = m.size();
-                        let mp = m.position();
-                        let sc = m.scale_factor() * overlay_nectar_scale;
-                        let nw = (42.0 * sc) as i32;
-                        let nh = (196.0 * sc) as i32;
-                        let nx = mp.x;
-                        let ny = mp.y + (ms.height as i32 / 2) - (nh / 2);
-                        cursor.x >= nx && cursor.x <= nx + nw && cursor.y >= ny && cursor.y <= ny + nh
-                    } else { false };
+                    let sc = primary_scale * overlay_nectar_scale;
+                    let nw = (42.0 * sc) as i32;
+                    let nh = (196.0 * sc) as i32;
+                    let ny = mon_y + (mon_h / 2) - (nh / 2);
 
-                    let over_right = if let Ok(Some(m)) = ov_win.primary_monitor() {
-                        let ms = m.size();
-                        let mp = m.position();
-                        let sc = m.scale_factor() * overlay_nectar_scale;
-                        let nw = (42.0 * sc) as i32;
-                        let nh = (196.0 * sc) as i32;
-                        let nx = mp.x + ms.width as i32 - nw;
-                        let ny = mp.y + (ms.height as i32 / 2) - (nh / 2);
+                    let over_left = in_mixer || {
+                        let nx = mon_x;
                         cursor.x >= nx && cursor.x <= nx + nw && cursor.y >= ny && cursor.y <= ny + nh
-                    } else { false };
+                    };
+
+                    let over_right = {
+                        let nx = mon_x + mon_w - nw;
+                        cursor.x >= nx && cursor.x <= nx + nw && cursor.y >= ny && cursor.y <= ny + nh
+                    };
 
                     let should_ignore = !(over_left || over_right);
                     let prev = MH_LAST_OV_IGNORE.load(Ordering::Relaxed);
@@ -3183,7 +3268,7 @@ pub unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> B
             }
 
             // Filter out system containers and background stuff
-            if title == "Program Manager" || title == "nectar" || title == "Nectar Dock" {
+            if title == "Program Manager" || title == "kiro" || title == "Kiro Dock" {
                 return true.into();
             }
 
@@ -3215,7 +3300,7 @@ pub unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> B
                         return true.into();
                     }
 
-                    if (lowercase_path.contains("nectar.exe") && title != "Settings") ||
+                    if (lowercase_path.contains("kiro.exe") && title != "Settings") ||
                        lowercase_path.contains("conhost.exe") ||
                        (lowercase_path.contains("explorer.exe") && !is_explorer_window) ||
                        lowercase_path.contains("shellexperiencehost.exe") ||
@@ -3532,7 +3617,7 @@ pub fn setup_display_change_monitor(app_handle: AppHandle) {
             use windows::Win32::UI::WindowsAndMessaging::*;
             use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 
-            let class_name = windows::core::PCSTR(c"NectarDisplayMonitor".as_ptr() as *const u8);
+            let class_name = windows::core::PCSTR(c"KiroDisplayMonitor".as_ptr() as *const u8);
             let h_inst = GetModuleHandleW(None).unwrap_or_default().into();
 
             let wnd_class = WNDCLASSEXA {
@@ -3795,7 +3880,7 @@ mod tests {
         }
         assert!(!is_windows_shell_launcher_process(r"C:\Windows\explorer.exe"));
         assert!(!is_windows_shell_launcher_process(r"C:\Tools\SearchAppHelper.exe"));
-        assert!(!is_windows_shell_launcher_process(r"C:\Program Files\Nectar\nectar.exe"));
+        assert!(!is_windows_shell_launcher_process(r"C:\Program Files\Kiro\kiro.exe"));
     }
 
     #[test]

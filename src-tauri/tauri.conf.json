@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "nectar",
+  "productName": "Kiro",
   "version": "1.8.0",
-  "identifier": "com.kua8.nectar",
+  "identifier": "com.fruyorsan.kiro",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "nectar",
+        "title": "kiro",
         "width": 1920,
         "height": 420,
         "x": 0,
@@ -55,7 +55,7 @@
       },
       {
         "label": "dock",
-        "title": "Nectar Dock",
+        "title": "Kiro Dock",
         "url": "dock.html",
         "width": 1920,
         "height": 600,
@@ -108,9 +108,9 @@
         "installMode": "quiet"
       },
       "endpoints": [
-        "https://github.com/kua8/Nectar/releases/latest/download/latest.json"
+        "https://github.com/fruyorsan/Nectar/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2QTJCRjEzRjIxNkI5NkEKUldScXVSYnlFNytpWm0ycmxwTVVUeDdxMjVPdHBzNGJHcm1LT2RFVWVNOC9zd3Y1bHpLM1BwWFIK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2OUY5RUVFRThGMzMwQzIKUldUQ01QUG83cDZmWmtJdis1MWRvbm8wbE80cDVEYTJMY0h3Nk15WnNzSFV0VVZ4ZUNjZ1BaY1oK"
     }
   }
 }

@@ -111,6 +111,8 @@ function SettingsApp() {
               lowBatteryThreshold={settings.lowBatteryThreshold}
               hasBattery={settings.hasBattery}
               handleThresholdChange={settings.handleThresholdChange}
+              autoPerf={settings.autoPerf}
+              toggleAutoPerf={settings.toggleAutoPerf}
               restartNectar={settings.restartNectar}
               quitNectar={settings.quitNectar}
             />

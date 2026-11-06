@@ -92,6 +92,9 @@ export function useSettings() {
   const [ramSaver, setRamSaver] = useState(
     () => localStorage.getItem("nectar-ram-saver") === "true"
   );
+  const [autoPerf, setAutoPerf] = useState(
+    () => localStorage.getItem("nectar-auto-perf") !== "false"
+  );
   const [ramUltra, setRamUltra] = useState(
     () => localStorage.getItem("nectar-ram-ultra") === "true"
   );
@@ -261,6 +264,7 @@ export function useSettings() {
       apply(getVal("nectar-legacy-mode"), setLegacyMode, readBool);
       apply(getVal("nectar-show-update-indicator"), setShowUpdateIndicator, readBool);
       apply(getVal("nectar-ram-saver"), setRamSaver, (v) => v === "true");
+      apply(getVal("nectar-auto-perf"), setAutoPerf, (v) => v !== "false");
       apply(getVal("nectar-ram-ultra"), setRamUltra, readBool);
       apply(getVal("nectar-auto-update"), setAutoUpdate, readBool);
       apply(getVal("nectar-update-channel"), setPrereleaseChannel, (v) => v === "prerelease");
@@ -425,6 +429,7 @@ export function useSettings() {
     "nectar-legacy-mode": setLegacyMode,
     "nectar-ram-saver": (v) => setRamSaver(v === true || v === "true"),
     "nectar-ram-ultra": (v) => setRamUltra(v === true || v === "true"),
+    "nectar-auto-perf": (v) => setAutoPerf(v !== false && v !== "false"),
     "nectar-low-battery-threshold": setLowBatteryThreshold,
     "nectar-scale": setScale,
     "nectar-temp-unit": (v) => setTempUnitFahrenheit(v === "fahrenheit"),
@@ -725,6 +730,12 @@ export function useSettings() {
     const next = !ramSaver;
     setRamSaver(next);
     saveSetting("nectar-ram-saver", String(next));
+  };
+
+  const toggleAutoPerf = () => {
+    const next = !autoPerf;
+    setAutoPerf(next);
+    saveSetting("nectar-auto-perf", String(next));
   };
 
   const toggleRamUltra = () => {
@@ -1174,6 +1185,8 @@ export function useSettings() {
     toggleRamSaver,
     ramUltra,
     toggleRamUltra,
+    autoPerf,
+    toggleAutoPerf,
     scale,
     handleScaleChange,
     cornersEnabled,

@@ -55,7 +55,7 @@ struct Activity {
 }
 
 pub fn data_dir() -> Option<PathBuf> {
-    std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("com.kua8.nectar"))
+    std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("com.fruyorsan.kiro"))
 }
 
 fn config_path() -> Option<PathBuf> {
@@ -260,7 +260,7 @@ fn hook_entries(exe: &str) -> Vec<(&'static str, Option<&'static str>, serde_jso
 fn is_ours(group: &serde_json::Value) -> bool {
     group["hooks"].as_array().is_some_and(|hooks| {
         hooks.iter().any(|hook| {
-            hook["args"][0].as_str() == Some("agent") && hook["command"].as_str().is_some_and(|c| c.to_ascii_lowercase().contains("nectar"))
+            hook["args"][0].as_str() == Some("agent") && hook["command"].as_str().is_some_and(|c| c.to_ascii_lowercase().contains("kiro"))
         })
     })
 }
@@ -495,7 +495,7 @@ fn ask(args: &[String]) {
     let decision = response.split("\r\n\r\n").nth(1).and_then(|b| serde_json::from_str::<serde_json::Value>(b).ok());
     let behavior = match decision.as_ref().and_then(|d| d["decision"].as_str()) {
         Some("allow") => serde_json::json!({ "behavior": "allow" }),
-        Some("deny") => serde_json::json!({ "behavior": "deny", "message": "Denied from Nectar" }),
+        Some("deny") => serde_json::json!({ "behavior": "deny", "message": "Denied from Kiro" }),
         _ => return,
     };
     println!("{}", serde_json::json!({ "hookSpecificOutput": { "hookEventName": "PermissionRequest", "decision": behavior } }));

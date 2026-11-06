@@ -13,7 +13,7 @@ use windows::Win32::UI::Shell::{
 use windows::core::{Interface, GUID, PCWSTR};
 use std::path::{Path, PathBuf};
 
-pub const UNINSTALL_SUBKEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Nectar";
+pub const UNINSTALL_SUBKEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Kiro";
 
 pub fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
@@ -84,7 +84,7 @@ fn create_shortcut(lnk_path: &Path, target: &Path) -> windows::core::Result<()> 
 
         shell_link.SetIconLocation(PCWSTR(target_w.as_ptr()), 0)?;
 
-        let desc_w = wide("Nectar");
+        let desc_w = wide("Kiro");
         shell_link.SetDescription(PCWSTR(desc_w.as_ptr()))?;
 
         let persist_file: IPersistFile = shell_link.cast()?;
@@ -100,12 +100,12 @@ fn migrate_start_menu_shortcut(exe: &Path, all_users: bool) {
     else {
         return;
     };
-    let legacy = legacy_dir.join("Nectar.lnk");
+    let legacy = legacy_dir.join("Kiro.lnk");
     if !legacy.exists() {
         return;
     }
 
-    let fixed = programs_dir.join("Nectar.lnk");
+    let fixed = programs_dir.join("Kiro.lnk");
     if !fixed.exists() {
         let created = unsafe {
             let com = CoInitializeEx(None, COINIT_MULTITHREADED).is_ok();
@@ -200,10 +200,10 @@ pub fn heal_uninstall_registration() {
             return;
         }
 
-        let _ = set_string(hkey, "DisplayName", "Nectar");
+        let _ = set_string(hkey, "DisplayName", "Kiro");
         let _ = set_string(hkey, "DisplayIcon", &icon_str);
         let _ = set_string(hkey, "DisplayVersion", env!("CARGO_PKG_VERSION"));
-        let _ = set_string(hkey, "Publisher", "kua8");
+        let _ = set_string(hkey, "Publisher", "fruyorsan");
         let _ = set_string(hkey, "InstallLocation", &install_location);
         let _ = set_string(hkey, "UninstallString", &uninstall_string);
         let _ = set_dword(hkey, "NoModify", 1);

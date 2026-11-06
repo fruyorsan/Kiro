@@ -145,7 +145,9 @@ const ITEM_ENTRY_TRANSITION = {
   opacity: { duration: 0.15, delay: 0.15 },
   scale: { type: 'spring' as const, stiffness: 400, damping: 25, delay: 0.15 }
 };
-const DOCK_SPRING = { type: "spring", stiffness: 250, damping: 28, mass: 0.8 } as const;
+// Critically damped but tighter than before: a reveal now settles in ~150 ms
+// instead of ~230 ms, which reads as "instant" without adding overshoot.
+const DOCK_SPRING = { type: "spring", stiffness: 420, damping: 32, mass: 0.6 } as const;
 const ITEM_INITIAL = { opacity: 0, scale: 0 };
 const ITEM_ANIMATE = { opacity: 1, scale: 1 };
 const ITEM_EXIT = { opacity: 0, scale: 0 };
@@ -1177,7 +1179,7 @@ const Dock = memo(function Dock() {
           scale: scale,
         }}
         transition={{
-          y: { type: "spring", stiffness: 400, damping: 35, mass: 0.8 },
+          y: { type: "spring", stiffness: 600, damping: 32, mass: 0.5 },
           // Critically damped so the dock grows and settles without wobbling
           width: DOCK_SPRING,
           height: DOCK_SPRING,
