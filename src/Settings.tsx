@@ -1,7 +1,5 @@
 import { StrictMode, useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Effect, EffectState } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Settings, Palette, PanelTop, Monitor, Layers, Info } from "lucide-react";
@@ -20,8 +18,6 @@ import type { SettingsTab } from "./settings/index";
 import { initTheme } from "./theme";
 import { useT } from "./i18n";
 import "./Settings.css";
-
-const appWindow = getCurrentWebviewWindow();
 
 const TABS: { id: SettingsTab; labelKey: string; icon: typeof Settings }[] = [
   { id: "general", labelKey: "tabs.general", icon: Settings },
@@ -54,8 +50,6 @@ function SettingsApp() {
     const preventContext = (e: MouseEvent) => e.preventDefault();
     document.addEventListener("contextmenu", preventContext as any);
 
-    appWindow.setEffects({ effects: [Effect.Acrylic], state: EffectState.Active, color: [10, 10, 15, 20] }).catch(() => {});
-
     return () => {
       document.removeEventListener("contextmenu", preventContext as any);
     };
@@ -63,37 +57,56 @@ function SettingsApp() {
 
   useEffect(() => {
     invoke("resize_settings_window", {
-      width: 620 * settings.scale,
-      height: 480 * settings.scale,
+      width: 760 * settings.scale,
+      height: 620 * settings.scale,
     }).catch(console.error);
   }, [settings.scale]);
 
   return (
     <div className="settings-container" style={{ zoom: settings.scale }}>
       <div className="title-bar" data-tauri-drag-region>
-        <span className="title-text" data-tauri-drag-region>
-          {t("settings.title")}
-        </span>
+        <div className="title-brand" data-tauri-drag-region>
+          <img className="title-mark" src="/kiro.svg" alt="" aria-hidden draggable={false} />
+          <span className="title-text" data-tauri-drag-region>
+            {t("settings.title")}
+          </span>
+        </div>
         <WindowControls />
       </div>
 
       <div className="settings-body">
         <div className="settings-sidebar">
-          {TABS.map(({ id, labelKey, icon: Icon }) => (
-            <button
-              key={id}
-              className={`sidebar-tab ${activeTab === id || (id === "notch" && activeTab === "calendar-sync") ? "active" : ""}`}
-              onClick={() => setActiveTab(id)}
-            >
-              <div className="sidebar-tab-icon">
-                <Icon size={14} strokeWidth={1.5} />
-              </div>
-              <span>{t(labelKey)}</span>
-            </button>
-          ))}
+          <div className="sidebar-brand">
+            <img className="sidebar-logo" src="/kiro.svg" alt="" aria-hidden draggable={false} />
+            <div className="sidebar-brand-text">
+              <span className="sidebar-brand-name">Kiro</span>
+              <span className="sidebar-brand-version">{t("settings.version")} {__KIRO_VERSION__}</span>
+            </div>
+          </div>
+
+          <div className="sidebar-tabs">
+            {TABS.map(({ id, labelKey, icon: Icon }) => (
+              <button
+                key={id}
+                className={`sidebar-tab ${activeTab === id || (id === "notch" && activeTab === "calendar-sync") ? "active" : ""}`}
+                onClick={() => setActiveTab(id)}
+              >
+                <div className="sidebar-tab-icon">
+                  <Icon size={15} strokeWidth={1.6} />
+                </div>
+                <span>{t(labelKey)}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="sidebar-footer">Kiro · GPL-3.0</div>
         </div>
 
         <div className="settings-content">
+          <div className="settings-page-head">
+            <h1>{t(`tabs.${activeTab === "calendar-sync" ? "notch" : activeTab}`)}</h1>
+            <p>{t(`tabs.${activeTab === "calendar-sync" ? "notch" : activeTab}.desc`)}</p>
+          </div>
           {activeTab === "general" && (
             <GeneralTab
               autostart={settings.autostart}

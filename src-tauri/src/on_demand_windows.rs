@@ -78,7 +78,12 @@ fn build(app: &AppHandle, spec: &Spec) -> Option<WebviewWindow> {
 
     #[cfg(target_os = "windows")]
     {
-        let _ = window_vibrancy::apply_acrylic(&window, Some((10, 10, 15, 20)));
+        // The settings page paints its own opaque rounded surface. Applying DWM
+        // acrylic on top of WebView2 made the whole panel translucent, so the
+        // desktop wallpaper bled through the header as a visible pattern.
+        if spec.label != SETTINGS {
+            let _ = window_vibrancy::apply_acrylic(&window, Some((10, 10, 15, 20)));
+        }
     }
     if let Ok(hwnd) = window.hwnd() {
         crate::active_look::keep_active_look(hwnd);

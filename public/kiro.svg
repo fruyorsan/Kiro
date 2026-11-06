@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8f90ff"/>
+      <stop offset="1" stop-color="#4a4ddc"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.26"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="58" fill="url(#tile)"/>
+  <rect x="8" y="8" width="240" height="240" rx="58" fill="url(#sheen)"/>
+  <rect x="9.5" y="9.5" width="237" height="237" rx="56.5" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="3"/>
+
+  <g stroke="#ffffff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M90 64v128"/>
+    <path d="M166 66 112 128l56 62"/>
+  </g>
+</svg>

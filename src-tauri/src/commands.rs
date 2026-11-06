@@ -1103,8 +1103,152 @@ fn is_browser_host_process(path: &str) -> bool {
     p.contains("msedge.exe") || p.contains("chrome.exe") || p.contains("brave.exe") || p.contains("vivaldi.exe") || p.contains("firefox.exe")
 }
 
+/// Install directory of an MSIX/Store package from its family name
+/// (`Name_PublisherId`). Uses the packaging API so it works without listing
+/// `C:\Program Files\WindowsApps`, which is locked down for normal users.
+fn package_install_dir(family: &str) -> Option<std::path::PathBuf> {
+    use windows::core::PCWSTR;
+    use windows::Win32::Storage::Packaging::Appx::{GetPackagePathByFullName, GetPackagesByPackageFamily};
+
+    unsafe {
+        let family_w: Vec<u16> = family.encode_utf16().chain(std::iter::once(0)).collect();
+
+        let (mut count, mut buf_len) = (0u32, 0u32);
+        let _ = GetPackagesByPackageFamily(PCWSTR(family_w.as_ptr()), &mut count, None, &mut buf_len, None);
+        if count == 0 || buf_len == 0 {
+            return None;
+        }
+
+        let mut names: Vec<windows::core::PWSTR> = vec![windows::core::PWSTR::null(); count as usize];
+        let mut buffer: Vec<u16> = vec![0; buf_len as usize];
+        if GetPackagesByPackageFamily(
+            PCWSTR(family_w.as_ptr()),
+            &mut count,
+            Some(names.as_mut_ptr()),
+            &mut buf_len,
+            Some(windows::core::PWSTR(buffer.as_mut_ptr())),
+        )
+        .is_err()
+        {
+            return None;
+        }
+
+        let full_name = names.first()?.to_string().ok()?;
+        let full_w: Vec<u16> = full_name.encode_utf16().chain(std::iter::once(0)).collect();
+
+        let mut path_len = 0u32;
+        let _ = GetPackagePathByFullName(PCWSTR(full_w.as_ptr()), &mut path_len, None);
+        if path_len == 0 {
+            return None;
+        }
+        let mut path_buf: Vec<u16> = vec![0; path_len as usize];
+        let _ = GetPackagePathByFullName(
+            PCWSTR(full_w.as_ptr()),
+            &mut path_len,
+            Some(windows::core::PWSTR(path_buf.as_mut_ptr())),
+        );
+
+        let len = path_buf.iter().position(|&c| c == 0).unwrap_or(path_buf.len());
+        Some(std::path::PathBuf::from(String::from_utf16_lossy(&path_buf[..len])))
+    }
+}
+
+/// The logo a Store app actually shows in the Start menu and taskbar.
+///
+/// Shell icon extraction returns the *plated* variant for MSIX apps: a big
+/// coloured tile with a tiny logo in the middle (that is why a freshly pinned
+/// WhatsApp looked like a purple rectangle). The package ships the good
+/// "unplated" artwork as a PNG, so prefer those files.
+fn package_logo_icon(install_dir: &std::path::Path) -> Option<String> {
+    fn score(name: &str) -> i32 {
+        let n = name.to_ascii_lowercase();
+        if !n.ends_with(".png") {
+            return -1;
+        }
+        let mut s = 0;
+        // Unplated artwork has no baked-in tile and looks right on our plate.
+        if n.contains("altform-unplated") {
+            s += 60;
+        } else if n.contains("altform-lightunplated") {
+            s += 40;
+        }
+        if n.contains("targetsize-256") {
+            s += 30;
+        } else if n.contains("targetsize-150") || n.contains("targetsize-128") {
+            s += 18;
+        } else if n.contains("targetsize-48") {
+            s += 8;
+        }
+        if n.contains("scale-400") {
+            s += 14;
+        } else if n.contains("scale-200") {
+            s += 10;
+        } else if n.contains("scale-150") {
+            s += 7;
+        }
+        if n.contains("applist") {
+            s += 26;
+        }
+        if n.contains("square44x44") {
+            s += 20;
+        }
+        if n.contains("square150x150") {
+            s += 12;
+        }
+        if n.contains("logo") {
+            s += 4;
+        }
+        s
+    }
+
+    fn collect(dir: &std::path::Path, depth: u32, out: &mut Vec<(i32, std::path::PathBuf)>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if depth > 0 {
+                    collect(&path, depth - 1, out);
+                }
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let s = score(&name);
+            if s > 0 {
+                out.push((s, path));
+            }
+        }
+    }
+
+    let mut found = Vec::new();
+    collect(install_dir, 2, &mut found);
+    found.sort_by(|a, b| b.0.cmp(&a.0));
+    found
+        .into_iter()
+        .take(6)
+        .find_map(|(_, path)| crate::utils::image_file_to_base64(&path.to_string_lossy()))
+}
+
+fn family_from_aumid(aumid: &str) -> Option<&str> {
+    let id = aumid.trim().trim_start_matches("shell:AppsFolder\\");
+    let before_bang = id.split('!').next()?;
+    if before_bang.contains('_') {
+        Some(before_bang)
+    } else {
+        None
+    }
+}
+
 /// Icon for a shell app id via shell:AppsFolder (SHGetFileInfoW can't do these).
 fn icon_from_aumid(aumid: &str) -> Option<String> {
+    // Best case: the package's own unplated logo asset.
+    if let Some(family) = family_from_aumid(aumid) {
+        if let Some(dir) = package_install_dir(family) {
+            if let Some(icon) = package_logo_icon(&dir) {
+                return Some(icon);
+            }
+        }
+    }
+
     unsafe {
         use windows::Win32::Foundation::SIZE;
         use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF, SIIGBF_BIGGERSIZEOK, SIIGBF_ICONONLY};
@@ -1185,9 +1329,34 @@ fn find_aumid_by_family(family: &str) -> Option<String> {
     }
 }
 
+/// Package root (the `Name_version__publisher` folder) of an exe inside
+/// WindowsApps, derived straight from the path.
+fn package_root_from_path(path: &str) -> Option<std::path::PathBuf> {
+    let lower = path.to_lowercase();
+    let idx = lower.find("\\windowsapps\\")?;
+    let rest = &path[idx + "\\windowsapps\\".len()..];
+    let folder = rest.split(['\\', '/']).next()?;
+    if !folder.contains("__") {
+        return None;
+    }
+    Some(std::path::Path::new(&path[..idx]).join("WindowsApps").join(folder))
+}
+
 /// Icon for exes inside an MSIX package. The exe has none, so use the manifest logo.
 fn packaged_exe_icon(path: &str) -> Option<String> {
+    // Prefer the package's own unplated logo asset: the shell only hands out the
+    // plated tile for these, which looks like a stamp on a coloured square.
+    if let Some(root) = package_root_from_path(path) {
+        if let Some(icon) = package_logo_icon(&root) {
+            return Some(icon);
+        }
+    }
     let family = package_family_from_windows_apps_path(path)?;
+    if let Some(dir) = package_install_dir(&family) {
+        if let Some(icon) = package_logo_icon(&dir) {
+            return Some(icon);
+        }
+    }
     let aumid = find_aumid_by_family(&family)?;
     icon_from_aumid(&aumid)
 }
@@ -1506,7 +1675,7 @@ pub async fn get_app_icon(app: AppHandle, path: String, name: Option<String>, hw
     }
 
     let cache = ICON_CACHE.get_or_init(|| {
-        let version_marker = cache_dir.join("icons_cache_v2");
+        let version_marker = cache_dir.join("icons_cache_v3");
         if !version_marker.exists() {
             let _ = std::fs::remove_file(&cache_path);
             let _ = std::fs::create_dir_all(&cache_dir);

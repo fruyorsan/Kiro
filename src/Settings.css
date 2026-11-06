@@ -23,7 +23,11 @@ body {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: transparent;
+  /* The window is transparent (decorations off) so the app rounds its own
+     corners. Painting the fill here instead of only on .settings-container
+     keeps the desktop wallpaper from showing through the header strip. */
+  background-color: #12121a;
+  border-radius: 16px;
   color: var(--text-color);
   user-select: none;
   overflow: hidden;
@@ -42,13 +46,15 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--bg-color);
-  backdrop-filter: blur(25px) saturate(140%);
-  -webkit-backdrop-filter: blur(25px) saturate(140%);
-  border-radius: 12px;
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(120, 130, 255, 0.12), transparent 55%),
+    linear-gradient(180deg, #16161c 0%, #0f0f14 100%);
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid var(--window-line);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   cursor: default; /* Reset cursor for whole container */
 }
 
@@ -56,13 +62,27 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 36px;
+  height: 40px;
   flex-shrink: 0;
   box-sizing: border-box;
-  padding: 0 14px;
-  background: var(--window-bar);
-  border-bottom: 1px solid var(--window-bar-line);
+  padding: 0 12px 0 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
   -webkit-app-region: drag; /* Native drag handle */
+}
+
+.title-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  box-shadow: 0 1px 4px rgba(70, 72, 220, 0.35);
+  pointer-events: none;
 }
 
 .title-text {
@@ -79,18 +99,18 @@ body {
   flex: 1;
   width: 100%;
   min-height: 0;
-  background: rgba(0, 0, 0, 0.1);
+  background: transparent;
   overflow: hidden;
 }
 
 .settings-sidebar {
-  width: 170px;
-  background: rgba(255, 255, 255, 0.015);
-  border-right: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.08));
+  width: 194px;
+  background: rgba(255, 255, 255, 0.018);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
-  padding: 12px 8px;
-  gap: 4px;
+  padding: 14px 10px 12px;
+  gap: 2px;
   user-select: none;
   flex-shrink: 0;
   height: 100%;
@@ -98,16 +118,69 @@ body {
 }
 
 .light-mode .settings-sidebar {
-  background: rgba(0, 0, 0, 0.01);
-  border-right: 1px solid var(--nectar-border, rgba(0, 0, 0, 0.08));
+  background: rgba(0, 0, 0, 0.015);
+  border-right: 1px solid rgba(0, 0, 0, 0.07);
 }
 
-.sidebar-tab {
+.sidebar-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 2px 6px 16px;
+}
+
+.sidebar-logo {
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(74, 77, 220, 0.3);
+  flex-shrink: 0;
+}
+
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.sidebar-brand-name {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--text-color);
+}
+
+.sidebar-brand-version {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.sidebar-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 10px 8px 2px;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+
+.sidebar-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
   background: transparent;
   border: none;
   color: var(--text-color);
@@ -115,10 +188,10 @@ body {
   font-weight: 500;
   cursor: pointer;
   text-align: left;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
   width: 100%;
   box-sizing: border-box;
-  opacity: 0.8;
+  opacity: 0.72;
 }
 
 .sidebar-tab:hover {
@@ -131,14 +204,28 @@ body {
 }
 
 .sidebar-tab.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.075);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   color: var(--text-color);
   font-weight: 600;
   opacity: 1;
 }
 
+.sidebar-tab.active::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 15px;
+  border-radius: 3px;
+  background: var(--nectar-highlight, #7b7cff);
+}
+
 .light-mode .sidebar-tab.active {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 .light-mode .sidebar-tab-icon {
@@ -175,26 +262,11 @@ body {
 }
 
 .sidebar-tab.active .sidebar-tab-icon {
-  color: var(--text-color, white);
+  color: var(--nectar-highlight, #a9aaff);
 }
 
 .sidebar-tab:hover .sidebar-tab-icon {
   color: var(--text-color, white);
-}
-
-.sidebar-tab.active svg {
-  stroke: var(--text-color);
-  color: var(--text-color);
-}
-
-.sidebar-tab:hover svg {
-  stroke: var(--text-color);
-  color: var(--text-color);
-}
-
-.light-mode .sidebar-tab:hover svg {
-  stroke: var(--text-color, #1d1d1f);
-  color: var(--text-color, #1d1d1f);
 }
 
 .standalone-body {
@@ -207,12 +279,53 @@ body {
 
 .settings-content {
   flex: 1;
-  padding: 10px 16px 20px 16px;
+  padding: 0 22px 22px 22px;
   overflow-y: auto;
   height: 100%;
   box-sizing: border-box;
   cursor: default;
   -webkit-app-region: no-drag;
+}
+
+.settings-page-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 18px 0 12px;
+  margin-bottom: 4px;
+  background: linear-gradient(180deg, #16161c 0%, #16161c 72%, rgba(22, 22, 28, 0) 100%);
+}
+
+.settings-page-head h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--text-color);
+}
+
+.settings-page-head p {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.light-mode .settings-page-head {
+  background: linear-gradient(180deg, #f4f4f8 0%, #f4f4f8 72%, rgba(244, 244, 248, 0) 100%);
+}
+
+.light-mode .settings-container {
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(120, 130, 255, 0.10), transparent 55%),
+    linear-gradient(180deg, #f6f6fa 0%, #ebebf2 100%);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.light-mode body {
+  background-color: #f1f1f6;
 }
 
 /* Custom Scrollbar */
@@ -230,12 +343,12 @@ body {
 }
 
 .setting-group-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 10.5px;
+  font-weight: 650;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.42));
   text-transform: uppercase;
-  margin: 18px 6px 8px 6px;
-  letter-spacing: 0.5px;
+  margin: 20px 4px 8px 4px;
+  letter-spacing: 0.09em;
 }
 
 .setting-group-label:first-of-type {
@@ -248,9 +361,10 @@ body {
 
 .setting-group {
   background: var(--group-bg);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 }
 
 .setting-group--menu {
@@ -924,7 +1038,9 @@ input:checked + .slider:before {
 }
 
 .light-mode .about-logo {
-  filter: invert(1);
+  /* The logo is a full-colour tile now, so inverting it in light mode would
+     turn the indigo gradient into a muddy yellow. Leave it as-is. */
+  filter: none;
 }
 
 .about-title {
@@ -1552,8 +1668,8 @@ input:checked + .slider:before {
     margin: 12px 0 6px;
     padding: 11px 14px;
     background: var(--group-bg);
-    border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.05));
-    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
     font-size: 12.5px;
     font-weight: 600;
     letter-spacing: 0.2px;

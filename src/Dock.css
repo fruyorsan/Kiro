@@ -426,21 +426,21 @@ body {
 
 .dock-icon {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: flex;
   justify-content: center;
   align-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.03) 100%);
   color: var(--nectar-text, white);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: opacity 0.2s ease;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 3px 10px rgba(0, 0, 0, 0.18);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .dock-icon img {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
   pointer-events: none;
   -webkit-user-drag: none;
@@ -457,15 +457,19 @@ body {
   height: 24px;
 }
 
+/* Icons that already have their own solid, square background (WhatsApp,
+   Discord, most Store apps) should not be shrunk into a stamp inside the
+   plate: let them fill it edge to edge with matching corners. */
 .dock-icon img.solid-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
 }
 
 .dock-icon-only .dock-icon img.solid-icon {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
 }
 
 .dock-icon svg {
@@ -910,9 +914,9 @@ body {
   font-weight: 500;
 }
 
-/* Invert Nectar logo / Settings icon in light mode */
+/* The Kiro mark is a full-colour tile, so it keeps its colours in light mode. */
 .light-mode .nectar-icon-img {
-  filter: invert(1) brightness(0.15) contrast(1.2);
+  filter: none;
 }
 
 /* Light mode overrides for Dock */
@@ -1029,6 +1033,57 @@ body {
 
 .dock-show-desktop:hover {
   background: rgba(255, 255, 255, 0.45);
+}
+
+/* Taskbar clock at the right end of the bar. Absolutely positioned so it never
+   shifts the icon row when it appears or the width changes. */
+.dock-clock {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  line-height: 1.1;
+  color: var(--nectar-text, #fff);
+  transition: background 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.dock-clock:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dock-clock-date {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.dock-clock-time {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* In fixed mode the bar spans the screen, so the icon row has to leave room for
+   the clock that sits at the right end. */
+.dock.dock-adaptive.has-clock .dock-reorder-container {
+  padding-right: 84px;
+}
+
+/* With the notch parked at the bottom, its pill sits over the right end of the
+   bar; keep the icon row clear of it instead of drawing a second clock. */
+.dock.dock-adaptive.notch-bottom .dock-reorder-container {
+  padding-right: 150px;
 }
 
 .preview-fallback-glyph {

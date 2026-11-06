@@ -42,6 +42,7 @@ windows = { version = "0.61", features = [
   "Win32_System_SystemInformation",
   "Win32_System_Wmi",
   "Win32_Storage_FileSystem",
+  "Win32_Storage_Packaging_Appx",
   "Win32_System_Ole",
   "Win32_System_Memory",
   "Win32_System_Power",
@@ -103,4 +104,8 @@ chrono-tz = "0.10"
 
 [profile.release]
 strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"
+panic = "abort"
 

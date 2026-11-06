@@ -136,7 +136,7 @@ function DockAppIcon({ src, alt, nectar }: { src: string | undefined; alt: strin
 function resolveStartIcon(startIcon: string): string {
   if (startIcon === "windows") return "/windows.svg";
   if (startIcon.startsWith("custom:")) return startIcon.slice("custom:".length);
-  return "/nectar.png";
+  return "/kiro.svg";
 }
 
 // Stable module-level constants so object references never change between renders,
@@ -152,12 +152,15 @@ const ITEM_INITIAL = { opacity: 0, scale: 0 };
 const ITEM_ANIMATE = { opacity: 1, scale: 1 };
 const ITEM_EXIT = { opacity: 0, scale: 0 };
 // Without an explicit transition framer-motion's default spring makes the hover lift bounce.
+// Icons do not grow on hover or while dragging: the plate is already the icon's
+// frame, and scaling it made ordinary apps look like they were popping out.
+// A short lift plus a brightness change is enough feedback and costs no layout.
 const ICON_SPRING = { type: "spring", stiffness: 500, damping: 38 } as const;
 const ICON_VARIANTS = {
-  idle: { y: 0, scale: 1, transition: ICON_SPRING },
-  hover: { y: -5, scale: 1.1, transition: ICON_SPRING },
-  drag: { y: -10, scale: 1.1, opacity: 0.8, transition: ICON_SPRING },
-  tap: { scale: 0.95, transition: ICON_SPRING }
+  idle: { y: 0, scale: 1, filter: "brightness(1)", transition: ICON_SPRING },
+  hover: { y: -3, scale: 1, filter: "brightness(1.12)", transition: ICON_SPRING },
+  drag: { y: -3, scale: 1, opacity: 0.75, transition: ICON_SPRING },
+  tap: { scale: 0.96, transition: ICON_SPRING }
 };
 
 function SearchIcon() {
@@ -252,6 +255,43 @@ function WindowDots({ count }: { count: number }) {
   );
 }
 
+// Taskbar clock. The notch has the full time block, but once the dock spans the
+// bottom of the screen it needs its own time too, otherwise the right end is an
+// empty strip. Twelve-hour format follows the same user setting as the notch.
+function DockClock() {
+  const [now, setNow] = useState(() => new Date());
+  const [use24h, setUse24h] = useState(() => localStorage.getItem("nectar-time-format-24h") === "true");
+
+  useEffect(() => {
+    // Align the first tick with the next second so the minute flips on time.
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const timeout = setTimeout(() => {
+      setNow(new Date());
+      interval = setInterval(() => setNow(new Date()), 1000);
+    }, 1000 - (Date.now() % 1000));
+    return () => { clearTimeout(timeout); if (interval) clearInterval(interval); };
+  }, []);
+
+  useEffect(() => {
+    const onStorage = () => setUse24h(localStorage.getItem("nectar-time-format-24h") === "true");
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !use24h });
+  const date = now.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
+
+  return (
+    <div
+      className="dock-clock"
+      onClick={(e) => { e.stopPropagation(); invoke("open_calendar_window").catch(() => {}); }}
+    >
+      <span className="dock-clock-date">{date}</span>
+      <span className="dock-clock-time">{time}</span>
+    </div>
+  );
+}
+
 const Dock = memo(function Dock() {
   const t = useT();
   useEffect(() => {
@@ -285,8 +325,8 @@ const Dock = memo(function Dock() {
   // Keep the dock visible on the desktop. On by default: a taskbar replacement
   // should not disappear just because you closed every window.
   const [dockDesktopPersist, setDockDesktopPersist] = useState(() => localStorage.getItem("nectar-dock-desktop-persist") !== "false");
+  const [notchAtBottom, setNotchAtBottom] = useState(() => (localStorage.getItem("nectar-notch-position") || "top").startsWith("bottom"));
   const [startIcon, setStartIcon] = useState(() => localStorage.getItem("nectar-start-icon") || "default");
-  const [isMaximized, setIsMaximized] = useState(false);
   const [dockMixedReorder, setDockMixedReorder] = useState(() => localStorage.getItem("nectar-dock-mixed-reorder") === "true");
   const [mixedOrder, setMixedOrder] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<{ id: string, previews: { hwnd: number, title: string, image: string }[] } | null>(null);
@@ -366,10 +406,13 @@ const Dock = memo(function Dock() {
       (dockMode === 'peek' && interactionState === 'none' && (!dockDesktopPersist || isOverlapped))
     ));
 
-  // Adaptive mode (fixed dock): stretch to a full-width taskbar while a window is maximized.
-  const isAdaptive = dockAdaptive && dockMode === 'fixed' && isMaximized && isExpanded && !isHidden;
-  // Nearly full width, 24px margin per side. Width is pre-scale, so (viewport - 48*scale) / scale.
-  const adaptiveWidth = (viewportWidth - 48 * scale) / scale;
+  // Fixed mode is a taskbar: the pill fills the strip the appbar reserves, so
+  // there is no dead, unclickable space to the left and right of a small
+  // floating island. The old behaviour only stretched while a window was
+  // maximized, which is what made the pinned dock look detached from the
+  // screen edge. Width is pre-scale, so the viewport is divided by the scale.
+  const isAdaptive = dockAdaptive && dockMode === 'fixed' && isExpanded && !isHidden;
+  const adaptiveWidth = viewportWidth / (scale || 1);
 
   useEffect(() => {
     let cleared = false;
@@ -484,7 +527,7 @@ const Dock = memo(function Dock() {
       const iconOnly = getVal("nectar-dock-icon-only", "false");
       setDockIconOnly(iconOnly === "true");
 
-      const adaptive = getVal("nectar-dock-adaptive", "false");
+      const adaptive = getVal("nectar-dock-adaptive", "true");
       setDockAdaptive(adaptive === "true");
 
       const startIconVal = getVal("nectar-start-icon", "default") || "default";
@@ -495,6 +538,10 @@ const Dock = memo(function Dock() {
 
       const scaleVal = getVal("nectar-scale");
       if (scaleVal !== null) setScale(parseFloat(scaleVal));
+
+      // With the notch parked at the bottom it already shows date + time, so the
+      // dock must not draw a second clock right next to it.
+      setNotchAtBottom((getVal("nectar-notch-position", "top") || "top").startsWith("bottom"));
 
       const pinned = await invoke<AppInfo[]>('load_pinned_apps');
       setPinnedApps(pinned.map(a => ({ ...a, is_pinned: true })));
@@ -538,12 +585,7 @@ const Dock = memo(function Dock() {
 
     const unlistenMonitors = listen("monitors-changed", refreshDockMode);
 
-    const unlistenMaximized = thisWindow.listen<boolean>("dock-maximized", (event) => {
-      setIsMaximized(event.payload);
-    });
-
     return () => {
-      unlistenMaximized.then(f => f());
       unlistenOverlap.then(f => f());
       unlistenEdgeHover.then(f => f());
       unlistenFullscreen.then(f => f());
@@ -576,6 +618,7 @@ const Dock = memo(function Dock() {
       "nectar-start-icon": setStartIcon,
       "nectar-dock-mixed-reorder": setDockMixedReorder,
       "nectar-scale": setScale,
+      "nectar-notch-position": (v) => setNotchAtBottom(String(v).startsWith("bottom")),
     }
   );
 
@@ -1175,7 +1218,7 @@ const Dock = memo(function Dock() {
         <motion.div
           ref={dockRef}
           layout
-          className={`dock ${isExpanded && !isHidden ? 'dock-expanded' : ''} ${isImpacted && !isExpanded && !isHidden ? 'dock-impacted' : ''} ${dockIconOnly ? 'dock-icon-only' : ''} ${isAdaptive ? 'dock-adaptive' : ''}`}
+          className={`dock ${isExpanded && !isHidden ? 'dock-expanded' : ''} ${isImpacted && !isExpanded && !isHidden ? 'dock-impacted' : ''} ${dockIconOnly ? 'dock-icon-only' : ''} ${isAdaptive ? 'dock-adaptive' : ''} ${isAdaptive && !notchAtBottom ? 'has-clock' : ''} ${isAdaptive && notchAtBottom ? 'notch-bottom' : ''}`}
           onMouseEnter={() => setIsDockHovered(true)}
           onMouseLeave={() => { setIsDockHovered(false); setHoveredApp(null); setPressedApp(null); }}
         initial={{ y: -800, opacity: 1, width: 34, height: 34, borderTopLeftRadius: 17, borderTopRightRadius: 17, borderBottomLeftRadius: 17, borderBottomRightRadius: 17 }}
@@ -1430,7 +1473,7 @@ const Dock = memo(function Dock() {
                     const isNectarOrSettings = isNectarWindow(app);
                     
                     return (icon || isNectarOrSettings) ? (
-                      <DockAppIcon src={isNectarOrSettings ? "/nectar.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                      <DockAppIcon src={isNectarOrSettings ? "/kiro.svg" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                     ) : (
                       <div className="fallback-icon">{app.name[0]}</div>
                     );
@@ -1532,7 +1575,7 @@ const Dock = memo(function Dock() {
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                           const isNectarOrSettings = isNectarWindow(app);
                           return (icon || isNectarOrSettings) ? (
-                            <DockAppIcon src={isNectarOrSettings ? "/nectar.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                            <DockAppIcon src={isNectarOrSettings ? "/kiro.svg" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -1632,7 +1675,7 @@ const Dock = memo(function Dock() {
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                           const isNectarOrSettings = isNectarWindow(app);
                           return (icon || isNectarOrSettings) ? (
-                            <DockAppIcon src={isNectarOrSettings ? "/nectar.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                            <DockAppIcon src={isNectarOrSettings ? "/kiro.svg" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -1653,6 +1696,8 @@ const Dock = memo(function Dock() {
                   onClick={(e) => { e.stopPropagation(); invoke('show_desktop').catch(() => { }); }}
                 />
               )}
+
+              {isAdaptive && !notchAtBottom && <DockClock />}
             </motion.div>
           )}
         </AnimatePresence>

@@ -416,8 +416,20 @@ pub unsafe fn icon_to_base64(hicon: HICON) -> Option<String> {
     Some(format!("data:image/png;base64,{}", base64_str))
 }
 
+/// Icons pulled from the shell are not consistent: some fill the whole canvas,
+/// others (especially Store apps and PWAs) come with a huge transparent border.
+/// This crops the empty border and re-centres the artwork so every icon has a
+/// similar optical size.
+///
+/// It must never make artwork smaller: an icon that already fills its canvas is
+/// returned untouched. The previous version padded *every* icon out to 82% of a
+/// larger canvas, which is why freshly added apps looked like tiny stamps
+/// floating inside the dock plate.
 fn normalize_icon_padding(png_bytes: &[u8]) -> Option<Vec<u8>> {
-    const TARGET_FILL_RATIO: f64 = 0.82;
+    // Artwork this big already looks right; leave it alone.
+    const NOOP_RATIO: f64 = 0.80;
+    // What a padded icon is scaled up to.
+    const TARGET_FILL_RATIO: f64 = 0.88;
 
     let img = image::load_from_memory(png_bytes).ok()?;
     let rgba = img.to_rgba8();
@@ -447,17 +459,29 @@ fn normalize_icon_padding(png_bytes: &[u8]) -> Option<Vec<u8>> {
     let base_size = w.min(h);
     let current_ratio = content_max as f64 / base_size as f64;
 
-    let canvas_size = if current_ratio > TARGET_FILL_RATIO {
-        (content_max as f64 / TARGET_FILL_RATIO).round() as u32
-    } else {
-        base_size
-    };
+    // Already fills the canvas (normal exe / shell icon): keep the bytes as-is.
+    if current_ratio >= NOOP_RATIO {
+        return None;
+    }
+
+    let canvas_size = (content_max as f64 / TARGET_FILL_RATIO).round().max(1.0) as u32;
+    let scale = canvas_size as f64 / content_max as f64;
+    let target_w = ((content_w as f64 * scale).round() as u32).max(1);
+    let target_h = ((content_h as f64 * scale).round() as u32).max(1);
 
     let cropped = image::imageops::crop_imm(&rgba, minx, miny, content_w, content_h).to_image();
+    // Upscaling keeps the artwork crisp instead of just adding more empty space.
+    let scaled = image::imageops::resize(
+        &cropped,
+        target_w,
+        target_h,
+        image::imageops::FilterType::Lanczos3,
+    );
+
     let mut canvas = image::RgbaImage::new(canvas_size, canvas_size);
-    let ox = ((canvas_size - content_w) / 2) as i64;
-    let oy = ((canvas_size - content_h) / 2) as i64;
-    image::imageops::overlay(&mut canvas, &cropped, ox, oy);
+    let ox = ((canvas_size.saturating_sub(target_w)) / 2) as i64;
+    let oy = ((canvas_size.saturating_sub(target_h)) / 2) as i64;
+    image::imageops::overlay(&mut canvas, &scaled, ox, oy);
 
     let mut out: Vec<u8> = Vec::new();
     image::DynamicImage::ImageRgba8(canvas)

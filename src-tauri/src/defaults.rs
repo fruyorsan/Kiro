@@ -19,6 +19,9 @@ fn defaults() -> Vec<(&'static str, Value)> {
         // A fresh install gets a locked taskbar, like the Windows one. Anyone
         // who wants the auto-hiding behaviour picks it in Settings > Dock.
         ("nectar-dock-mode", json!("fixed")),
+        // Fixed mode fills the reserved strip edge to edge instead of drawing a
+        // small floating island with dead space on both sides.
+        ("nectar-dock-adaptive", json!(true)),
         // Quick settings (Wi-Fi / Bluetooth / volume / brightness) is the
         // panel the notch opens with.
         ("nectar-panel-control-center-enabled", json!(true)),
