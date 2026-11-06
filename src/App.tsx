@@ -563,11 +563,16 @@ function App() {
   const [nectarMode, setNectarMode] = useState<'music' | 'calendar' | 'command-center' | 'status' | 'shelf' | 'tour' | 'agent'>('status');
 
   const isAnyInteraction = isHovered || isNotchHovered || isEdgeHovered;
+  const [notchBottomRight, setNotchBottomRight] = useState(() => localStorage.getItem("nectar-notch-position") === "bottom-right");
+  // The bottom-right layout is a floating pill, not an edge strip: it stays
+  // visible and only gets out of the way for a fullscreen app (or a window
+  // actually covering that corner, handled by the smart-mode overlap check).
+  const notchIdleHidden = notchBottomRight
+    ? (notchMode === 'smart' && isOverlapped && interactionState === 'none')
+    : ((notchMode === 'smart' && isOverlapped && interactionState === 'none') ||
+       (notchMode === 'peek' && interactionState === 'none' && !eventPeek));
   const isHidden = ((notchMode === 'smart' || notchMode === 'peek') && isFullscreen) ||
-    (!startupAnimating && nectarMode !== 'tour' && !(agentActivity && isNotchWindow) && (
-      (notchMode === 'smart' && isOverlapped && interactionState === 'none') ||
-      (notchMode === 'peek' && interactionState === 'none' && !eventPeek)
-    ));
+    (!startupAnimating && nectarMode !== 'tour' && !(agentActivity && isNotchWindow) && notchIdleHidden);
 
   useEffect(() => {
     if (isAnyInteraction) {
@@ -805,6 +810,7 @@ function App() {
       setSettingsCompactGlowEnabled(getVal("nectar-media-compact-glow-enabled", "true") !== "false");
       setSettingsArtworkTheme(getVal("nectar-media-artwork-theme", "false") === "true");
       setSettingsCornersEnabled(getVal("nectar-corners-enabled", "false") === "true");
+      setNotchBottomRight(getVal("nectar-notch-position", "top") === "bottom-right");
       setTimeFormat24h(getVal("nectar-time-format-24h") === "true");
       setSettingsLegacyMode(getVal("nectar-legacy-mode") === "true");
       const scrollVolume = getVal("nectar-notch-scroll-volume") === "true";
@@ -981,6 +987,11 @@ function App() {
       "nectar-show-update-indicator": (value) => setShowUpdateIndicator(String(value) === "true"),
       "nectar-time-format-24h": setTimeFormat24h,
       "nectar-legacy-mode": setSettingsLegacyMode,
+      "nectar-notch-position": (v) => {
+        setNotchBottomRight(v === "bottom-right");
+        // The window has to be repositioned/resized by the backend.
+        setTimeout(() => invoke("sync_appbar"), 60);
+      },
     },
     [windowLabel]
   );
@@ -1925,10 +1936,10 @@ function App() {
 
 
   return (
-    <div className="screen" style={{ overflow: 'hidden' }}>
+    <div className={`screen${notchBottomRight ? ' notch-bottom-right' : ''}`} style={{ overflow: 'hidden' }}>
       {/* Screen Corners (Top) */}
       <AnimatePresence>
-        {isVisible && settingsCornersEnabled && (
+        {isVisible && settingsCornersEnabled && !notchBottomRight && (
           <>
             <motion.div
               className="screen-corner top-left"
@@ -1946,23 +1957,23 @@ function App() {
         )}
       </AnimatePresence>
 
-      <div style={{ zoom: scale, width: '100%', display: 'flex', justifyContent: 'center' }}>
+      <div style={{ zoom: scale, width: '100%', display: 'flex', justifyContent: notchBottomRight ? 'flex-end' : 'center', alignItems: notchBottomRight ? 'flex-end' : 'flex-start', height: '100%', paddingRight: notchBottomRight ? '12px' : 0, paddingBottom: notchBottomRight ? '10px' : 0, boxSizing: 'border-box' }}>
         <motion.div
           ref={nectarRef}
-          className={`nectar ${isHovered ? 'expanded' : ''} ${isImpacted ? 'is-impacted' : ''} ${isPanelOpen ? 'panel-open' : ''}`}
+          className={`nectar ${isHovered ? 'expanded' : ''} ${isImpacted && !notchBottomRight ? 'is-impacted' : ''} ${isPanelOpen ? 'panel-open' : ''}`}
           onMouseEnter={() => setIsNotchHovered(true)}
         onMouseLeave={() => setIsNotchHovered(false)}
         onWheel={handleWheel}
         initial={{ y: 250, width: 30.6, height: 44.2, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, scaleX: 1, scaleY: 1, opacity: 0 }}
         animate={{
-          y: !isReady ? 250 : (isHidden ? -100 : 0),
+          y: !isReady ? 250 : (isHidden ? (notchBottomRight ? 100 : -100) : 0),
           width: !isReady ? 34 : (isExpanded && !isHidden ? getDynamicWidth() : (isImpacted ? 39.1 : 30.6)),
           height: !isReady ? 34 : getDynamicHeight(),
           opacity: isReady ? 1 : 0,
           scaleX: 1,
           scaleY: 1,
-          borderTopLeftRadius: isImpacted ? 0 : 18,
-          borderTopRightRadius: isImpacted ? 0 : 18,
+          borderTopLeftRadius: isImpacted && !notchBottomRight ? 0 : 18,
+          borderTopRightRadius: isImpacted && !notchBottomRight ? 0 : 18,
           borderBottomLeftRadius: isCalendarMode ? 28 : 18,
           borderBottomRightRadius: isCalendarMode ? 28 : 18,
         }}
@@ -2765,13 +2776,18 @@ function App() {
           )}
         </AnimatePresence>
 
-        <SurfaceShape edge="top" flare={isImpacted ? 13 : 0} radius={isCalendarMode ? 28 : 18} edgeRadius={18} />
+        <SurfaceShape
+          edge={notchBottomRight ? "bottom" : "top"}
+          flare={notchBottomRight ? 0 : (isImpacted ? 13 : 0)}
+          radius={isCalendarMode ? 28 : 18}
+          edgeRadius={18}
+        />
 
         {showTimerProgressBar && (
           <NotchProgressBorder
             progress={timerProgressPercent}
-            topRadius={isImpacted ? 0 : 18}
-            flare={isImpacted ? 13 : 0}
+            topRadius={isImpacted && !notchBottomRight ? 0 : 18}
+            flare={notchBottomRight ? 0 : (isImpacted ? 13 : 0)}
             bottomRadius={isCalendarMode ? 28 : 18}
             paused={!isTimerRunning}
             finished={isTimerFinished}

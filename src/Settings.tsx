@@ -113,6 +113,8 @@ function SettingsApp() {
               handleThresholdChange={settings.handleThresholdChange}
               autoPerf={settings.autoPerf}
               toggleAutoPerf={settings.toggleAutoPerf}
+              notchPosition={settings.notchPosition}
+              changeNotchPosition={settings.changeNotchPosition}
               restartNectar={settings.restartNectar}
               quitNectar={settings.quitNectar}
             />
@@ -253,6 +255,8 @@ function SettingsApp() {
               toggleDockIconOnly={settings.toggleDockIconOnly}
               dockAdaptive={settings.dockAdaptive}
               toggleDockAdaptive={settings.toggleDockAdaptive}
+              dockDesktopPersist={settings.dockDesktopPersist}
+              toggleDockDesktopPersist={settings.toggleDockDesktopPersist}
               startIcon={settings.startIcon}
               handleStartIconChange={settings.handleStartIconChange}
               dockWinNumberEnabled={settings.dockWinNumberEnabled}

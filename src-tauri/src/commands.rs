@@ -233,11 +233,11 @@ pub async fn sync_appbar(app: AppHandle) {
         .unwrap_or_else(|| "true".to_string());
     for (label, win) in app.webview_windows() {
         if crate::state::is_notch_label(&label) {
-            if crate::state::get_flag(crate::state::main_appbar_registered(), &label) {
-                register_appbar(win);
-            } else if let Ok(hwnd) = win.hwnd() {
-                re_assert_topmost(hwnd);
-            }
+            // Re-applies both the mode (fixed registers the appbar, smart/peek
+            // unregisters it) and the geometry, which changed if the notch
+            // position setting was just switched.
+            let mode = crate::monitors::resolve_mode_for_label(&app, crate::types::WindowKind::Notch, &label);
+            init_notch_window(&app, win, &mode).await;
         } else if crate::state::is_dock_label(&label) {
             if dock_enabled == "true" && crate::state::get_flag(crate::state::dock_appbar_registered(), &label) {
                 register_dock_appbar(win);
@@ -360,7 +360,11 @@ pub async fn change_notch_mode(app: AppHandle, mode: String) {
 
 pub async fn init_notch_window(app: &AppHandle, main_win: tauri::WebviewWindow, mode: &str) {
     let label = main_win.label().to_string();
-    if mode == "fixed" {
+    let bottom_right = crate::services::notch_bottom_right(app);
+    // The bottom-right pill is a small floating window, so it always needs the
+    // appbar treatment (fixed size + anchored to the monitor corner) even when
+    // the notch mode itself is smart/peek.
+    if mode == "fixed" || bottom_right {
         register_appbar(main_win.clone());
     } else {
         let _ = main_win.show();
@@ -387,8 +391,17 @@ pub async fn init_notch_window(app: &AppHandle, main_win: tauri::WebviewWindow, 
         let scale = monitor.scale_factor();
         let nectar_scale = crate::utils::get_nectar_scale(app);
         let target_height = (420.0 * nectar_scale * scale) as u32;
-        let _ = main_win.set_position(tauri::PhysicalPosition::new(m_pos.x, m_pos.y));
-        let _ = main_win.set_size(tauri::PhysicalSize::new(m_size.width, target_height));
+        if bottom_right {
+            let target_width = (crate::services::NOTCH_BR_WINDOW_W * nectar_scale * scale) as u32;
+            let _ = main_win.set_position(tauri::PhysicalPosition::new(
+                m_pos.x + m_size.width as i32 - target_width as i32,
+                m_pos.y + m_size.height as i32 - target_height as i32,
+            ));
+            let _ = main_win.set_size(tauri::PhysicalSize::new(target_width, target_height));
+        } else {
+            let _ = main_win.set_position(tauri::PhysicalPosition::new(m_pos.x, m_pos.y));
+            let _ = main_win.set_size(tauri::PhysicalSize::new(m_size.width, target_height));
+        }
     }
 
     let current = crate::state::get_overlap(crate::state::notch_overlap(), &label);

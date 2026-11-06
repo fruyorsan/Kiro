@@ -133,6 +133,8 @@ interface DockTabProps {
   toggleDockIconOnly: () => void;
   dockAdaptive: boolean;
   toggleDockAdaptive: () => void;
+  dockDesktopPersist: boolean;
+  toggleDockDesktopPersist: () => void;
   startIcon: string;
   handleStartIconChange: (icon: string) => void;
   dockWinNumberEnabled: boolean;
@@ -181,6 +183,8 @@ export function DockTab({
   toggleDockIconOnly,
   dockAdaptive,
   toggleDockAdaptive,
+  dockDesktopPersist,
+  toggleDockDesktopPersist,
   startIcon,
   handleStartIconChange,
   dockWinNumberEnabled,
@@ -436,6 +440,13 @@ export function DockTab({
                 </label>
               </SettingRow>
             )}
+
+            <SettingRow icon={MonitorCheck} label={t("dock.desktopPersist")} desc={t("dock.desktopPersist.desc")}>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={dockDesktopPersist} onChange={toggleDockDesktopPersist} />
+                <span className="slider"></span>
+              </label>
+            </SettingRow>
 
             <SettingRow
               icon={Shuffle}

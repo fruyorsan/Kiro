@@ -8,21 +8,19 @@ function ensureStyle() {
   installed = true;
   const style = document.createElement("style");
   style.id = "kiro-perf-lite";
+  // Backdrop blur is the expensive part: every blurred surface forces the
+  // compositor to re-read the pixels behind it every frame. While a game owns
+  // the screen there is nothing behind the dock worth blurring, so drop it and
+  // shorten transitions. Framer-motion animations are driven from JS and are
+  // deliberately left alone so the UI still behaves normally.
   style.textContent = `
     html.perf-lite *,
     html.perf-lite *::before,
     html.perf-lite *::after {
-      animation-duration: 1ms !important;
-      animation-delay: 0ms !important;
-      transition-duration: 1ms !important;
-      transition-delay: 0ms !important;
-    }
-    html.perf-lite .dock-panel,
-    html.perf-lite .notch-panel,
-    html.perf-lite [class*="backdrop"],
-    html.perf-lite [class*="blur"] {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
+      transition-duration: 1ms !important;
+      transition-delay: 0ms !important;
     }
   `;
   document.head.appendChild(style);
@@ -35,9 +33,8 @@ export function applyPerfMode(on: boolean) {
 
 /**
  * Auto performance mode listener. A fullscreen game makes the backend send
- * `perf-mode`; while it is on we drop CSS blur and animations so the compositor
- * has nothing extra to do. Motion that is driven in JS (the dock spring) is
- * left alone so the UI still feels right.
+ * `perf-mode`; while it is on we drop the blur work the compositor would
+ * otherwise do every frame for windows nobody can see.
  */
 export function initPerfMode() {
   ensureStyle();

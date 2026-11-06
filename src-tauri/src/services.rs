@@ -452,6 +452,17 @@ unsafe extern "system" fn focus_event_proc(
         if THUMB_CAPTURE_IN_FLIGHT.swap(true, Ordering::Relaxed) { return; }
         let _guard = ThumbnailCaptureGuard;
 
+        // Global throttle. Alt-tabbing through several windows fires one of
+        // these threads per window; without this every one of them would take a
+        // screenshot, which is exactly what made the screen flash while
+        // switching. Only the window the user actually lands on gets captured.
+        let now = crate::utils::get_now_ms();
+        let last = LAST_THUMB_CAPTURE_MS.load(Ordering::Relaxed);
+        if now - last < 700 {
+            return;
+        }
+        LAST_THUMB_CAPTURE_MS.store(now, Ordering::Relaxed);
+
         if let Some(img) = crate::utils::capture_hwnd_to_base64(hwnd, 480, 300) {
             if let Some(cache) = crate::state::THUMBNAIL_CACHE.get() {
                 if let Ok(mut guard) = cache.lock() {
@@ -463,6 +474,9 @@ unsafe extern "system" fn focus_event_proc(
 }
 
 static THUMB_CAPTURE_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+
+/// Last time any window thumbnail was captured, used to throttle capture storms.
+static LAST_THUMB_CAPTURE_MS: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 
 struct ThumbnailCaptureGuard;
 
@@ -1178,6 +1192,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
         let mut last_notch_overlap: Option<bool> = None;
         let mut last_dock_maximized: Option<bool> = None;
         let mut last_fg_maximized = false;
+        let mut fg_title = String::new();
         let mut last_hwnd = HWND(std::ptr::null_mut());
         let mut last_emit = Instant::now();
         let mut is_known_shell = false;
@@ -1250,6 +1265,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     let mut text = [0u16; 512];
                     let text_len = windows::Win32::UI::WindowsAndMessaging::GetWindowTextW(hwnd, &mut text);
                     let title = String::from_utf16_lossy(&text[..text_len as usize]);
+                    fg_title = title.clone();
 
                     let is_desktop = class_str == "Progman" || class_str == "WorkerW";
                     // Process-based detection also works with localized titles such as Turkish "Arama".
@@ -1303,6 +1319,12 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                                                             rect.right >= screen_rect.right && rect.bottom >= screen_rect.bottom;
                                     
                                     current_is_fs = (is_client_fullscreen || is_matches_screen) && !is_maximized_standard;
+                                    // Screenshot/recording tools briefly cover the screen; treating
+                                    // them as a game would toggle perf mode and hide the notch on
+                                    // every capture. They still count for dock/notch overlap below.
+                                    if current_is_fs && is_capture_tool_window(hwnd) {
+                                        current_is_fs = false;
+                                    }
                                     fg_info = Some((screen_rect, rect, current_is_fs || is_maximized));
 
                                     if current_is_fs || is_maximized {
@@ -1330,14 +1352,26 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                                         if let Some(nr) = crate::state::notch_rects().lock().ok().and_then(|m| m.get("main").copied()) {
                                             {
                                                 let scale = cached_scale;
-                                                let n_left = (nr.x as f64 * scale) as i32;
-                                                let n_right = n_left + (nr.width as f64 * scale) as i32;
                                                 let res_h = (36.0 * scale) as i32;
-                                                let trigger_y = screen_rect.top + res_h;
-
-                                                if rect.left < n_right - 4 && rect.right > n_left + 4 && 
-                                                   rect.top < trigger_y - 4 {
-                                                    should_notch_overlap = true;
+                                                if MH_NOTCH_BOTTOM_RIGHT.load(Ordering::Relaxed) {
+                                                    // Bottom-right pill: a window covering that
+                                                    // corner should hide it too. The pill is anchored
+                                                    // to the monitor's right edge.
+                                                    let n_right = screen_rect.right - (12.0 * scale) as i32;
+                                                    let n_left = n_right - (nr.width as f64 * scale) as i32;
+                                                    let trigger_y = screen_rect.bottom - res_h;
+                                                    if rect.left < n_right - 4 && rect.right > n_left + 4
+                                                        && rect.bottom > trigger_y + 4 {
+                                                        should_notch_overlap = true;
+                                                    }
+                                                } else {
+                                                    let n_left = (nr.x as f64 * scale) as i32;
+                                                    let n_right = n_left + (nr.width as f64 * scale) as i32;
+                                                    let trigger_y = screen_rect.top + res_h;
+                                                    if rect.left < n_right - 4 && rect.right > n_left + 4
+                                                        && rect.top < trigger_y - 4 {
+                                                        should_notch_overlap = true;
+                                                    }
                                                 }
                                             }
                                         }
@@ -1396,7 +1430,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     last_dock_shell_surface = Some(shell_on_dock);
                 }
                 CURRENT_FOREGROUND_FULLSCREEN.store(current_is_fs, Ordering::Relaxed);
-                crate::perf::update(&handle_visibility, current_is_fs);
+                crate::perf::update(&handle_visibility, current_is_fs, &fg_title);
                 let fullscreen_on_dock = current_is_fs && fg_on("dock");
                 CURRENT_FOREGROUND_FULLSCREEN_ON_DOCK.store(fullscreen_on_dock, Ordering::Relaxed);
                 if Some(fullscreen_on_dock) != last_dock_fullscreen || last_emit.elapsed() >= Duration::from_secs(3) {
@@ -1882,6 +1916,73 @@ fn is_capture_ui_present() -> bool {
     found
 }
 
+/// Screenshot / screen-recording tools go fullscreen for a moment while the user
+/// takes a shot. They must not be mistaken for a game: that would flip the
+/// automatic performance mode (and hide the notch) on every screenshot.
+fn is_capture_tool_window(hwnd: HWND) -> bool {
+    // Called from the foreground tick, so the answer is cached: a running game
+    // would otherwise cost an OpenProcess on every tick.
+    static CACHE: std::sync::Mutex<Option<(isize, bool, Instant)>> = std::sync::Mutex::new(None);
+    let key = hwnd.0 as isize;
+    if let Ok(guard) = CACHE.lock() {
+        if let Some((cached, value, at)) = *guard {
+            if cached == key && at.elapsed() < Duration::from_secs(2) {
+                return value;
+            }
+        }
+    }
+    let value = capture_tool_exe_matches(hwnd);
+    if let Ok(mut guard) = CACHE.lock() {
+        *guard = Some((key, value, Instant::now()));
+    }
+    value
+}
+
+fn capture_tool_exe_matches(hwnd: HWND) -> bool {
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+
+    const EXES: [&str; 6] = [
+        "snippingtool.exe",
+        "snippingtoolapp.exe",
+        "screensketch.exe",
+        "screenclippinghost.exe",
+        "sharex.exe",
+        "obs64.exe",
+    ];
+
+    let mut pid = 0u32;
+    unsafe {
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+    }
+    if pid == 0 {
+        return false;
+    }
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) };
+    let Ok(handle) = handle else {
+        return false;
+    };
+    let mut buf = [0u16; 520];
+    let mut len = buf.len() as u32;
+    let res = unsafe {
+        QueryFullProcessImageNameW(
+            handle,
+            PROCESS_NAME_WIN32,
+            windows::core::PWSTR(buf.as_mut_ptr()),
+            &mut len,
+        )
+    };
+    let _ = unsafe { windows::Win32::Foundation::CloseHandle(handle) };
+    if res.is_err() {
+        return false;
+    }
+    let path = String::from_utf16_lossy(&buf[..len as usize]).to_lowercase();
+    let file = path.rsplit('\\').next().unwrap_or("");
+    EXES.contains(&file)
+}
+
 fn apply_capture_ui_state(app: &AppHandle, active: bool) {
     if SHUTTING_DOWN.load(Ordering::Relaxed) {
         return;
@@ -1946,6 +2047,17 @@ static MH_NECTAR_SCALE_MILLI: AtomicI64 = AtomicI64::new(1000);
 // Smart/peek notches can be suppressed by a fullscreen window, a fixed one cannot.
 static MH_NOTCH_FIXED: AtomicBool = AtomicBool::new(true);
 
+/// True when the notch lives in the bottom-right corner instead of the top edge.
+static MH_NOTCH_BOTTOM_RIGHT: AtomicBool = AtomicBool::new(false);
+
+/// Size of the small bottom-right notch window, in logical pixels. Wide enough
+/// for the widest expanded notch (calendar, ~480 logical px) with room to spare.
+pub const NOTCH_BR_WINDOW_W: f64 = 720.0;
+
+pub fn notch_bottom_right(app: &AppHandle) -> bool {
+    crate::utils::get_setting_str(app, "nectar-notch-position").as_deref() == Some("bottom-right")
+}
+
 fn refresh_mouse_caches(app: &AppHandle) {
     if let Ok(Some(m)) = app.primary_monitor() {
         MH_PRIMARY_SCALE_MILLI.store((m.scale_factor() * 1000.0).round() as i64, Ordering::Relaxed);
@@ -1973,6 +2085,7 @@ fn refresh_mouse_caches(app: &AppHandle) {
         crate::monitors::resolve_mode_for_label(app, crate::types::WindowKind::Notch, "main") == "fixed",
         Ordering::Relaxed,
     );
+    MH_NOTCH_BOTTOM_RIGHT.store(notch_bottom_right(app), Ordering::Relaxed);
 }
 
 fn top_edge_armed(app_handle: &AppHandle, label: &str, in_band: bool, now: i64) -> bool {
@@ -2274,7 +2387,7 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
             let notch_cached_pos = MH_CACHED_NOTCH_MON_POS.lock().unwrap().unwrap_or((mon_x, mon_y));
             let notch_cached_size = MH_CACHED_NOTCH_MON_SIZE.lock().unwrap().unwrap_or((mon_w as u32, mon_h as u32));
             let (notch_mon_x, notch_mon_y) = notch_cached_pos;
-            let (notch_mon_w, _notch_mon_h) = (notch_cached_size.0 as i32, notch_cached_size.1 as i32);
+            let (notch_mon_w, notch_mon_h) = (notch_cached_size.0 as i32, notch_cached_size.1 as i32);
 
             let primary_scale = MH_PRIMARY_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0;
 
@@ -2409,8 +2522,18 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                         let in_notch_hover = !notch_fs && crate::state::get_flag(crate::state::notch_hovered(), "main");
                         let mut is_notch_hovered = false;
                         let scale = main_win.scale_factor().unwrap_or(1.0);
-                        let in_top_band = cursor.y <= (notch_mon_y + (8.0 * scale) as i32) &&
-                                          cursor.x >= notch_mon_x && cursor.x <= (notch_mon_x + notch_mon_w);
+                        let notch_br = MH_NOTCH_BOTTOM_RIGHT.load(Ordering::Relaxed);
+                        let in_top_band = if notch_br {
+                            // Bottom-right notch: the reveal band is the bottom
+                            // strip of the right-hand area the window covers.
+                            let br_w = ((NOTCH_BR_WINDOW_W * MH_NECTAR_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0) * scale) as i32;
+                            cursor.y >= notch_mon_y + notch_mon_h - (8.0 * scale) as i32
+                                && cursor.x >= notch_mon_x + notch_mon_w - br_w - (20.0 * scale) as i32
+                                && cursor.x <= notch_mon_x + notch_mon_w
+                        } else {
+                            cursor.y <= (notch_mon_y + (8.0 * scale) as i32) &&
+                            cursor.x >= notch_mon_x && cursor.x <= (notch_mon_x + notch_mon_w)
+                        };
                         let at_top_edge = top_edge_armed(app_handle, "main", in_top_band && !notch_fs, now);
 
                         if notch_fs {
@@ -2436,10 +2559,13 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                                     // its bounds once grabbed, so removing the edge-forced
                                     // interactivity doesn't reintroduce boundary flicker.
                                     let hyst = if MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 0 { (10.0 * scale) as i32 } else { 0 };
+                                    // Use the element's real offset inside the window: the notch
+                                    // sits at the top edge in default mode (y ~ 0) and at the
+                                    // bottom edge in bottom-right mode.
                                     let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;
                                     let rw = (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2);
-                                    let ry_top = win_pos.y;
-                                    let ry_bottom = win_pos.y + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
+                                    let ry_top = win_pos.y + (r.y as f64 * scale) as i32;
+                                    let ry_bottom = ry_top + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
 
                                     // A hidden notch must not eat clicks, in smart/peek it's off screen most of the time.
                                     let notch_hidden = crate::state::get_flag(crate::state::notch_hidden(), "main");
@@ -3061,9 +3187,22 @@ pub fn register_appbar(window: tauri::WebviewWindow) {
 
             crate::state::set_flag(crate::state::main_appbar_registered(), &label, true);
 
-            let target_left = m_pos.x;
-            let target_top = m_pos.y;
-            let target_width = m_size.width as i32;
+            let bottom_right = notch_bottom_right(window.app_handle());
+            let (target_left, target_top, target_width) = if bottom_right {
+                // Floating pill in the bottom-right corner. The window is narrow
+                // so it never covers the dock in the middle of the screen, and it
+                // is anchored to the monitor's bottom edge so the pill can grow
+                // upwards when it expands.
+                let w = ((NOTCH_BR_WINDOW_W * nectar_scale) * scale) as i32;
+                let h = ((ph as f64) * 1.0) as i32;
+                (
+                    m_pos.x + m_size.width as i32 - w,
+                    m_pos.y + m_size.height as i32 - h,
+                    w,
+                )
+            } else {
+                (m_pos.x, m_pos.y, m_size.width as i32)
+            };
 
             let mut current_rect = RECT::default();
             let mut already_positioned = false;

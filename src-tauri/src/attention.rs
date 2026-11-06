@@ -28,7 +28,7 @@ pub fn start(app: AppHandle) {
             CreateWindowExW, DispatchMessageW, GetMessageW, RegisterClassW, RegisterShellHookWindow,
             RegisterWindowMessageW, MSG, WINDOW_STYLE, WNDCLASSW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
         };
-        let class = windows::core::w!("NectarAttentionHook");
+        let class = windows::core::w!("KiroAttentionHook");
         let instance = GetModuleHandleW(None).unwrap_or_default().into();
         let wc = WNDCLASSW { lpfnWndProc: Some(shell_proc), hInstance: instance, lpszClassName: class, ..Default::default() };
         if RegisterClassW(&wc) == 0 {

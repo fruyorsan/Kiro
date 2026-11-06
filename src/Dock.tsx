@@ -282,6 +282,9 @@ const Dock = memo(function Dock() {
   const [dockDrives, setDockDrives] = useState<string[]>(() => parseDrives(localStorage.getItem("nectar-dock-drives")));
   const [dockIconOnly, setDockIconOnly] = useState(() => localStorage.getItem("nectar-dock-icon-only") === "true");
   const [dockAdaptive, setDockAdaptive] = useState(() => localStorage.getItem("nectar-dock-adaptive") === "true");
+  // Keep the dock visible on the desktop. On by default: a taskbar replacement
+  // should not disappear just because you closed every window.
+  const [dockDesktopPersist, setDockDesktopPersist] = useState(() => localStorage.getItem("nectar-dock-desktop-persist") !== "false");
   const [startIcon, setStartIcon] = useState(() => localStorage.getItem("nectar-start-icon") || "default");
   const [isMaximized, setIsMaximized] = useState(false);
   const [dockMixedReorder, setDockMixedReorder] = useState(() => localStorage.getItem("nectar-dock-mixed-reorder") === "true");
@@ -352,10 +355,15 @@ const Dock = memo(function Dock() {
     }
   }, [isAnyInteraction, hideDelay]);
 
-  const isHidden = ((dockMode === 'smart' || dockMode === 'peek') && (isFullscreen || isShellSurfaceFocused)) ||
+  // The dock used to hide whenever the desktop was focused. A taskbar
+  // replacement should stay put while you work on the desktop, so that case is
+  // now opt-out (Settings > Dock > "Keep the dock on the desktop"). The same
+  // switch also stops peek mode from hiding the dock on an empty desktop; with
+  // a window on screen peek still gets out of the way.
+  const isHidden = ((dockMode === 'smart' || dockMode === 'peek') && (isFullscreen || (isShellSurfaceFocused && !dockDesktopPersist))) ||
     (!startupAnimating && (
       (dockMode === 'smart' && isOverlapped && interactionState === 'none') ||
-      (dockMode === 'peek' && interactionState === 'none')
+      (dockMode === 'peek' && interactionState === 'none' && (!dockDesktopPersist || isOverlapped))
     ));
 
   // Adaptive mode (fixed dock): stretch to a full-width taskbar while a window is maximized.
@@ -561,6 +569,7 @@ const Dock = memo(function Dock() {
       "nectar-dock-drives": (v) => setDockDrives(parseDrives(v)),
       "nectar-dock-icon-only": setDockIconOnly,
       "nectar-dock-adaptive": setDockAdaptive,
+      "nectar-dock-desktop-persist": (v) => setDockDesktopPersist(v !== false && v !== "false"),
       "nectar-start-icon": setStartIcon,
       "nectar-dock-mixed-reorder": setDockMixedReorder,
       "nectar-scale": setScale,

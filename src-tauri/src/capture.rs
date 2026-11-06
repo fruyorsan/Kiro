@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use windows::core::Interface;
 use windows::Graphics::Capture::{Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCaptureSession};
@@ -15,7 +16,15 @@ use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 use windows::Win32::System::WinRT::Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess};
 use windows::Win32::System::WinRT::Graphics::Capture::IGraphicsCaptureItemInterop;
 
+/// Set once `SetIsBorderRequired(false)` is refused. Without the border-free
+/// capability every capture attempt would flash a yellow frame, so the API is
+/// skipped entirely from then on and callers use PrintWindow instead.
+static BORDER_CAPABILITY_MISSING: AtomicBool = AtomicBool::new(false);
+
 pub fn capture_window_bgra(hwnd: HWND) -> Option<(Vec<u8>, u32, u32)> {
+    if BORDER_CAPABILITY_MISSING.load(Ordering::Relaxed) {
+        return None;
+    }
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         if !GraphicsCaptureSession::IsSupported().ok()? {
@@ -50,7 +59,18 @@ pub fn capture_window_bgra(hwnd: HWND) -> Option<(Vec<u8>, u32, u32)> {
         let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&d3d, DirectXPixelFormat::B8G8R8A8UIntNormalized, 1, size).ok()?;
         let session = pool.CreateCaptureSession(&item).ok()?;
         let _ = session.SetIsCursorCaptureEnabled(false);
-        let _ = session.SetIsBorderRequired(false);
+        // Windows draws a bright yellow border around every captured window.
+        // Hiding it needs the graphicsCapture capability; when that is missing
+        // the call fails and the border would flash on screen every time a
+        // preview is taken (very visible on alt-tab). In that case give up on
+        // this API entirely and let the caller fall back to PrintWindow, which
+        // never draws anything.
+        if session.SetIsBorderRequired(false).is_err() {
+            BORDER_CAPABILITY_MISSING.store(true, Ordering::Relaxed);
+            let _ = session.Close();
+            let _ = pool.Close();
+            return None;
+        }
         session.StartCapture().ok()?;
 
         let mut frame = None;

@@ -1,4 +1,4 @@
-import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap } from "lucide-react";
+import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap, PanelTop } from "lucide-react";
 import { SettingRow } from "./SettingRow";
 import { SettingSection } from "./SettingSection";
 import { Dropdown } from "./Dropdown";
@@ -17,6 +17,8 @@ interface GeneralTabProps {
   toggleRamSaver: () => void;
   autoPerf: boolean;
   toggleAutoPerf: () => void;
+  notchPosition: string;
+  changeNotchPosition: (position: string) => void;
   ramUltra: boolean;
   toggleRamUltra: () => void;
   lowBatteryThreshold: number;
@@ -39,6 +41,8 @@ export function GeneralTab({
   toggleRamSaver,
   autoPerf,
   toggleAutoPerf,
+  notchPosition,
+  changeNotchPosition,
   ramUltra,
   toggleRamUltra,
   lowBatteryThreshold,
@@ -111,6 +115,21 @@ export function GeneralTab({
             <input type="checkbox" checked={autoPerf} onChange={toggleAutoPerf} />
             <span className="slider"></span>
           </label>
+        </SettingRow>
+
+        <SettingRow
+          icon={PanelTop}
+          label={t("general.notchPosition")}
+          desc={t("general.notchPosition.desc")}
+        >
+          <Dropdown
+            value={notchPosition}
+            onChange={changeNotchPosition}
+            options={[
+              { value: "top", label: t("general.notchPosition.top") },
+              { value: "bottom-right", label: t("general.notchPosition.bottomRight") },
+            ]}
+          />
         </SettingRow>
 
         <SettingRow

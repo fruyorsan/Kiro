@@ -154,6 +154,12 @@ export function useSettings() {
   const [dockAdaptive, setDockAdaptive] = useState(
     () => localStorage.getItem("nectar-dock-adaptive") === "true"
   );
+  const [dockDesktopPersist, setDockDesktopPersist] = useState(
+    () => localStorage.getItem("nectar-dock-desktop-persist") !== "false"
+  );
+  const [notchPosition, setNotchPosition] = useState(
+    () => localStorage.getItem("nectar-notch-position") || "top"
+  );
   const [dockWinNumberEnabled, setDockWinNumberEnabled] = useState(
     () => localStorage.getItem("nectar-dock-win-number-enabled") !== "false"
   );
@@ -289,6 +295,8 @@ export function useSettings() {
       apply(getVal("nectar-dock-icon-only"), setDockIconOnly, readBool);
       apply(getVal("nectar-start-icon"), setStartIcon, (v) => v);
       apply(getVal("nectar-dock-adaptive"), setDockAdaptive, readBool);
+      apply(getVal("nectar-dock-desktop-persist"), setDockDesktopPersist, (v) => v !== "false");
+      apply(getVal("nectar-notch-position"), setNotchPosition, (v) => (v === "bottom-right" ? "bottom-right" : "top"));
       apply(getVal("nectar-dock-win-number-enabled"), setDockWinNumberEnabled, readBool);
       apply(getVal("nectar-dock-mixed-reorder"), setDockMixedReorder, readBool);
 
@@ -396,6 +404,8 @@ export function useSettings() {
     "nectar-dock-icon-only": setDockIconOnly,
     "nectar-start-icon": setStartIcon,
     "nectar-dock-adaptive": setDockAdaptive,
+    "nectar-dock-desktop-persist": (v) => setDockDesktopPersist(v !== false && v !== "false"),
+    "nectar-notch-position": (v) => setNotchPosition(v === "bottom-right" ? "bottom-right" : "top"),
     "nectar-dock-win-number-enabled": setDockWinNumberEnabled,
     "nectar-dock-preview-enabled": setDockPreviewEnabled,
     "nectar-dock-attention-enabled": (v) => setDockAttentionEnabled(v !== false && v !== "false"),
@@ -877,6 +887,20 @@ export function useSettings() {
     saveSetting("nectar-dock-adaptive", String(next));
   };
 
+  const toggleDockDesktopPersist = () => {
+    const next = !dockDesktopPersist;
+    setDockDesktopPersist(next);
+    saveSetting("nectar-dock-desktop-persist", String(next));
+  };
+
+  const changeNotchPosition = (position: string) => {
+    const next = position === "bottom-right" ? "bottom-right" : "top";
+    setNotchPosition(next);
+    saveSetting("nectar-notch-position", next);
+    // The notch window is repositioned by the backend.
+    setTimeout(() => invoke("sync_appbar").catch(() => {}), 80);
+  };
+
   const toggleDockWinNumber = () => {
     const next = !dockWinNumberEnabled;
     setDockWinNumberEnabled(next);
@@ -1312,6 +1336,10 @@ export function useSettings() {
     handleStartIconChange,
     dockAdaptive,
     toggleDockAdaptive,
+    dockDesktopPersist,
+    toggleDockDesktopPersist,
+    notchPosition,
+    changeNotchPosition,
     dockWinNumberEnabled,
     toggleDockWinNumber,
     dockMixedReorder,
