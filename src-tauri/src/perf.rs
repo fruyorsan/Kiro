@@ -46,8 +46,38 @@ fn deactivate(app: &AppHandle) {
         *since = None;
     }
     if ACTIVE.swap(false, Ordering::Relaxed) {
+        release_boost();
         crate::diagnostics::log("auto perf mode: off");
         let _ = app.emit("perf-mode", false);
+    }
+}
+
+/// Give the foreground game every advantage we can without touching it:
+/// raise the system timer resolution to 1 ms (smoother frame pacing, what
+/// FPS-booster utilities do), drop our own process to below-normal priority
+/// so the game always wins the CPU, and push our renderers out of RAM.
+fn engage_boost() {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        let _ = windows::Win32::Media::timeBeginPeriod(1);
+        let _ = windows::Win32::System::Threading::SetPriorityClass(
+            windows::Win32::System::Threading::GetCurrentProcess(),
+            windows::Win32::System::Threading::BELOW_NORMAL_PRIORITY_CLASS,
+        );
+    }
+    // Our own pages are the only ones we are allowed to reclaim; this frees
+    // whatever the dock/notch renderers held while the game starts.
+    crate::memory_saver::trim_tree();
+}
+
+fn release_boost() {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        let _ = windows::Win32::Media::timeEndPeriod(1);
+        let _ = windows::Win32::System::Threading::SetPriorityClass(
+            windows::Win32::System::Threading::GetCurrentProcess(),
+            windows::Win32::System::Threading::NORMAL_PRIORITY_CLASS,
+        );
     }
 }
 
@@ -69,6 +99,7 @@ pub fn update(app: &AppHandle, fullscreen: bool, window_title: &str) {
 
     ACTIVE.store(true, Ordering::Relaxed);
     drop(since);
+    engage_boost();
     crate::diagnostics::log(&format!(
         "auto perf mode: on (fullscreen app in foreground: {window_title})"
     ));

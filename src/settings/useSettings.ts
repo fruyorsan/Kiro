@@ -90,7 +90,7 @@ export function useSettings() {
     () => localStorage.getItem("nectar-legacy-mode") === "true"
   );
   const [ramSaver, setRamSaver] = useState(
-    () => localStorage.getItem("nectar-ram-saver") === "true"
+    () => localStorage.getItem("nectar-ram-saver") !== "false"
   );
   const [autoPerf, setAutoPerf] = useState(
     () => localStorage.getItem("nectar-auto-perf") !== "false"
@@ -269,7 +269,7 @@ export function useSettings() {
       apply(getVal("nectar-time-format-24h"), setTimeFormat24h, readBool);
       apply(getVal("nectar-legacy-mode"), setLegacyMode, readBool);
       apply(getVal("nectar-show-update-indicator"), setShowUpdateIndicator, readBool);
-      apply(getVal("nectar-ram-saver"), setRamSaver, (v) => v === "true");
+      apply(getVal("nectar-ram-saver"), setRamSaver, (v) => v !== "false");
       apply(getVal("nectar-auto-perf"), setAutoPerf, (v) => v !== "false");
       apply(getVal("nectar-ram-ultra"), setRamUltra, readBool);
       apply(getVal("nectar-auto-update"), setAutoUpdate, readBool);
@@ -437,7 +437,7 @@ export function useSettings() {
     "nectar-show-update-indicator": setShowUpdateIndicator,
     "nectar-time-format-24h": setTimeFormat24h,
     "nectar-legacy-mode": setLegacyMode,
-    "nectar-ram-saver": (v) => setRamSaver(v === true || v === "true"),
+    "nectar-ram-saver": (v) => setRamSaver(v !== false && v !== "false"),
     "nectar-ram-ultra": (v) => setRamUltra(v === true || v === "true"),
     "nectar-auto-perf": (v) => setAutoPerf(v !== false && v !== "false"),
     "nectar-low-battery-threshold": setLowBatteryThreshold,

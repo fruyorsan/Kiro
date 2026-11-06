@@ -475,6 +475,9 @@ const Dock = memo(function Dock() {
       setDockTray(getVal("nectar-dock-tray-enabled", "true") !== "false");
       setDockTaskView(getVal("nectar-dock-taskview-enabled", "false") === "true");
       setDockShowDesktop(getVal("nectar-dock-show-desktop-corner", "false") === "true");
+      // Keep the dock parked on the desktop unless the user explicitly turned
+      // this off, including when the value comes from an older settings file.
+      setDockDesktopPersist(getVal("nectar-dock-desktop-persist", "true") !== "false");
       setDockRecycle(getVal("nectar-dock-recycle-enabled", "false") === "true");
       setDockDrives(parseDrives(getVal("nectar-dock-drives", "[]")));
 

@@ -811,6 +811,11 @@ function App() {
       setSettingsArtworkTheme(getVal("nectar-media-artwork-theme", "false") === "true");
       setSettingsCornersEnabled(getVal("nectar-corners-enabled", "false") === "true");
       setNotchBottomRight(getVal("nectar-notch-position", "top") === "bottom-right");
+      // Panel visibility has to come from the stored settings too, otherwise a
+      // stale localStorage value can hide the quick-settings panel forever.
+      setPanelControlCenter(getVal("nectar-panel-control-center-enabled", "true") !== "false");
+      setPanelShelf(getVal("nectar-panel-shelf-enabled", "true") !== "false");
+      setPanelOrder(parsePanelOrder(getVal("nectar-panel-order")));
       setTimeFormat24h(getVal("nectar-time-format-24h") === "true");
       setSettingsLegacyMode(getVal("nectar-legacy-mode") === "true");
       const scrollVolume = getVal("nectar-notch-scroll-volume") === "true";
@@ -1696,9 +1701,16 @@ function App() {
       resetTimer();
       return;
     }
-    if (nectarMode === 'agent') { const first = availableNotchModes()[0]; if (first) setNectarMode(first); return; }
     if (nectarMode === 'tour') return;
-    const modes = availableNotchModes();
+    // Clicking the clock opens the quick-settings panel (Wi-Fi, Bluetooth,
+    // volume, brightness). Scrolling still cycles through every panel.
+    const allModes = availableNotchModes();
+    if (nectarMode === 'agent') { if (allModes[0]) setNectarMode(allModes[0]); return; }
+    if (allModes.includes('command-center')) {
+      setNectarMode('command-center');
+      return;
+    }
+    const modes = allModes;
     const index = modes.indexOf(nectarMode);
     if (index === -1 || modes.length < 2) return;
     const next = modes[(index + 1) % modes.length];
@@ -1979,15 +1991,27 @@ function App() {
         }}
         onClick={(e) => {
           e.stopPropagation();
+          // Clicking the bar opens the quick settings panel (Wi-Fi,
+          // Bluetooth, volume, brightness). Controls inside stop the event
+          // themselves so they keep working. Moving away closes it again.
+          if (availableNotchModes().includes('command-center')) {
+            setNectarMode('command-center');
+          }
         }}
         onHoverStart={() => {
           clearTimeout(shelfCollapseTimer.current);
           setIsHovered(true);
           if (nectarMode !== 'tour' && nectarMode !== 'shelf') {
+            const modes = availableNotchModes();
             const remembered = settingsRememberMode ? rememberedModeRef.current : null;
             if (agentNeedsYou) setNectarMode('agent');
-            else if (remembered && availableNotchModes().includes(remembered)) setNectarMode(remembered);
-            else setNectarMode(mediaInfo.has_media && isPlaying ? 'music' : 'status');
+            // Opening the notch shows the quick settings panel (Wi-Fi,
+            // Bluetooth, volume, brightness). A playing track wins, and
+            // scrolling still reaches every other panel.
+            else if (mediaInfo.has_media && isPlaying && settingsMusicModeEnabled && modes.includes('music')) setNectarMode('music');
+            else if (modes.includes('command-center')) setNectarMode('command-center');
+            else if (remembered && modes.includes(remembered)) setNectarMode(remembered);
+            else setNectarMode('status');
           }
         }}
         onHoverEnd={() => {

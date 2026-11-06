@@ -19,7 +19,7 @@
   "general.notchPosition.top": "Top centre (default)",
   "general.notchPosition.bottomRight": "Bottom right",
   "general.autoPerf": "Automatic Performance Mode",
-  "general.autoPerf.desc": "When a fullscreen game or app is in front, Kiro stops capturing previews, slows its background checks, disables blur effects and leaves memory alone. Everything returns to normal when you exit. This is what raises game FPS",
+  "general.autoPerf.desc": "When a fullscreen game or app is in front, Kiro stops capturing previews, slows its background checks, disables blur effects, clears its own RAM and raises the system timer resolution for smoother frames. Everything returns to normal when you exit. This is what raises game FPS",
   "general.ramUltra": "Maximum Memory Saving",
   "general.ramUltra.desc": "Turns off GPU acceleration for about 140 MB less reserved memory. Blur and animations get slower; needs a restart",
   "general.lowBattery": "Low Battery Alert",

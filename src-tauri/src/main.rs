@@ -29,6 +29,7 @@ mod webview_args;
 mod on_demand_windows;
 mod wallpaper;
 mod migrate;
+mod defaults;
 mod perf;
 
 use tauri::Manager;
@@ -270,6 +271,10 @@ fn main() {
                 NATIVE_TASKBAR_HIDDEN.store(false, Ordering::Relaxed);
             }
 
+            let added = crate::defaults::apply(app.handle());
+            if !added.is_empty() {
+                crate::diagnostics::log(&format!("defaults: added {added:?}"));
+            }
             crate::utils::init_settings_cache(app.handle());
             agent_api::start(app.handle().clone());
 
