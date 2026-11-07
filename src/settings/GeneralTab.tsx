@@ -1,4 +1,4 @@
-import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap, PanelTop } from "lucide-react";
+import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -45,8 +45,6 @@ interface GeneralTabProps {
   toggleRamSaver: () => void;
   autoPerf: boolean;
   toggleAutoPerf: () => void;
-  notchPosition: string;
-  changeNotchPosition: (position: string) => void;
   ramUltra: boolean;
   toggleRamUltra: () => void;
   lowBatteryThreshold: number;
@@ -69,8 +67,6 @@ export function GeneralTab({
   toggleRamSaver,
   autoPerf,
   toggleAutoPerf,
-  notchPosition,
-  changeNotchPosition,
   ramUltra,
   toggleRamUltra,
   lowBatteryThreshold,
@@ -146,21 +142,6 @@ export function GeneralTab({
               <span className="slider"></span>
             </label>
           </div>
-        </SettingRow>
-
-        <SettingRow
-          icon={PanelTop}
-          label={t("general.notchPosition")}
-          desc={t("general.notchPosition.desc")}
-        >
-          <Dropdown
-            value={notchPosition}
-            onChange={changeNotchPosition}
-            options={[
-              { value: "top", label: t("general.notchPosition.top") },
-              { value: "bottom-right", label: t("general.notchPosition.bottomRight") },
-            ]}
-          />
         </SettingRow>
 
         <SettingRow

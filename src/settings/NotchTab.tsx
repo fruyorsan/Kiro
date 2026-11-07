@@ -56,6 +56,8 @@ import { useT } from "../i18n";
 interface NotchTabProps {
   notchMode: string;
   setNotchModeValue: (mode: string) => void;
+  notchPosition: string;
+  changeNotchPosition: (position: string) => void;
   monitors: MonitorInfo[];
   notchMonitorMode: MonitorMode;
   setNotchMonitorModeValue: (mode: MonitorMode) => void;
@@ -131,6 +133,8 @@ interface NotchTabProps {
 export function NotchTab({
   notchMode,
   setNotchModeValue,
+  notchPosition,
+  changeNotchPosition,
   monitors,
   notchMonitorMode,
   setNotchMonitorModeValue,
@@ -224,6 +228,21 @@ export function NotchTab({
             />
           </SettingRow>
         )}
+
+        <SettingRow
+          icon={PanelTop}
+          label={t("general.notchPosition")}
+          desc={t("general.notchPosition.desc")}
+        >
+          <Dropdown
+            value={notchPosition}
+            onChange={changeNotchPosition}
+            options={[
+              { value: "top", label: t("general.notchPosition.top") },
+              { value: "bottom-right", label: t("general.notchPosition.bottomRight") },
+            ]}
+          />
+        </SettingRow>
 
         {notchMode !== "fixed" && <NotchEdgeDelay />}
 

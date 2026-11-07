@@ -1027,7 +1027,7 @@ function OverlayApp() {
             transition={{ duration: 0.3 }}
           >
             <motion.img
-              src="/kiro.png"
+              src="/kiro.png?v=2"
               className="splash-logo"
               draggable={false}
               initial={{ scale: 0, opacity: 0, rotate: 0 }}
@@ -1058,7 +1058,7 @@ function OverlayApp() {
             transition={{ duration: 0.3 }}
           >
             <div className="update-splash-card">
-              <img src="/kiro.png" className="update-splash-logo" alt="Kiro" />
+              <img src="/kiro.png?v=2" className="update-splash-logo" alt="Kiro" />
               <p className="update-splash-text">
                 {updateStatus === 'checking' && t("overlay.update.checking")}
                 {updateStatus === 'downloading' && t("overlay.update.downloading", { percent: updateProgress })}

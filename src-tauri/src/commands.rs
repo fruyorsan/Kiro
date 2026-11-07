@@ -3484,8 +3484,47 @@ pub fn set_brightness(app: AppHandle, brightness: u32) {
     }
 }
 
+/// Power mode overlays understood by Windows 10 1809+ and Windows 11.
+const OVERLAY_BEST_EFFICIENCY: &str = "961cc777-2547-4f9d-8174-7d86181b8a7a";
+const OVERLAY_BALANCED: &str = "00000000-0000-0000-0000-000000000000";
+
+fn run_powercfg(args: &[&str]) -> bool {
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("powercfg")
+        .args(args)
+        .creation_flags(0x0800_0000)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Power mode overlay currently selected for AC power. Windows stores it in the
+/// registry and there is no documented getter, so read the value directly.
+fn active_overlay_guid() -> Option<String> {
+    use std::os::windows::process::CommandExt;
+    let out = std::process::Command::new("reg")
+        .args([
+            "query",
+            r"HKLM\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes",
+            "/v",
+            "ActiveOverlayAcPowerScheme",
+        ])
+        .creation_flags(0x0800_0000)
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    text.split_whitespace()
+        .find(|t| t.len() == 36 && t.matches('-').count() == 4)
+        .map(|s| s.to_string())
+}
+
 #[tauri::command]
 pub async fn get_battery_saver_state() -> Result<bool, String> {
+    // The button state must match what Windows is actually doing: the power
+    // efficiency overlay is used while charging, energy saver while on battery.
+    if active_overlay_guid().as_deref() == Some(OVERLAY_BEST_EFFICIENCY) {
+        return Ok(true);
+    }
     // Uses Windows Runtime PowerManager — no PowerShell required.
     tauri::async_runtime::spawn_blocking(|| {
         unsafe {
@@ -3499,6 +3538,55 @@ pub async fn get_battery_saver_state() -> Result<bool, String> {
             Err(_) => Ok(false), // No battery / not supported on this device
         }
     }).await.map_err(|e| e.to_string())?
+}
+
+/// Turn battery saving on or off immediately.
+///
+/// Two things happen, because Windows uses different mechanisms depending on
+/// the power source:
+/// * the "best power efficiency" overlay switches the power mode right away
+///   (this is what changes while plugged in),
+/// * the energy saver threshold is pinned to 100 % so battery saver engages as
+///   soon as the charger is unplugged.
+///
+/// The previous overlay is remembered so turning it off restores the user's
+/// power mode instead of falling back to Balanced.
+#[tauri::command]
+pub async fn set_battery_saver(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        const PREV: &str = "nectar-battery-saver-prev-overlay";
+        if enabled {
+            if let Some(current) = active_overlay_guid() {
+                if current != OVERLAY_BEST_EFFICIENCY && current != OVERLAY_BALANCED {
+                    let _ = save_setting(app.clone(), PREV.into(), serde_json::json!(current));
+                }
+            }
+            run_powercfg(&["/overlaysetactive", OVERLAY_BEST_EFFICIENCY]);
+            run_powercfg(&[
+                "/setdcvalueindex",
+                "SCHEME_CURRENT",
+                "SUB_ENERGYSAVER",
+                "ESBATTTHRESHOLD",
+                "100",
+            ]);
+        } else {
+            let previous = crate::utils::get_setting_str(&app, PREV)
+                .filter(|s| s.len() == 36)
+                .unwrap_or_else(|| OVERLAY_BALANCED.to_string());
+            run_powercfg(&["/overlaysetactive", &previous]);
+            run_powercfg(&[
+                "/setdcvalueindex",
+                "SCHEME_CURRENT",
+                "SUB_ENERGYSAVER",
+                "ESBATTTHRESHOLD",
+                "20",
+            ]);
+        }
+        run_powercfg(&["/setactive", "SCHEME_CURRENT"]);
+        Ok(enabled)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -3528,15 +3616,6 @@ pub async fn has_battery() -> Result<bool, String> {
             Err(_) => Ok(true),
         }
     }).await.map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub fn open_battery_saver_settings() {
-    unsafe {
-        use windows::Win32::UI::Shell::ShellExecuteA;
-        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-        let _ = ShellExecuteA(None, windows::core::PCSTR(c"open".as_ptr() as *const u8), windows::core::PCSTR(c"ms-settings:batterysaver".as_ptr() as *const u8), windows::core::PCSTR::null(), windows::core::PCSTR::null(), SW_SHOWNORMAL);
-    }
 }
 
 // --- System metrics for status widgets ---

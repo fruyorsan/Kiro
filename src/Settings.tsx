@@ -66,7 +66,7 @@ function SettingsApp() {
     <div className="settings-container" style={{ zoom: settings.scale }}>
       <div className="title-bar" data-tauri-drag-region>
         <div className="title-brand" data-tauri-drag-region>
-          <img className="title-mark" src="/kiro.png" alt="" aria-hidden draggable={false} />
+          <img className="title-mark" src="/kiro.png?v=2" alt="" aria-hidden draggable={false} />
           <span className="title-text" data-tauri-drag-region>
             Kiro
           </span>
@@ -123,8 +123,6 @@ function SettingsApp() {
               handleThresholdChange={settings.handleThresholdChange}
               autoPerf={settings.autoPerf}
               toggleAutoPerf={settings.toggleAutoPerf}
-              notchPosition={settings.notchPosition}
-              changeNotchPosition={settings.changeNotchPosition}
               restartNectar={settings.restartNectar}
               quitNectar={settings.quitNectar}
             />
@@ -161,6 +159,8 @@ function SettingsApp() {
               onOpenCalendarSync={() => setActiveTab("calendar-sync")}
               notchMode={settings.notchMode}
               setNotchModeValue={settings.setNotchModeValue}
+              notchPosition={settings.notchPosition}
+              changeNotchPosition={settings.changeNotchPosition}
               monitors={settings.monitors}
               notchMonitorMode={settings.notchMonitorMode}
               setNotchMonitorModeValue={settings.setNotchMonitorModeValue}

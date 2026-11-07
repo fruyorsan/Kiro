@@ -224,7 +224,7 @@ fn main() {
             set_brightness,
             get_battery_saver_state,
             has_battery,
-            open_battery_saver_settings,
+            set_battery_saver,
             get_system_accent_color,
             attention::get_attention_windows,
             wallpaper::get_wallpaper_backdrop,

@@ -1619,14 +1619,19 @@ function App() {
     }
   }, [bluetoothEnabled]);
 
-  // Battery Saver - opens settings (no public API to toggle without admin)
-  const openBatterySaverSettings = useCallback(async () => {
+  // Battery Saver - toggles Windows' power saving directly instead of opening
+  // the Settings page (the old button just deep-linked to ms-settings).
+  const toggleBatterySaver = useCallback(async () => {
+    const next = !batterySaverEnabled;
+    setBatterySaverEnabled(next); // optimistic, the command takes a moment
     try {
-      await invoke("open_battery_saver_settings");
+      const actual = await invoke<boolean>("set_battery_saver", { enabled: next });
+      setBatterySaverEnabled(!!actual);
     } catch (e) {
-      console.error("Failed to open Battery Saver settings:", e);
+      setBatterySaverEnabled(!next);
+      console.error("Failed to toggle Battery Saver:", e);
     }
-  }, []);
+  }, [batterySaverEnabled]);
 
 
   // Brightness change with throttling
@@ -1800,7 +1805,14 @@ function App() {
       case "battery":
         if (!hasBattery) return null;
         return (
-          <div className="passive-feature" key="battery" {...tip(batteryTooltip(isCharging, batteryLevel, batterySecondsLeft))}>
+          <div
+            className={`passive-feature${batterySaverEnabled ? " saver-on" : ""}`}
+            key="battery"
+            role="button"
+            style={{ cursor: "pointer" }}
+            onClick={(e) => { e.stopPropagation(); void toggleBatterySaver(); }}
+            {...tip(batteryTooltip(isCharging, batteryLevel, batterySecondsLeft))}
+          >
             <BatteryIcon charging={isCharging} level={batteryLevel} threshold={lowBatteryThreshold} />
             <span className="label">{batteryLevel}%</span>
           </div>
@@ -2647,7 +2659,7 @@ function App() {
                         className={`cc-circular-btn ${batterySaverEnabled ? 'active' : ''}`}
                         style={ccStyle("buttons", "battery-saver")}
                         {...tip(t("cc.batterySaver"))}
-                        onClick={(e) => { e.stopPropagation(); openBatterySaverSettings(); }}
+                        onClick={(e) => { e.stopPropagation(); void toggleBatterySaver(); }}
                       >
                         <BatterySaverIcon />
                       </button>

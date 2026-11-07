@@ -88,8 +88,14 @@ const fileOf = (p: string) =>
 // AUMIDs identify one app. Two PWAs in the same browser must never match on the shared exe name.
 const isIdentifier = (p: string) => !p.includes('/') && !p.includes('\\');
 
-const isNectarWindow = (app: { name: string; path: string }) =>
-  app.path.toLowerCase().includes('nectar.exe') || app.name.toLowerCase() === 'nectar';
+// Kiro's own windows (and the pinned launcher) use the bundled mascot instead
+// of the icon extracted from the exe, so a stale Windows icon cache can never
+// bring the old Nectar/letter mark back into the dock.
+const isNectarWindow = (app: { name: string; path: string }) => {
+  const path = app.path.toLowerCase();
+  const name = app.name.toLowerCase();
+  return path.includes('kiro.exe') || path.includes('nectar.exe') || name === 'kiro' || name === 'nectar';
+};
 
 function parseDrives(val: string | null): string[] {
   try {
@@ -137,7 +143,7 @@ function DockAppIcon({ src, alt, nectar }: { src: string | undefined; alt: strin
 function resolveStartIcon(startIcon: string): string {
   if (startIcon === "windows") return "/windows.svg";
   if (startIcon.startsWith("custom:")) return startIcon.slice("custom:".length);
-  return "/kiro.png";
+  return "/kiro.png?v=2";
 }
 
 // Stable module-level constants so object references never change between renders,
@@ -1504,7 +1510,7 @@ const Dock = memo(function Dock() {
                     const isNectarOrSettings = isNectarWindow(app);
                     
                     return (icon || isNectarOrSettings) ? (
-                      <DockAppIcon src={isNectarOrSettings ? "/kiro.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                      <DockAppIcon src={isNectarOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                     ) : (
                       <div className="fallback-icon">{app.name[0]}</div>
                     );
@@ -1606,7 +1612,7 @@ const Dock = memo(function Dock() {
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                           const isNectarOrSettings = isNectarWindow(app);
                           return (icon || isNectarOrSettings) ? (
-                            <DockAppIcon src={isNectarOrSettings ? "/kiro.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                            <DockAppIcon src={isNectarOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -1706,7 +1712,7 @@ const Dock = memo(function Dock() {
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                           const isNectarOrSettings = isNectarWindow(app);
                           return (icon || isNectarOrSettings) ? (
-                            <DockAppIcon src={isNectarOrSettings ? "/kiro.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                            <DockAppIcon src={isNectarOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
