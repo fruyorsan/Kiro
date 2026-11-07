@@ -37,6 +37,9 @@ fn defaults() -> Vec<(&'static str, Value)> {
         ("kiro-ram-saver", json!("true")),
         ("kiro-ram-ultra", json!("false")),
         ("kiro-auto-perf", json!("true")),
+        // Updates install themselves on the next launch.
+        ("kiro-auto-update", json!("true")),
+        ("kiro-update-channel", json!("stable")),
         // Appearance: frosted dark, blue accent, same numbers as the maintainer.
         ("kiro-theme-mode", json!("dark")),
         ("kiro-theme-color", json!("#007aff")),

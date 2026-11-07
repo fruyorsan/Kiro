@@ -1,0 +1,11 @@
+{
+  "version": "1.8.2",
+  "notes": "Kiro 1.8.2",
+  "pub_date": "2026-11-07T14:31:15Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUQ01QUG83cDZmWm93RUdsNkJ6U0duZVhXVjByVE1TV0VjUmFlbUMwU2JGNlo2TWplV1d2WGROMUpmUVpwS2s3U3QrN2dCSjh4VjBkaGIzN2RJRkdWVGoza3V4SjR6THdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDYxNzE3CWZpbGU6S2lyb18xLjguMl94NjQtc2V0dXAuZXhlCkZOMm5pRld5MHdVQVVSNTU1ZVM2Slg3Lys1SldLbFlIUG13NzJ6ZkFsSUZXVE80cUlJb0pDNEVYZG1KY0JJNlEydkpHWUpLMkFwSFJ2cmNTZzJOU0RRPT0K",
+      "url": "https://github.com/fruyorsan/Kiro/releases/download/v1.8.2/Kiro_1.8.2_x64-setup.exe"
+    }
+  }
+}

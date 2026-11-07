@@ -35,7 +35,7 @@ Licensed under GPL-3.0-only, like the original.
 
 <p><strong>A notch and a dock for Windows.<br />Physics-animated, reactive, and built to replace your taskbar.</strong></p>
 
-[![Latest release](https://shieldcn.dev/badge/release-v1.8.1.svg?logo=lu:Tag)](https://github.com/fruyorsan/Kiro/releases/latest)
+[![Latest release](https://shieldcn.dev/badge/release-v1.8.2.svg?logo=lu:Tag)](https://github.com/fruyorsan/Kiro/releases/latest)
 [![Downloads](https://badges.kua8.lol/downloads.svg)](https://github.com/fruyorsan/Kiro/releases)
 [![License](https://shieldcn.dev/github/license/fruyorsan/Kiro.svg?logo=lu:Scale)](LICENSE)
 [![Platform](https://shieldcn.dev/badge/platform-Windows.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)

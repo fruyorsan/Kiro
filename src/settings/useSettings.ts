@@ -200,7 +200,7 @@ export function useSettings() {
   const [updateVersion, setUpdateVersion] = useState("");
   const [appVersion, setAppVersion] = useState("");
   const [autoUpdate, setAutoUpdate] = useState(
-    () => localStorage.getItem("kiro-auto-update") === "true"
+    () => localStorage.getItem("kiro-auto-update") !== "false"
   );
   const [prereleaseChannel, setPrereleaseChannel] = useState(
     () => localStorage.getItem("kiro-update-channel") === "prerelease"
