@@ -147,7 +147,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Nectar ${{ github.ref_name }}"
+          releaseName: "Kiro ${{ github.ref_name }}"
           releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false
@@ -164,8 +164,8 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cd src-tauri/target/release
-          7z a "nectar-${VERSION}-portable-windows-x64.zip" nectar.exe
-          mv "nectar-${VERSION}-portable-windows-x64.zip" "$GITHUB_WORKSPACE/"
+          7z a "kiro-${VERSION}-portable-windows-x64.zip" kiro.exe
+          mv "kiro-${VERSION}-portable-windows-x64.zip" "$GITHUB_WORKSPACE/"
 
       - name: Upload portable build to release
         shell: bash
@@ -173,7 +173,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          gh release upload "${{ github.ref_name }}" "nectar-${VERSION}-portable-windows-x64.zip" --clobber
+          gh release upload "${{ github.ref_name }}" "kiro-${VERSION}-portable-windows-x64.zip" --clobber
 
       # The NSIS installer above exists only to feed the silent auto-updater
       # (tauri-plugin-updater only recognizes NSIS/MSI artifacts). This custom
@@ -182,7 +182,7 @@ jobs:
       - name: Package installer payload
         shell: pwsh
         run: |
-          Compress-Archive -Path "src-tauri/target/release/nectar.exe" -DestinationPath "installer-app/src-tauri/payload.zip" -Force
+          Compress-Archive -Path "src-tauri/target/release/kiro.exe" -DestinationPath "installer-app/src-tauri/payload.zip" -Force
 
       - name: Install installer-app dependencies
         working-directory: installer-app
@@ -198,6 +198,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          OUT="Nectar-Setup-${VERSION}.exe"
-          cp "installer-app/src-tauri/target/release/nectar-installer.exe" "$OUT"
+          OUT="Kiro-Setup-${VERSION}.exe"
+          cp "installer-app/src-tauri/target/release/kiro-installer.exe" "$OUT"
           gh release upload "${{ github.ref_name }}" "$OUT" --clobber

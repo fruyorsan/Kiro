@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 /// Setting key that allows the user to turn the behaviour off.
-pub const SETTING: &str = "nectar-auto-perf";
+pub const SETTING: &str = "kiro-auto-perf";
 
 /// A window has to stay fullscreen this long before the mode engages. Splash
 /// screens, alt-tab animations and screenshot tools go fullscreen for a moment

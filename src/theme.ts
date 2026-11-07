@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { applyBackdrop, enableBackdrop, usesBackdrop } from "./backdrop";
+import { hydrateStorageFromSettings } from "./migrate";
 
 // Convert a hex color string to rgba with a specified alpha
 function hexToRgba(hex: string, alpha: number): string {
@@ -152,27 +153,27 @@ function applyMaterialPalette(root: HTMLElement, seed: string, light: boolean, o
   const tint = Math.min(s, 60);
   const set = (name: string, value: string) => root.style.setProperty(name, value);
   if (light) {
-    set("--nectar-bg", hsla(h, tint * 0.6, 95, op));
-    set("--nectar-bg-expanded", hsla(h, tint * 0.55, 92, opExpanded));
-    set("--nectar-bg-panel", hsla(h, tint * 0.55, 92, opPanel));
-    set("--nectar-text", hsla(h, 18, 12));
-    set("--nectar-text-muted", hsla(h, 12, 28, 0.75));
-    set("--nectar-border", hsla(h, 15, 30, 0.16));
-    set("--nectar-group-bg", hsla(h, 35, 45, 0.08));
-    set("--nectar-highlight", hsla(h, Math.max(s, 45), 38));
-    set("--nectar-on-highlight", "#ffffff");
+    set("--kiro-bg", hsla(h, tint * 0.6, 95, op));
+    set("--kiro-bg-expanded", hsla(h, tint * 0.55, 92, opExpanded));
+    set("--kiro-bg-panel", hsla(h, tint * 0.55, 92, opPanel));
+    set("--kiro-text", hsla(h, 18, 12));
+    set("--kiro-text-muted", hsla(h, 12, 28, 0.75));
+    set("--kiro-border", hsla(h, 15, 30, 0.16));
+    set("--kiro-group-bg", hsla(h, 35, 45, 0.08));
+    set("--kiro-highlight", hsla(h, Math.max(s, 45), 38));
+    set("--kiro-on-highlight", "#ffffff");
   } else {
-    set("--nectar-bg", hsla(h, tint * 0.35, 9, op));
-    set("--nectar-bg-expanded", hsla(h, tint * 0.35, 12, opExpanded));
-    set("--nectar-bg-panel", hsla(h, tint * 0.35, 12, opPanel));
-    set("--nectar-text", hsla(h, 25, 92));
-    set("--nectar-text-muted", hsla(h, 14, 78, 0.8));
-    set("--nectar-border", hsla(h, 18, 70, 0.16));
-    set("--nectar-group-bg", hsla(h, 35, 70, 0.08));
-    set("--nectar-highlight", hsla(h, Math.max(s, 55), 78));
-    set("--nectar-on-highlight", hsla(h, 55, 16));
+    set("--kiro-bg", hsla(h, tint * 0.35, 9, op));
+    set("--kiro-bg-expanded", hsla(h, tint * 0.35, 12, opExpanded));
+    set("--kiro-bg-panel", hsla(h, tint * 0.35, 12, opPanel));
+    set("--kiro-text", hsla(h, 25, 92));
+    set("--kiro-text-muted", hsla(h, 14, 78, 0.8));
+    set("--kiro-border", hsla(h, 18, 70, 0.16));
+    set("--kiro-group-bg", hsla(h, 35, 70, 0.08));
+    set("--kiro-highlight", hsla(h, Math.max(s, 55), 78));
+    set("--kiro-on-highlight", hsla(h, 55, 16));
   }
-  set("--nectar-accent", seed);
+  set("--kiro-accent", seed);
 }
 
 let accentGeneration = 0;
@@ -186,10 +187,10 @@ async function applyAccent(
   legacy: boolean
 ) {
   const generation = ++accentGeneration;
-  const accentMode = legacy ? "mono" : localStorage.getItem("nectar-theme-accent") || "mono";
+  const accentMode = legacy ? "mono" : localStorage.getItem("kiro-theme-accent") || "mono";
   let color: string | null = null;
   if (accentMode === "custom") {
-    color = localStorage.getItem("nectar-theme-accent-color") || DEFAULT_ACCENT_COLOR;
+    color = localStorage.getItem("kiro-theme-accent-color") || DEFAULT_ACCENT_COLOR;
   } else if (accentMode === "system" || material) {
     color = await invoke<string>("get_system_accent_color").catch(() => null);
     if (generation !== accentGeneration) return;
@@ -202,13 +203,13 @@ async function applyAccent(
   if (!isHex(color)) {
     // Monochrome: highlights use the text color, and text on them uses the opaque surface color
     // (the translucent background would turn it grey on glass).
-    root.style.removeProperty("--nectar-highlight");
-    root.style.setProperty("--nectar-on-highlight", surface);
+    root.style.removeProperty("--kiro-highlight");
+    root.style.setProperty("--kiro-on-highlight", surface);
     return;
   }
-  root.style.setProperty("--nectar-accent", color);
-  root.style.setProperty("--nectar-highlight", color);
-  root.style.setProperty("--nectar-on-highlight", contrastText(color));
+  root.style.setProperty("--kiro-accent", color);
+  root.style.setProperty("--kiro-highlight", color);
+  root.style.setProperty("--kiro-on-highlight", contrastText(color));
 }
 
 export async function applyTheme(
@@ -222,23 +223,23 @@ export async function applyTheme(
   mode = resolveMode(mode);
 
   // Legacy Mode keeps the classic look: no glass or Material You, and monochrome highlights.
-  const legacy = localStorage.getItem("nectar-legacy-mode") === "true";
-  const style = legacy ? "solid" : localStorage.getItem("nectar-theme-style") || "solid";
+  const legacy = localStorage.getItem("kiro-legacy-mode") === "true";
+  const style = legacy ? "solid" : localStorage.getItem("kiro-theme-style") || "frosted";
   root.classList.remove(...THEME_STYLES.map((s) => `style-${s}`));
   root.classList.add(`style-${(THEME_STYLES as readonly string[]).includes(style) ? style : "solid"}`);
 
   if (opacity === undefined || opacity === null) {
-    const cachedOpacity = localStorage.getItem('nectar-theme-opacity');
+    const cachedOpacity = localStorage.getItem('kiro-theme-opacity');
     opacity = cachedOpacity !== null ? parseFloat(cachedOpacity) : 0.80;
   }
 
   if (saturation === undefined || saturation === null) {
-    const cachedSaturation = localStorage.getItem('nectar-theme-saturation');
+    const cachedSaturation = localStorage.getItem('kiro-theme-saturation');
     saturation = cachedSaturation !== null ? parseFloat(cachedSaturation) : 0.50;
   }
 
   if (brightness === undefined || brightness === null) {
-    const cachedBrightness = localStorage.getItem('nectar-theme-brightness');
+    const cachedBrightness = localStorage.getItem('kiro-theme-brightness');
     brightness = cachedBrightness !== null ? parseFloat(cachedBrightness) : 0.15;
   }
 
@@ -247,20 +248,20 @@ export async function applyTheme(
   // Large panels (calendar, command center) need a denser fill than the pill to stay readable on glass.
   const opPanel = Math.max(opExpanded, 0.82);
   let surface = '#000000';
-  root.style.setProperty('--nectar-opacity', String(op));
-  root.style.setProperty('--nectar-opacity-expanded', String(opExpanded));
+  root.style.setProperty('--kiro-opacity', String(op));
+  root.style.setProperty('--kiro-opacity-expanded', String(opExpanded));
 
   if (mode === 'light') {
     surface = '#f5f5f7';
-    root.style.setProperty('--nectar-bg', `rgba(250, 250, 252, ${op})`);
-    root.style.setProperty('--nectar-bg-expanded', `rgba(245, 245, 248, ${opExpanded})`);
-    root.style.setProperty('--nectar-bg-panel', `rgba(245, 245, 247, ${opPanel})`);
-    root.style.setProperty('--nectar-text', '#1c1c1e');
-    root.style.setProperty('--nectar-text-muted', 'rgba(28, 28, 30, 0.65)');
-    root.style.setProperty('--nectar-border', 'rgba(0, 0, 0, 0.12)');
-    root.style.setProperty('--nectar-group-bg', 'rgba(0, 0, 0, 0.05)');
-    root.style.setProperty('--nectar-accent', '#007aff');
-    root.style.setProperty('--nectar-scrollbar-thumb', 'rgba(0, 0, 0, 0.15)');
+    root.style.setProperty('--kiro-bg', `rgba(250, 250, 252, ${op})`);
+    root.style.setProperty('--kiro-bg-expanded', `rgba(245, 245, 248, ${opExpanded})`);
+    root.style.setProperty('--kiro-bg-panel', `rgba(245, 245, 247, ${opPanel})`);
+    root.style.setProperty('--kiro-text', '#1c1c1e');
+    root.style.setProperty('--kiro-text-muted', 'rgba(28, 28, 30, 0.65)');
+    root.style.setProperty('--kiro-border', 'rgba(0, 0, 0, 0.12)');
+    root.style.setProperty('--kiro-group-bg', 'rgba(0, 0, 0, 0.05)');
+    root.style.setProperty('--kiro-accent', '#007aff');
+    root.style.setProperty('--kiro-scrollbar-thumb', 'rgba(0, 0, 0, 0.15)');
     root.classList.add('light-mode');
     root.classList.remove('dark-mode');
     root.classList.add('theme-light');
@@ -273,15 +274,15 @@ export async function applyTheme(
     const isLight = brightness > 0.55;
     surface = finalBgColor;
 
-    root.style.setProperty('--nectar-bg', hexToRgba(finalBgColor, op));
-    root.style.setProperty('--nectar-bg-expanded', hexToRgba(finalBgColor, opExpanded));
-    root.style.setProperty('--nectar-bg-panel', hexToRgba(finalBgColor, opPanel));
-    root.style.setProperty('--nectar-text', isLight ? '#1c1c1e' : '#ffffff');
-    root.style.setProperty('--nectar-text-muted', isLight ? 'rgba(28, 28, 30, 0.65)' : 'rgba(255, 255, 255, 0.65)');
-    root.style.setProperty('--nectar-border', isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)');
-    root.style.setProperty('--nectar-group-bg', isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)');
-    root.style.setProperty('--nectar-accent', customColor);
-    root.style.setProperty('--nectar-scrollbar-thumb', isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)');
+    root.style.setProperty('--kiro-bg', hexToRgba(finalBgColor, op));
+    root.style.setProperty('--kiro-bg-expanded', hexToRgba(finalBgColor, opExpanded));
+    root.style.setProperty('--kiro-bg-panel', hexToRgba(finalBgColor, opPanel));
+    root.style.setProperty('--kiro-text', isLight ? '#1c1c1e' : '#ffffff');
+    root.style.setProperty('--kiro-text-muted', isLight ? 'rgba(28, 28, 30, 0.65)' : 'rgba(255, 255, 255, 0.65)');
+    root.style.setProperty('--kiro-border', isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)');
+    root.style.setProperty('--kiro-group-bg', isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)');
+    root.style.setProperty('--kiro-accent', customColor);
+    root.style.setProperty('--kiro-scrollbar-thumb', isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)');
     root.classList.add('theme-custom');
     root.classList.remove('theme-light', 'theme-dark', 'theme-adaptive');
     if (isLight) {
@@ -301,15 +302,15 @@ export async function applyTheme(
       const isLight = brightness > 0.55;
       surface = finalBgColor;
 
-      root.style.setProperty('--nectar-bg', hexToRgba(finalBgColor, op));
-      root.style.setProperty('--nectar-bg-expanded', hexToRgba(finalBgColor, opExpanded));
-      root.style.setProperty('--nectar-bg-panel', hexToRgba(finalBgColor, opPanel));
-      root.style.setProperty('--nectar-text', isLight ? '#1c1c1e' : '#ffffff');
-      root.style.setProperty('--nectar-text-muted', isLight ? 'rgba(28, 28, 30, 0.65)' : 'rgba(255, 255, 255, 0.65)');
-      root.style.setProperty('--nectar-border', isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)');
-      root.style.setProperty('--nectar-group-bg', isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)');
-      root.style.setProperty('--nectar-accent', accentHex);
-      root.style.setProperty('--nectar-scrollbar-thumb', isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)');
+      root.style.setProperty('--kiro-bg', hexToRgba(finalBgColor, op));
+      root.style.setProperty('--kiro-bg-expanded', hexToRgba(finalBgColor, opExpanded));
+      root.style.setProperty('--kiro-bg-panel', hexToRgba(finalBgColor, opPanel));
+      root.style.setProperty('--kiro-text', isLight ? '#1c1c1e' : '#ffffff');
+      root.style.setProperty('--kiro-text-muted', isLight ? 'rgba(28, 28, 30, 0.65)' : 'rgba(255, 255, 255, 0.65)');
+      root.style.setProperty('--kiro-border', isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)');
+      root.style.setProperty('--kiro-group-bg', isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)');
+      root.style.setProperty('--kiro-accent', accentHex);
+      root.style.setProperty('--kiro-scrollbar-thumb', isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)');
       root.classList.add('theme-adaptive');
       root.classList.remove('theme-light', 'theme-dark', 'theme-custom');
       if (isLight) {
@@ -325,15 +326,15 @@ export async function applyTheme(
     }
   } else {
     // default/dark
-    root.style.setProperty('--nectar-bg', `rgba(0, 0, 0, ${op})`);
-    root.style.setProperty('--nectar-bg-expanded', `rgba(0, 0, 0, ${opExpanded})`);
-    root.style.setProperty('--nectar-bg-panel', `rgba(0, 0, 0, ${opPanel})`);
-    root.style.setProperty('--nectar-text', '#ffffff');
-    root.style.setProperty('--nectar-text-muted', 'rgba(255, 255, 255, 0.6)');
-    root.style.setProperty('--nectar-border', 'rgba(255, 255, 255, 0.1)');
-    root.style.setProperty('--nectar-group-bg', 'rgba(255, 255, 255, 0.04)');
-    root.style.setProperty('--nectar-accent', '#007aff');
-    root.style.setProperty('--nectar-scrollbar-thumb', 'rgba(255, 255, 255, 0.1)');
+    root.style.setProperty('--kiro-bg', `rgba(0, 0, 0, ${op})`);
+    root.style.setProperty('--kiro-bg-expanded', `rgba(0, 0, 0, ${opExpanded})`);
+    root.style.setProperty('--kiro-bg-panel', `rgba(0, 0, 0, ${opPanel})`);
+    root.style.setProperty('--kiro-text', '#ffffff');
+    root.style.setProperty('--kiro-text-muted', 'rgba(255, 255, 255, 0.6)');
+    root.style.setProperty('--kiro-border', 'rgba(255, 255, 255, 0.1)');
+    root.style.setProperty('--kiro-group-bg', 'rgba(255, 255, 255, 0.04)');
+    root.style.setProperty('--kiro-accent', '#007aff');
+    root.style.setProperty('--kiro-scrollbar-thumb', 'rgba(255, 255, 255, 0.1)');
     root.classList.add('dark-mode');
     root.classList.remove('light-mode');
     root.classList.add('theme-dark');
@@ -354,13 +355,13 @@ export async function applyTheme(
 // `backdrop`: this window draws the notch or dock, which show the wallpaper in the glass styles.
 export function initTheme(options: { backdrop?: boolean } = {}) {
   if (options.backdrop) enableBackdrop();
-  const syncMode = localStorage.getItem('nectar-theme-mode') || 'dark';
-  const syncColor = localStorage.getItem('nectar-theme-color') || '#007aff';
-  const syncOpacityVal = localStorage.getItem('nectar-theme-opacity');
-  const syncOpacity = syncOpacityVal !== null ? parseFloat(syncOpacityVal) : 0.80;
-  const syncSaturationVal = localStorage.getItem('nectar-theme-saturation');
+  const syncMode = localStorage.getItem('kiro-theme-mode') || 'dark';
+  const syncColor = localStorage.getItem('kiro-theme-color') || '#007aff';
+  const syncOpacityVal = localStorage.getItem('kiro-theme-opacity');
+  const syncOpacity = syncOpacityVal !== null ? parseFloat(syncOpacityVal) : 0.6;
+  const syncSaturationVal = localStorage.getItem('kiro-theme-saturation');
   const syncSaturation = syncSaturationVal !== null ? parseFloat(syncSaturationVal) : 0.50;
-  const syncBrightnessVal = localStorage.getItem('nectar-theme-brightness');
+  const syncBrightnessVal = localStorage.getItem('kiro-theme-brightness');
   const syncBrightness = syncBrightnessVal !== null ? parseFloat(syncBrightnessVal) : 0.15;
 
   // Fast synchronous draw using cached localStorage
@@ -368,14 +369,15 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
 
   // Sync settings.json in background to avoid flickers
   invoke<Record<string, any>>('load_settings').then((settings) => {
-    const mode = settings['nectar-theme-mode'] ? String(settings['nectar-theme-mode']) : syncMode;
-    const color = settings['nectar-theme-color'] ? String(settings['nectar-theme-color']) : syncColor;
-    const opacityVal = settings['nectar-theme-opacity'] ? parseFloat(String(settings['nectar-theme-opacity'])) : syncOpacity;
-    const saturationVal = settings['nectar-theme-saturation'] ? parseFloat(String(settings['nectar-theme-saturation'])) : syncSaturation;
-    const brightnessVal = settings['nectar-theme-brightness'] ? parseFloat(String(settings['nectar-theme-brightness'])) : syncBrightness;
+    hydrateStorageFromSettings(settings);
+    const mode = settings['kiro-theme-mode'] ? String(settings['kiro-theme-mode']) : syncMode;
+    const color = settings['kiro-theme-color'] ? String(settings['kiro-theme-color']) : syncColor;
+    const opacityVal = settings['kiro-theme-opacity'] ? parseFloat(String(settings['kiro-theme-opacity'])) : syncOpacity;
+    const saturationVal = settings['kiro-theme-saturation'] ? parseFloat(String(settings['kiro-theme-saturation'])) : syncSaturation;
+    const brightnessVal = settings['kiro-theme-brightness'] ? parseFloat(String(settings['kiro-theme-brightness'])) : syncBrightness;
 
     let styleOrAccentChanged = false;
-    for (const key of ['nectar-theme-accent', 'nectar-theme-accent-color', 'nectar-theme-style', 'nectar-glass-wallpaper', 'nectar-legacy-mode']) {
+    for (const key of ['kiro-theme-accent', 'kiro-theme-accent-color', 'kiro-theme-style', 'kiro-glass-wallpaper', 'kiro-legacy-mode']) {
       const val = settings[key];
       if (val !== undefined && val !== null && String(val) !== localStorage.getItem(key)) {
         localStorage.setItem(key, String(val));
@@ -391,57 +393,57 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
       brightnessVal !== syncBrightness ||
       styleOrAccentChanged
     ) {
-      localStorage.setItem('nectar-theme-mode', mode);
-      localStorage.setItem('nectar-theme-color', color);
-      localStorage.setItem('nectar-theme-opacity', String(opacityVal));
-      localStorage.setItem('nectar-theme-saturation', String(saturationVal));
-      localStorage.setItem('nectar-theme-brightness', String(brightnessVal));
+      localStorage.setItem('kiro-theme-mode', mode);
+      localStorage.setItem('kiro-theme-color', color);
+      localStorage.setItem('kiro-theme-opacity', String(opacityVal));
+      localStorage.setItem('kiro-theme-saturation', String(saturationVal));
+      localStorage.setItem('kiro-theme-brightness', String(brightnessVal));
       applyTheme(mode, color, opacityVal, saturationVal, brightnessVal);
     }
   }).catch(console.error);
 
   // Helper: read all theme values from localStorage and apply
   const applyThemeFromStorage = () => {
-    const mode = localStorage.getItem('nectar-theme-mode') || 'dark';
-    const color = localStorage.getItem('nectar-theme-color') || '#007aff';
-    const opacity = parseFloat(localStorage.getItem('nectar-theme-opacity') || '0.80');
-    const saturation = parseFloat(localStorage.getItem('nectar-theme-saturation') || '0.50');
-    const brightness = parseFloat(localStorage.getItem('nectar-theme-brightness') || '0.15');
+    const mode = localStorage.getItem('kiro-theme-mode') || 'dark';
+    const color = localStorage.getItem('kiro-theme-color') || '#007aff';
+    const opacity = parseFloat(localStorage.getItem('kiro-theme-opacity') || '0.80');
+    const saturation = parseFloat(localStorage.getItem('kiro-theme-saturation') || '0.50');
+    const brightness = parseFloat(localStorage.getItem('kiro-theme-brightness') || '0.15');
     applyTheme(mode, color, opacity, saturation, brightness);
   };
 
-  const nectarThemeKeys = [
-    'nectar-theme-mode',
-    'nectar-theme-color',
-    'nectar-theme-opacity',
-    'nectar-theme-saturation',
-    'nectar-theme-brightness',
-    'nectar-theme-accent',
-    'nectar-theme-accent-color',
-    'nectar-theme-style',
-    'nectar-glass-wallpaper',
-    'nectar-legacy-mode',
-    'nectar-scale',
+  const kiroThemeKeys = [
+    'kiro-theme-mode',
+    'kiro-theme-color',
+    'kiro-theme-opacity',
+    'kiro-theme-saturation',
+    'kiro-theme-brightness',
+    'kiro-theme-accent',
+    'kiro-theme-accent-color',
+    'kiro-theme-style',
+    'kiro-glass-wallpaper',
+    'kiro-legacy-mode',
+    'kiro-scale',
   ];
 
   // Listen to setting changes broadcasted from settings window
   // (localStorage sync is handled by saveAndLocal in Settings.tsx; we just apply the theme)
   const settingsPromise = listen<{ key: string; value: any }>('settings-changed', (event) => {
     const { key } = event.payload;
-    if (nectarThemeKeys.includes(key)) {
+    if (kiroThemeKeys.includes(key)) {
       applyThemeFromStorage();
     }
   });
 
   // Windows sends this for accent and other system setting changes
   const accentPromise = listen<string>('system-accent-changed', () => {
-    const currentMode = localStorage.getItem('nectar-theme-mode') || 'dark';
+    const currentMode = localStorage.getItem('kiro-theme-mode') || 'dark';
     if (
       currentMode === 'adaptive' ||
       currentMode === 'auto' ||
-      localStorage.getItem('nectar-theme-accent') === 'system' ||
-      localStorage.getItem('nectar-theme-style') === 'material' ||
-      usesBackdrop(localStorage.getItem('nectar-theme-style'))
+      localStorage.getItem('kiro-theme-accent') === 'system' ||
+      localStorage.getItem('kiro-theme-style') === 'material' ||
+      usesBackdrop(localStorage.getItem('kiro-theme-style'))
     ) {
       applyThemeFromStorage();
     }
@@ -449,12 +451,12 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
 
   // The wallpaper backdrop is lined up with the window's place on its monitor
   const monitorsPromise = listen('monitors-changed', () => {
-    if (usesBackdrop(localStorage.getItem('nectar-theme-style'))) applyThemeFromStorage();
+    if (usesBackdrop(localStorage.getItem('kiro-theme-style'))) applyThemeFromStorage();
   });
 
   // Follow Windows light/dark in auto mode
   const onSchemeChange = () => {
-    if ((localStorage.getItem('nectar-theme-mode') || 'dark') === 'auto') applyThemeFromStorage();
+    if ((localStorage.getItem('kiro-theme-mode') || 'dark') === 'auto') applyThemeFromStorage();
   };
   darkScheme?.addEventListener('change', onSchemeChange);
 
@@ -462,7 +464,7 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
   // localStorage sync is handled by useSettingsSync hook; we just apply the theme
   const externalPromise = listen<{ key: string; value: any }>('settings-external-changed', (event) => {
     const { key } = event.payload;
-    if (nectarThemeKeys.includes(key)) {
+    if (kiroThemeKeys.includes(key)) {
       applyThemeFromStorage();
     }
   });

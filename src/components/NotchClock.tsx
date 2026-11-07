@@ -7,7 +7,7 @@ import { setVisibleInterval } from "../hooks/visibleInterval";
 
 type Tab = "timer" | "stopwatch";
 
-const TAB_KEY = "nectar-clock-tab";
+const TAB_KEY = "kiro-clock-tab";
 const PRESETS = [5, 15, 25, 50];
 
 export function StopwatchReadout({ base, startedAt, precise }: { base: number; startedAt: number | null; precise: boolean }) {

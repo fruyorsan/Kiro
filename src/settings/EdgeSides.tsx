@@ -19,8 +19,8 @@ const save = (key: string, value: Side) => {
 
 export function EdgeSides() {
   const t = useT();
-  const [volume, setVolume] = useState<Side>(() => read("nectar-volume-side", "left"));
-  const [brightness, setBrightness] = useState<Side>(() => read("nectar-brightness-side", "right"));
+  const [volume, setVolume] = useState<Side>(() => read("kiro-volume-side", "left"));
+  const [brightness, setBrightness] = useState<Side>(() => read("kiro-brightness-side", "right"));
   const opposite = (side: Side): Side => (side === "left" ? "right" : "left");
   const options = [
     { value: "left", label: t("overlays.side.left") },
@@ -30,20 +30,20 @@ export function EdgeSides() {
   const changeVolume = (value: string) => {
     const next = value as Side;
     setVolume(next);
-    save("nectar-volume-side", next);
+    save("kiro-volume-side", next);
     if (brightness === next) {
       setBrightness(opposite(next));
-      save("nectar-brightness-side", opposite(next));
+      save("kiro-brightness-side", opposite(next));
     }
   };
 
   const changeBrightness = (value: string) => {
     const next = value as Side;
     setBrightness(next);
-    save("nectar-brightness-side", next);
+    save("kiro-brightness-side", next);
     if (volume === next) {
       setVolume(opposite(next));
-      save("nectar-volume-side", opposite(next));
+      save("kiro-volume-side", opposite(next));
     }
   };
 

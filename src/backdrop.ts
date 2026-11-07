@@ -60,7 +60,7 @@ function showBackdrop(root: HTMLElement) {
 
 // Asks whether an app window is behind the notch or dock, whichever this window draws.
 async function checkCovered(root: HTMLElement) {
-  const r = document.querySelector<HTMLElement>(".nectar, .dock")?.getBoundingClientRect();
+  const r = document.querySelector<HTMLElement>(".kiro, .dock")?.getBoundingClientRect();
   if (!r || r.width < 1 || r.height < 1) return;
   const rect = { x: r.x, y: r.y, width: r.width, height: r.height };
   const next = await invoke<boolean>("is_backdrop_covered", { rect }).catch(() => covered);
@@ -79,7 +79,7 @@ function clearBackdrop(root: HTMLElement) {
 
 export async function applyBackdrop(root: HTMLElement, style: string) {
   const current = ++generation;
-  if (!enabled || !usesBackdrop(style) || localStorage.getItem("nectar-glass-wallpaper") !== "true") {
+  if (!enabled || !usesBackdrop(style) || localStorage.getItem("kiro-glass-wallpaper") !== "true") {
     clearBackdrop(root);
     return;
   }
@@ -92,7 +92,7 @@ export async function applyBackdrop(root: HTMLElement, style: string) {
 
   const r = wallpaperRect(d);
   // The notch is zoomed and the dock scaled by the UI scale, so lengths are given before scaling.
-  const scale = parseFloat(localStorage.getItem("nectar-scale") || "1") || 1;
+  const scale = parseFloat(localStorage.getItem("kiro-scale") || "1") || 1;
   const px = (v: number) => `${(v / scale).toFixed(2)}px`;
   // Both are centred horizontally in their window, so the image is lined up from the centre.
   const dx = r.x + r.w / 2 - (d.windowX + d.windowWidth / 2);

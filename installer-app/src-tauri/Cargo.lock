@@ -1879,7 +1879,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nectar-installer"
+name = "kiro-installer"
 version = "1.8.0"
 dependencies = [
  "serde",

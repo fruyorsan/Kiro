@@ -15,7 +15,7 @@ const CHECK_TIMEOUT_SECS: u64 = 10;
 /// broken release cannot reach everyone within minutes of being published.
 const MIN_AUTO_INSTALL_AGE_SECS: i64 = 24 * 60 * 60;
 const STATE_FILE: &str = "update-state.json";
-const RELEASES_API: &str = "https://api.github.com/repos/fruyorsan/Nectar/releases?per_page=10";
+const RELEASES_API: &str = "https://api.github.com/repos/fruyorsan/Kiro/releases?per_page=10";
 
 /// Serializes manifest requests so concurrent callers share a single network hit.
 static CHECK_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -44,7 +44,7 @@ struct PersistedUpdateState {
 }
 
 fn prerelease_channel(app: &AppHandle) -> bool {
-    crate::utils::get_setting_str(app, "nectar-update-channel").as_deref() == Some("prerelease")
+    crate::utils::get_setting_str(app, "kiro-update-channel").as_deref() == Some("prerelease")
 }
 
 fn channel_name(app: &AppHandle) -> &'static str {
@@ -298,7 +298,7 @@ async fn install_inner(app: &AppHandle) -> Result<(), String> {
 /// Startup entry point: always checks so the UI can show an update badge, and
 /// auto-installs only when the user enabled it and the release has aged.
 pub async fn run_startup_check(app: AppHandle) {
-    let auto_update = crate::utils::get_setting_str(&app, "nectar-auto-update").as_deref() == Some("true");
+    let auto_update = crate::utils::get_setting_str(&app, "kiro-auto-update").as_deref() == Some("true");
 
     if auto_update {
         let _ = app.emit("auto-update-status", serde_json::json!({ "status": "checking" }));

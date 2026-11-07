@@ -70,8 +70,8 @@ body,
     flex-direction: column;
     align-items: center;
     padding: 28px 36px;
-    background: var(--nectar-bg, rgba(0, 0, 0, 0.8));
-    border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.1));
+    background: var(--kiro-bg, rgba(0, 0, 0, 0.8));
+    border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
     border-radius: 20px;
 }
 
@@ -83,7 +83,7 @@ body,
 }
 
 .update-splash-text {
-    color: var(--nectar-text, rgba(255, 255, 255, 0.9));
+    color: var(--kiro-text, rgba(255, 255, 255, 0.9));
     font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 14px;
     font-weight: 500;
@@ -94,14 +94,14 @@ body,
 .update-progress-bar {
     width: 200px;
     height: 4px;
-    background: var(--nectar-border, rgba(255, 255, 255, 0.1));
+    background: var(--kiro-border, rgba(255, 255, 255, 0.1));
     border-radius: 2px;
     overflow: hidden;
 }
 
 .update-progress-fill {
     height: 100%;
-    background: var(--nectar-highlight, var(--nectar-text, rgba(255, 255, 255, 0.9)));
+    background: var(--kiro-highlight, var(--kiro-text, rgba(255, 255, 255, 0.9)));
     border-radius: 2px;
     transition: width 0.3s ease;
 }
@@ -123,9 +123,9 @@ body,
   align-items: center;
   justify-content: space-between;
   padding: 16px 0 14px;
-  background: var(--nectar-bg, rgba(0, 0, 0, 0.8));
+  background: var(--kiro-bg, rgba(0, 0, 0, 0.8));
   border-radius: 0 18px 18px 0;
-  border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
   border-left: none;
   border-top: none;
   border-bottom: none;
@@ -154,7 +154,7 @@ body,
   left: 0;
   width: 13px;
   height: 13px;
-  background: var(--nectar-bg, rgba(0, 0, 0, 0.8));
+  background: var(--kiro-bg, rgba(0, 0, 0, 0.8));
   pointer-events: none;
 }
 
@@ -166,11 +166,11 @@ body,
     radial-gradient(
       circle at 13px 0px,
       transparent 12px,
-      var(--nectar-border, rgba(255, 255, 255, 0.1)) 12.7px,
-      var(--nectar-border, rgba(255, 255, 255, 0.1)) 13.3px,
+      var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px,
+      var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px,
       transparent 14px
     ),
-    var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }
 
 .volume-notch-flares::after {
@@ -181,11 +181,11 @@ body,
     radial-gradient(
       circle at 13px 13px,
       transparent 12px,
-      var(--nectar-border, rgba(255, 255, 255, 0.1)) 12.7px,
-      var(--nectar-border, rgba(255, 255, 255, 0.1)) 13.3px,
+      var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px,
+      var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px,
       transparent 14px
     ),
-    var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }
 
 .volume-notch-content-group {
@@ -211,7 +211,7 @@ body,
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--nectar-text, white);
+  color: var(--kiro-text, white);
   opacity: 0.6;
   cursor: pointer;
   transition:
@@ -243,7 +243,7 @@ body,
   bottom: 0;
   left: 0;
   width: 100%;
-  background: var(--nectar-highlight, var(--nectar-text, white));
+  background: var(--kiro-highlight, var(--kiro-text, white));
   border-radius: 20px;
 }
 
@@ -258,7 +258,7 @@ body,
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--nectar-text, white);
+  color: var(--kiro-text, white);
   cursor: pointer;
 }
 
@@ -351,7 +351,7 @@ body,
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: var(--nectar-border, rgba(255, 255, 255, 0.2)) transparent;
+  scrollbar-color: var(--kiro-border, rgba(255, 255, 255, 0.2)) transparent;
 }
 
 /* Same height and offset as .volume-notch-device so both rows line up. */
@@ -366,7 +366,7 @@ body,
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.6));
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.6));
   font-size: 10px;
   font-weight: 600;
   font-family:
@@ -387,8 +387,8 @@ body,
 }
 
 .volume-panel-header.clickable:hover {
-  background: var(--nectar-group-bg, rgba(255, 255, 255, 0.06));
-  color: var(--nectar-text, white);
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.06));
+  color: var(--kiro-text, white);
 }
 
 .volume-panel-header svg {
@@ -413,7 +413,7 @@ body,
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: var(--nectar-border, rgba(255, 255, 255, 0.2)) transparent;
+  scrollbar-color: var(--kiro-border, rgba(255, 255, 255, 0.2)) transparent;
 }
 
 .volume-device-row {
@@ -427,7 +427,7 @@ body,
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--nectar-text, white);
+  color: var(--kiro-text, white);
   font-size: 11px;
   font-weight: 500;
   font-family:
@@ -442,11 +442,11 @@ body,
 }
 
 .volume-device-row:hover {
-  background: var(--nectar-group-bg, rgba(255, 255, 255, 0.06));
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.06));
 }
 
 .volume-device-row.selected {
-  background: var(--nectar-border, rgba(255, 255, 255, 0.12));
+  background: var(--kiro-border, rgba(255, 255, 255, 0.12));
   font-weight: 600;
   cursor: default;
 }
@@ -468,7 +468,7 @@ body,
 }
 
 .volume-mixer-empty {
-  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.6));
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.6));
   font-size: 11px;
   font-weight: 500;
   font-family:
@@ -510,7 +510,7 @@ body,
   bottom: 0;
   left: 0;
   width: 100%;
-  background: var(--nectar-highlight, var(--nectar-text, white));
+  background: var(--kiro-highlight, var(--kiro-text, white));
   border-radius: 20px;
   pointer-events: none;
 }
@@ -529,7 +529,7 @@ body,
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--nectar-text, white);
+  color: var(--kiro-text, white);
   cursor: pointer;
 }
 
@@ -547,8 +547,8 @@ body,
   align-items: center;
   justify-content: center;
   border-radius: 5px;
-  background: var(--nectar-border, rgba(255, 255, 255, 0.15));
-  color: var(--nectar-text, white);
+  background: var(--kiro-border, rgba(255, 255, 255, 0.15));
+  color: var(--kiro-text, white);
   font-size: 9px;
   font-weight: 700;
   font-family:
@@ -614,9 +614,9 @@ body,
     align-items: center;
     justify-content: space-between;
     padding: 16px 0;
-    background: var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    background: var(--kiro-bg, rgba(0, 0, 0, 0.8));
     border-radius: 18px 0 0 18px;
-    border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.1));
+    border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
     border-right: none;
     width: 42px;
     height: 196px;
@@ -631,7 +631,7 @@ body,
     right: 0;
     width: 13px;
     height: 13px;
-    background: var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    background: var(--kiro-bg, rgba(0, 0, 0, 0.8));
     pointer-events: none;
 }
 
@@ -640,8 +640,8 @@ body,
     -webkit-mask-image: radial-gradient(circle at 0px 0px, transparent 12px, black 13px);
     mask-image: radial-gradient(circle at 0px 0px, transparent 12px, black 13px);
     background:
-        radial-gradient(circle at 0px 0px, transparent 12px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
-        var(--nectar-bg, rgba(0, 0, 0, 0.8));
+        radial-gradient(circle at 0px 0px, transparent 12px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
+        var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }
 
 .brightness-notch::after {
@@ -649,8 +649,8 @@ body,
     -webkit-mask-image: radial-gradient(circle at 0px 13px, transparent 12px, black 13px);
     mask-image: radial-gradient(circle at 0px 13px, transparent 12px, black 13px);
     background:
-        radial-gradient(circle at 0px 13px, transparent 12px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
-        var(--nectar-bg, rgba(0, 0, 0, 0.8));
+        radial-gradient(circle at 0px 13px, transparent 12px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
+        var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }
 
 .brightness-notch-content-group {
@@ -677,7 +677,7 @@ body,
     bottom: 0;
     left: 0;
     width: 100%;
-    background: var(--nectar-highlight, var(--nectar-text, white));
+    background: var(--kiro-highlight, var(--kiro-text, white));
     border-radius: 20px;
 }
 
@@ -687,7 +687,7 @@ body,
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--nectar-text, rgba(255, 255, 255, 0.95));
+    color: var(--kiro-text, rgba(255, 255, 255, 0.95));
     margin-top: 10px;
 }
 
@@ -713,7 +713,7 @@ body,
 
 .side-right .volume-notch {
   border-radius: 18px 0 0 18px;
-  border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
   border-right: none;
   border-top: none;
   border-bottom: none;
@@ -734,16 +734,16 @@ body,
   -webkit-mask-image: radial-gradient(circle at 0px 0px, transparent 12px, black 13px);
   mask-image: radial-gradient(circle at 0px 0px, transparent 12px, black 13px);
   background:
-    radial-gradient(circle at 0px 0px, transparent 12px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
-    var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    radial-gradient(circle at 0px 0px, transparent 12px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
+    var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }
 
 .side-right .volume-notch-flares::after {
   -webkit-mask-image: radial-gradient(circle at 0px 13px, transparent 12px, black 13px);
   mask-image: radial-gradient(circle at 0px 13px, transparent 12px, black 13px);
   background:
-    radial-gradient(circle at 0px 13px, transparent 12px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
-    var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    radial-gradient(circle at 0px 13px, transparent 12px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
+    var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }
 
 .side-right .volume-notch-content-group {
@@ -762,7 +762,7 @@ body,
 
 .side-left .brightness-notch {
   border-radius: 0 18px 18px 0;
-  border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
   border-left: none;
 }
 
@@ -776,14 +776,14 @@ body,
   -webkit-mask-image: radial-gradient(circle at 13px 0px, transparent 12px, black 13px);
   mask-image: radial-gradient(circle at 13px 0px, transparent 12px, black 13px);
   background:
-    radial-gradient(circle at 13px 0px, transparent 12px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
-    var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    radial-gradient(circle at 13px 0px, transparent 12px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
+    var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }
 
 .side-left .brightness-notch::after {
   -webkit-mask-image: radial-gradient(circle at 13px 13px, transparent 12px, black 13px);
   mask-image: radial-gradient(circle at 13px 13px, transparent 12px, black 13px);
   background:
-    radial-gradient(circle at 13px 13px, transparent 12px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--nectar-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
-    var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    radial-gradient(circle at 13px 13px, transparent 12px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
+    var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }

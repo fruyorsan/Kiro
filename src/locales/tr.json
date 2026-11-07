@@ -219,7 +219,7 @@
   "about.diagnostics.group": "Tanılama",
   "about.diagnostics.desc": "Hata bildirimine yapıştırmak için sistem bilgisi ve son günlük",
   "about.logs": "Günlük Klasörünü Aç",
-  "about.logs.desc": "nectar.log ve diagnostics.txt",
+  "about.logs.desc": "kiro.log ve diagnostics.txt",
   "about.hitbox": "Dock ve Çentik Tıklamalarını Günlüğe Kaydet",
   "about.hitbox.desc": "Açın, dock ve çentik üzerinde birkaç saniye gezinin, ardından tanılamayı kopyalayın. Yeniden başlatmada sıfırlanır",
   "about.danger.group": "Tehlikeli Bölge",

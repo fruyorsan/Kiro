@@ -14,7 +14,7 @@ const ROWS: { state: SoundState; icon: typeof Bell }[] = [
 
 export function AgentSounds() {
   const t = useT();
-  const [enabled, setEnabled] = useState(() => localStorage.getItem("nectar-agent-sounds") !== "false");
+  const [enabled, setEnabled] = useState(() => localStorage.getItem("kiro-agent-sounds") !== "false");
   const [custom, setCustom] = useState<string[]>([]);
   const refresh = () => invoke<string[]>("agent_sound_custom").then(setCustom).catch(() => { });
 
@@ -27,8 +27,8 @@ export function AgentSounds() {
   const toggle = () => {
     const next = !enabled;
     setEnabled(next);
-    localStorage.setItem("nectar-agent-sounds", String(next));
-    invoke("save_setting", { key: "nectar-agent-sounds", value: String(next) }).catch(() => { });
+    localStorage.setItem("kiro-agent-sounds", String(next));
+    invoke("save_setting", { key: "kiro-agent-sounds", value: String(next) }).catch(() => { });
   };
 
   return (

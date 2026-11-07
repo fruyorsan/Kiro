@@ -70,19 +70,19 @@ img {
     /* No pointer-events: none here — the pill itself needs to receive mouse */
 }
 
-.nectar {
+.kiro {
     display: flex;
     align-items: center;
     justify-content: flex-start;
     position: relative;
-    --notch-bg: var(--nectar-bg, rgba(0, 0, 0, 0.8));
+    --notch-bg: var(--kiro-bg, rgba(0, 0, 0, 0.8));
     /* Progress fills / visualizer bars. Inline override from the album-art tint
        on the same element replaces it with the extracted accent. */
-    --music-accent: var(--nectar-highlight, var(--nectar-text, white));
+    --music-accent: var(--kiro-highlight, var(--kiro-text, white));
     background: var(--notch-bg);
     border-radius: 0 0 18px 18px;
     border: none;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     pointer-events: auto;
     cursor: default;
     padding: 0px 12px;
@@ -103,8 +103,8 @@ img {
     transition: background 0.3s ease;
 }
 
-.nectar.expanded {
-    --notch-bg: var(--nectar-bg-expanded, rgba(0, 0, 0, 0.92));
+.kiro.expanded {
+    --notch-bg: var(--kiro-bg-expanded, rgba(0, 0, 0, 0.92));
 }
 
 .main-row {
@@ -213,8 +213,8 @@ img {
 }
 
 /* Concave top corners ("bridge" to screen edge) */
-.nectar.is-impacted::before,
-.nectar.is-impacted::after {
+.kiro.is-impacted::before,
+.kiro.is-impacted::after {
     content: "";
     position: absolute;
     top: 0;
@@ -225,13 +225,13 @@ img {
     transition: background-color 0.3s ease;
 }
 
-.nectar.is-impacted::before {
+.kiro.is-impacted::before {
     left: -13px;
     -webkit-mask-image: radial-gradient(circle at 0% 100%, transparent 12.5px, black 13px);
     mask-image: radial-gradient(circle at 0% 100%, transparent 12.5px, black 13px);
 }
 
-.nectar.is-impacted::after {
+.kiro.is-impacted::after {
     right: -13px;
     -webkit-mask-image: radial-gradient(circle at 100% 100%, transparent 12.5px, black 13px);
     mask-image: radial-gradient(circle at 100% 100%, transparent 12.5px, black 13px);
@@ -250,7 +250,7 @@ img {
     gap: 4px;
     margin-left: 8px;
     padding-left: 9px;
-    border-left: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.12));
+    border-left: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.12));
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
@@ -266,25 +266,25 @@ img {
     font-weight: 600;
     letter-spacing: 0.4px;
     text-transform: uppercase;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.6));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.6));
 }
 
 .time-secondary-value {
     font-size: 13px;
     font-weight: 500;
     letter-spacing: 0.3px;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.65));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.65));
     transition: color 0.2s ease;
 }
 
 .time-secondary:hover .time-secondary-value {
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
 }
 
 .time-secondary-shift {
     font-size: 9px;
     font-weight: 600;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.6));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.6));
 }
 
 .time-flip-container {
@@ -303,7 +303,7 @@ img {
 }
 
 .time-flip-container:hover .time {
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.8));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.8));
 }
 
 .time-flip-container:active {
@@ -315,7 +315,7 @@ img {
     font-weight: 500;
     letter-spacing: 0.3px;
     line-height: 1;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     backface-visibility: hidden;
     position: absolute;
     transition: color 0.2s ease;
@@ -363,7 +363,7 @@ img {
     display: flex;
     align-items: center;
     gap: 5px;
-    color: var(--nectar-text, rgba(255, 255, 255, 0.9));
+    color: var(--kiro-text, rgba(255, 255, 255, 0.9));
 }
 
 .passive-feature .label {
@@ -419,7 +419,7 @@ img {
     width: 3px;
     height: 100%;
     background: var(--music-accent);
-    box-shadow: 0 0 8px var(--nectar-border, rgba(255, 255, 255, 0.3));
+    box-shadow: 0 0 8px var(--kiro-border, rgba(255, 255, 255, 0.3));
     border-radius: 2px;
     transform-origin: center;
     will-change: transform;
@@ -671,7 +671,7 @@ img {
     flex-direction: row;
     /* Side-by-Side */
     gap: 16px;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     box-sizing: border-box;
     border-radius: 0 0 28px 28px;
     overflow: hidden;
@@ -690,7 +690,7 @@ img {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    border-left: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.1));
+    border-left: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
     padding-left: 16px;
 }
 
@@ -733,8 +733,8 @@ img {
 }
 
 .calendar-day.today {
-    background: var(--nectar-highlight, var(--nectar-text, white));
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, black));
+    background: var(--kiro-highlight, var(--kiro-text, white));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
     font-weight: 600;
 }
 
@@ -760,7 +760,7 @@ img {
     background: transparent;
     border: none;
     border-radius: 4px;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     cursor: pointer;
 }
 
@@ -781,7 +781,7 @@ img {
 
 .cal-open:hover {
     opacity: 1;
-    background: color-mix(in srgb, var(--nectar-text, white) 22%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 22%, transparent);
 }
 
 .cal-today {
@@ -790,13 +790,13 @@ img {
     margin-right: 2px;
     font-size: 10px;
     font-weight: 600;
-    background: color-mix(in srgb, var(--nectar-text, white) 14%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 14%, transparent);
 }
 
 .cal-nav:hover,
 .cal-today:hover {
     opacity: 1;
-    background: color-mix(in srgb, var(--nectar-text, white) 22%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 22%, transparent);
 }
 
 .cal-views {
@@ -805,7 +805,7 @@ img {
     padding: 2px;
     margin-bottom: 6px;
     border-radius: 7px;
-    background: color-mix(in srgb, var(--nectar-text, white) 9%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 9%, transparent);
 }
 
 .cal-views button {
@@ -814,7 +814,7 @@ img {
     background: transparent;
     border: none;
     border-radius: 5px;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     font-size: 10px;
     font-weight: 500;
     opacity: 0.55;
@@ -829,8 +829,8 @@ img {
 .cal-views button.active {
     opacity: 1;
     font-weight: 600;
-    background: var(--nectar-highlight, var(--nectar-text, white));
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, black));
+    background: var(--kiro-highlight, var(--kiro-text, white));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
 }
 
 .calendar-container.with-agenda .calendar-day {
@@ -851,29 +851,29 @@ img {
 }
 
 .calendar-day.has-events:not(.today) {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nectar-text, white) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kiro-text, white) 16%, transparent);
 }
 
 .calendar-day.lvl-1:not(.today) {
-    background: color-mix(in srgb, var(--nectar-text, white) 12%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 12%, transparent);
 }
 
 .calendar-day.lvl-2:not(.today) {
-    background: color-mix(in srgb, var(--nectar-text, white) 22%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 22%, transparent);
 }
 
 .calendar-day.lvl-3:not(.today) {
-    background: color-mix(in srgb, var(--nectar-text, white) 32%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 32%, transparent);
 }
 
 .calendar-day.selected:not(.today) {
-    background: color-mix(in srgb, var(--nectar-text, white) 36%, transparent);
-    box-shadow: 0 0 0 2px var(--nectar-text, white);
+    background: color-mix(in srgb, var(--kiro-text, white) 36%, transparent);
+    box-shadow: 0 0 0 2px var(--kiro-text, white);
     font-weight: 700;
 }
 
 .calendar-day.selected.today {
-    box-shadow: 0 0 0 2px var(--nectar-bg-expanded, black), 0 0 0 3.5px var(--nectar-highlight, var(--nectar-text, white));
+    box-shadow: 0 0 0 2px var(--kiro-bg-expanded, black), 0 0 0 3.5px var(--kiro-highlight, var(--kiro-text, white));
 }
 
 .event-dots {
@@ -907,7 +907,7 @@ img {
     background: transparent;
     border: none;
     padding: 0;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     cursor: pointer;
 }
 
@@ -917,15 +917,15 @@ img {
     gap: 4px;
     padding: 2px 8px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--nectar-text, white) 20%, transparent);
-    color: var(--nectar-text, white);
+    background: color-mix(in srgb, var(--kiro-text, white) 20%, transparent);
+    color: var(--kiro-text, white);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
 
 .agenda-title:hover {
-    background: color-mix(in srgb, var(--nectar-text, white) 30%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 30%, transparent);
 }
 
 .agenda-more:hover {
@@ -945,7 +945,7 @@ img {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--c, var(--nectar-text, white));
+    background: var(--c, var(--kiro-text, white));
 }
 
 .agenda-time {
@@ -1016,17 +1016,17 @@ img {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     text-align: left;
     cursor: pointer;
 }
 
 .cal-week-row:hover {
-    background: color-mix(in srgb, var(--nectar-text, white) 8%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 8%, transparent);
 }
 
 .cal-week-row.today {
-    background: color-mix(in srgb, var(--nectar-text, white) 12%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 12%, transparent);
 }
 
 .cal-week-label {
@@ -1053,8 +1053,8 @@ img {
 .cal-week-row.today .cal-week-label b {
     padding: 0 5px;
     border-radius: 999px;
-    background: var(--nectar-highlight, var(--nectar-text, white));
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, black));
+    background: var(--kiro-highlight, var(--kiro-text, white));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
 }
 
 .cal-week-events {
@@ -1160,7 +1160,7 @@ img {
     background: transparent;
     border: none;
     padding: 0;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
@@ -1210,13 +1210,13 @@ img {
 }
 
 .timer-btn.primary {
-    background: var(--nectar-highlight, var(--nectar-text, white));
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, black));
+    background: var(--kiro-highlight, var(--kiro-text, white));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
 }
 
 .timer-btn.secondary {
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.1));
-    color: var(--nectar-text, white);
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.1));
+    color: var(--kiro-text, white);
 }
 
 .timer-presets-new {
@@ -1229,19 +1229,19 @@ img {
 .preset-btn-small {
     padding: 6px;
     border-radius: 6px;
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.05));
-    border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.1));
-    color: var(--nectar-text, white);
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
+    color: var(--kiro-text, white);
     font-size: 10px;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .preset-btn-small:hover {
-    background: var(--nectar-border, rgba(255, 255, 255, 0.15));
+    background: var(--kiro-border, rgba(255, 255, 255, 0.15));
 }
 
-.nectar.calendar-mode {
+.kiro.calendar-mode {
     padding-top: 4px;
     border-radius: 0 0 28px 28px !important;
 }
@@ -1335,7 +1335,7 @@ img {
 .premium-title {
     font-size: 14.5px;
     font-weight: 600;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     white-space: nowrap;
     letter-spacing: -0.15px;
     display: inline-block;
@@ -1354,7 +1354,7 @@ img {
 .premium-artist {
     font-size: 12px;
     font-weight: 400;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.55));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.55));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1382,7 +1382,7 @@ img {
 .sleek-btn {
     background: none;
     border: none;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     cursor: pointer;
     padding: 8px;
     display: flex;
@@ -1539,7 +1539,7 @@ img {
     border: none;
     border-radius: 50%;
     background: transparent;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     opacity: 0.6;
     cursor: pointer;
     transition: opacity 0.15s ease, background 0.15s ease;
@@ -1574,7 +1574,7 @@ img {
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     border-radius: 0 0 18px 18px;
     overflow: hidden;
 }
@@ -1593,8 +1593,8 @@ img {
     gap: 8px;
     padding: 6px 10px;
     border-radius: 11px;
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.04));
-    border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.02));
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.02));
     cursor: pointer;
     transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
@@ -1603,7 +1603,7 @@ img {
 }
 
 .cc-pill-tile:hover {
-    background: var(--nectar-border, rgba(255, 255, 255, 0.08));
+    background: var(--kiro-border, rgba(255, 255, 255, 0.08));
     transform: translateY(-0.5px);
 }
 
@@ -1618,8 +1618,8 @@ img {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.08));
-    color: var(--nectar-text, rgba(255, 255, 255, 0.9));
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.08));
+    color: var(--kiro-text, rgba(255, 255, 255, 0.9));
     transition: all 0.15s ease;
 }
 
@@ -1637,32 +1637,32 @@ img {
 .cc-pill-title {
     font-size: 11px;
     font-weight: 600;
-    color: var(--nectar-text, rgba(255, 255, 255, 0.9));
+    color: var(--kiro-text, rgba(255, 255, 255, 0.9));
 }
 
 .cc-pill-status {
     font-size: 9.5px;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.4));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.4));
     font-weight: 500;
 }
 
 /* Active Monochrome pill states */
 .cc-pill-tile.active {
-    background: var(--nectar-highlight, var(--nectar-text, rgba(255, 255, 255, 0.95)));
-    border-color: var(--nectar-highlight, var(--nectar-text, rgba(255, 255, 255, 0.95)));
+    background: var(--kiro-highlight, var(--kiro-text, rgba(255, 255, 255, 0.95)));
+    border-color: var(--kiro-highlight, var(--kiro-text, rgba(255, 255, 255, 0.95)));
 }
 
 .cc-pill-tile.active .cc-pill-title {
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, rgba(0, 0, 0, 0.9)));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, rgba(0, 0, 0, 0.9)));
 }
 
 .cc-pill-tile.active .cc-pill-status {
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, rgba(0, 0, 0, 0.5)));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, rgba(0, 0, 0, 0.5)));
 }
 
 .cc-pill-tile.active .cc-pill-icon-wrapper {
-    background: var(--nectar-group-bg, rgba(0, 0, 0, 0.08));
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, #000));
+    background: var(--kiro-group-bg, rgba(0, 0, 0, 0.08));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, #000));
 }
 
 /* Circular Actions Row */
@@ -1678,9 +1678,9 @@ img {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.04));
-    border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.02));
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.7));
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.02));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.7));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1689,8 +1689,8 @@ img {
 }
 
 .cc-circular-btn:hover {
-    background: var(--nectar-border, rgba(255, 255, 255, 0.1));
-    color: var(--nectar-text, #fff);
+    background: var(--kiro-border, rgba(255, 255, 255, 0.1));
+    color: var(--kiro-text, #fff);
     transform: translateY(-1px);
 }
 
@@ -1699,14 +1699,14 @@ img {
 }
 
 .cc-circular-btn.active {
-    background: var(--nectar-highlight, var(--nectar-text, #ffffff));
-    border-color: var(--nectar-highlight, var(--nectar-text, #ffffff));
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, #000000));
-    box-shadow: 0 2px 8px var(--nectar-border, rgba(255, 255, 255, 0.1));
+    background: var(--kiro-highlight, var(--kiro-text, #ffffff));
+    border-color: var(--kiro-highlight, var(--kiro-text, #ffffff));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, #000000));
+    box-shadow: 0 2px 8px var(--kiro-border, rgba(255, 255, 255, 0.1));
 }
 
 .cc-circular-btn.active:hover {
-    background: color-mix(in srgb, var(--nectar-highlight, var(--nectar-text, #ffffff)) 88%, transparent);
+    background: color-mix(in srgb, var(--kiro-highlight, var(--kiro-text, #ffffff)) 88%, transparent);
 }
 
 /* Classic Sliders Area */
@@ -1733,7 +1733,7 @@ img {
     width: 88px;
     font-size: 11px;
     font-weight: 600;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.65));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.65));
 }
 
 .cc-classic-slider-label svg {
@@ -1746,7 +1746,7 @@ img {
     flex: 1;
     height: 6px;
     border-radius: 3px;
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.08));
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.08));
     position: relative;
     display: flex;
     align-items: center;
@@ -1754,11 +1754,11 @@ img {
 }
 
 .cc-classic-slider-row:hover .cc-classic-slider-track {
-    background: var(--nectar-border, rgba(255, 255, 255, 0.12));
+    background: var(--kiro-border, rgba(255, 255, 255, 0.12));
 }
 
 .cc-classic-fill {
-    background: var(--nectar-highlight, var(--nectar-text, rgba(255, 255, 255, 0.9)));
+    background: var(--kiro-highlight, var(--kiro-text, rgba(255, 255, 255, 0.9)));
     border-radius: 3px;
     height: 100%;
     position: absolute;
@@ -1769,8 +1769,8 @@ img {
 }
 
 .cc-classic-slider-row:hover .cc-classic-fill {
-    background: var(--nectar-highlight, var(--nectar-text, #ffffff));
-    box-shadow: 0 0 4px var(--nectar-border, rgba(255, 255, 255, 0.15));
+    background: var(--kiro-highlight, var(--kiro-text, #ffffff));
+    box-shadow: 0 0 4px var(--kiro-border, rgba(255, 255, 255, 0.15));
 }
 
 .cc-classic-percentage {
@@ -1778,12 +1778,12 @@ img {
     text-align: right;
     font-size: 9px;
     font-weight: 600;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.55));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.55));
     font-variant-numeric: tabular-nums;
 }
 
 .cc-classic-slider-row:hover .cc-classic-percentage {
-    color: var(--nectar-text, rgba(255, 255, 255, 0.85));
+    color: var(--kiro-text, rgba(255, 255, 255, 0.85));
 }
 
 .cc-classic-input {
@@ -1800,22 +1800,22 @@ img {
 
 /* Light Mode overrides for Notch App components */
 .light-mode .power-pulse-content .label {
-    color: var(--nectar-text);
+    color: var(--kiro-text);
 }
 
 .light-mode .bottom-row {
-    border-top: 1px solid var(--nectar-border);
+    border-top: 1px solid var(--kiro-border);
 }
 
 .light-mode .marquee-content {
-    color: var(--nectar-text);
+    color: var(--kiro-text);
 }
 
 .light-mode .music-controls svg,
 .light-mode .notch-status-icons svg,
 .light-mode .weather-notch svg {
-    stroke: var(--nectar-text);
-    color: var(--nectar-text);
+    stroke: var(--kiro-text);
+    color: var(--kiro-text);
 }
 
 .light-mode .volume-slider-bar,
@@ -1832,7 +1832,7 @@ img {
 
 
 .light-mode .cc-classic-slider-row svg {
-    color: var(--nectar-text);
+    color: var(--kiro-text);
 }
 
 /* ===== Immersive Media Player (iPhone Dynamic Island style) ===== */
@@ -1916,7 +1916,7 @@ img {
 .cmp-title {
     font-size: 15px;
     font-weight: 600;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     white-space: nowrap;
     letter-spacing: -0.2px;
     line-height: 1.2;
@@ -1936,7 +1936,7 @@ img {
 .cmp-artist {
     font-size: 12px;
     font-weight: 400;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.5));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.5));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1952,7 +1952,7 @@ img {
 .cmp-btn {
     background: none;
     border: none;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     cursor: pointer;
     padding: 5px;
     display: flex;
@@ -2008,7 +2008,7 @@ img {
 .cmp-time {
     font-size: 11px;
     font-weight: 500;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.5));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.5));
     min-width: 30px;
     text-align: center;
     font-variant-numeric: tabular-nums;
@@ -2144,7 +2144,7 @@ img {
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.15s ease;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.6));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.6));
     font-size: 12px;
 }
 
@@ -2153,7 +2153,7 @@ img {
 }
 
 .cmp-output-item.active {
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
 }
 
 .cmp-output-name {
@@ -2179,7 +2179,7 @@ img {
     width: 100%;
     padding: 2px;
     border-radius: 7px;
-    background: color-mix(in srgb, var(--nectar-text, white) 9%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 9%, transparent);
 }
 
 .clock-tabs button {
@@ -2188,7 +2188,7 @@ img {
     background: transparent;
     border: none;
     border-radius: 5px;
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     font-size: 10px;
     font-weight: 500;
     opacity: 0.55;
@@ -2203,8 +2203,8 @@ img {
 .clock-tabs button.active {
     opacity: 1;
     font-weight: 600;
-    background: var(--nectar-highlight, var(--nectar-text, white));
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, black));
+    background: var(--kiro-highlight, var(--kiro-text, white));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
 }
 
 .timer-time-precise {
@@ -2233,20 +2233,20 @@ img {
     box-sizing: border-box;
     padding: 6px 8px;
     border-radius: 6px;
-    border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.12));
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.05));
-    color: var(--nectar-text, white);
+    border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.12));
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+    color: var(--kiro-text, white);
     font-size: 10px;
     outline: none;
 }
 
 .timer-custom input::placeholder {
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
     opacity: 0.35;
 }
 
 .timer-custom input:focus {
-    border-color: var(--nectar-text, white);
+    border-color: var(--kiro-text, white);
 }
 
 .timer-custom.invalid input {
@@ -2257,8 +2257,8 @@ img {
     padding: 6px 10px;
     border-radius: 6px;
     border: none;
-    background: var(--nectar-highlight, var(--nectar-text, white));
-    color: var(--nectar-on-highlight, var(--nectar-bg-expanded, black));
+    background: var(--kiro-highlight, var(--kiro-text, white));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
     font-size: 10px;
     font-weight: 700;
     cursor: pointer;
@@ -2284,7 +2284,7 @@ img {
     font-variant-numeric: tabular-nums;
     padding: 2px 6px;
     border-radius: 4px;
-    background: color-mix(in srgb, var(--nectar-text, white) 8%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 8%, transparent);
 }
 
 .sw-lap span:first-child {
@@ -2299,16 +2299,16 @@ img {
 
 .cv-root { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; gap: 6px; }
 .cv-header { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.cv-title { flex: 1; font-size: 12px; font-weight: 600; color: var(--nectar-text, rgba(255, 255, 255, 0.9)); }
-.cv-back, .cv-icon-btn { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--nectar-group-bg, rgba(255, 255, 255, 0.08)); color: var(--nectar-text, rgba(255, 255, 255, 0.9)); cursor: pointer; padding: 0; }
-.cv-back:hover, .cv-icon-btn:hover { background: var(--nectar-border, rgba(255, 255, 255, 0.16)); }
-.cv-link, .cv-action { border: 0; background: none; font-size: 10px; color: var(--nectar-text, rgba(255, 255, 255, 0.55)); cursor: pointer; padding: 2px 4px; border-radius: 6px; }
-.cv-link:hover, .cv-action:hover { background: var(--nectar-group-bg, rgba(255, 255, 255, 0.1)); }
+.cv-title { flex: 1; font-size: 12px; font-weight: 600; color: var(--kiro-text, rgba(255, 255, 255, 0.9)); }
+.cv-back, .cv-icon-btn { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--kiro-group-bg, rgba(255, 255, 255, 0.08)); color: var(--kiro-text, rgba(255, 255, 255, 0.9)); cursor: pointer; padding: 0; }
+.cv-back:hover, .cv-icon-btn:hover { background: var(--kiro-border, rgba(255, 255, 255, 0.16)); }
+.cv-link, .cv-action { border: 0; background: none; font-size: 10px; color: var(--kiro-text, rgba(255, 255, 255, 0.55)); cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+.cv-link:hover, .cv-action:hover { background: var(--kiro-group-bg, rgba(255, 255, 255, 0.1)); }
 .cv-action.danger { color: #ff6b6b; }
 .cv-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; scrollbar-width: thin; }
-.cv-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; background: var(--nectar-group-bg, rgba(255, 255, 255, 0.04)); cursor: pointer; flex-shrink: 0; font-size: 12px; color: var(--nectar-text, rgba(255, 255, 255, 0.9)); }
-.cv-row:hover { background: var(--nectar-border, rgba(255, 255, 255, 0.09)); }
-.cv-row.connected { outline: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.25)); }
+.cv-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; background: var(--kiro-group-bg, rgba(255, 255, 255, 0.04)); cursor: pointer; flex-shrink: 0; font-size: 12px; color: var(--kiro-text, rgba(255, 255, 255, 0.9)); }
+.cv-row:hover { background: var(--kiro-border, rgba(255, 255, 255, 0.09)); }
+.cv-row.connected { outline: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.25)); }
 .cv-row.busy { opacity: 0.6; }
 .cv-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cv-status { font-size: 10px; opacity: 0.6; flex-shrink: 0; }
@@ -2319,29 +2319,29 @@ img {
 .cv-hint { font-size: 11px; opacity: 0.55; text-align: center; padding: 14px 0; }
 .cv-error { font-size: 10px; color: #ff8a8a; flex-shrink: 0; }
 .cv-password { display: flex; gap: 6px; padding: 4px 0 2px; }
-.cv-password input { flex: 1; min-width: 0; height: 24px; border-radius: 7px; border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.15)); background: rgba(0, 0, 0, 0.25); color: inherit; padding: 0 8px; font-size: 11px; outline: none; }
-.cv-password button { height: 24px; border: 0; border-radius: 7px; padding: 0 10px; font-size: 11px; cursor: pointer; background: var(--nectar-text, rgba(255, 255, 255, 0.9)); color: var(--nectar-bg-expanded, #000); }
+.cv-password input { flex: 1; min-width: 0; height: 24px; border-radius: 7px; border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.15)); background: rgba(0, 0, 0, 0.25); color: inherit; padding: 0 8px; font-size: 11px; outline: none; }
+.cv-password button { height: 24px; border: 0; border-radius: 7px; padding: 0 10px; font-size: 11px; cursor: pointer; background: var(--kiro-text, rgba(255, 255, 255, 0.9)); color: var(--kiro-bg-expanded, #000); }
 .cv-password button:disabled { opacity: 0.4; cursor: default; }
 .cc-pill-more { margin-left: auto; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; font-size: 14px; line-height: 1; opacity: 0.55; flex-shrink: 0; }
 .cc-pill-more:hover { opacity: 1; background: rgba(128, 128, 128, 0.25); }
-.cc-pill-more { color: var(--nectar-text, rgba(255, 255, 255, 0.9)); }
-.cc-pill-tile.active .cc-pill-more { color: var(--nectar-on-highlight, var(--nectar-bg-expanded, rgba(0, 0, 0, 0.9))); opacity: 0.7; }
+.cc-pill-more { color: var(--kiro-text, rgba(255, 255, 255, 0.9)); }
+.cc-pill-tile.active .cc-pill-more { color: var(--kiro-on-highlight, var(--kiro-bg-expanded, rgba(0, 0, 0, 0.9))); opacity: 0.7; }
 .cc-pill-tile.active .cc-pill-more:hover { opacity: 1; background: rgba(0, 0, 0, 0.12); }
 .widget-tip { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 20; padding: 5px 10px; border-radius: 6px; background: rgba(0, 0, 0, 0.85); color: white; font-size: 11px; font-weight: 500; white-space: nowrap; pointer-events: none; animation: widget-tip-in 0.12s ease-out 0.25s backwards; }
 @keyframes widget-tip-in { from { opacity: 0; } to { opacity: 1; } }
-.tour-content { position: absolute; top: 36px; left: 0; width: 100%; height: calc(100% - 36px); box-sizing: border-box; z-index: 2; padding: 8px 18px 14px; display: flex; flex-direction: column; gap: 8px; color: var(--nectar-text, rgba(255, 255, 255, 0.9)); pointer-events: auto; }
+.tour-content { position: absolute; top: 36px; left: 0; width: 100%; height: calc(100% - 36px); box-sizing: border-box; z-index: 2; padding: 8px 18px 14px; display: flex; flex-direction: column; gap: 8px; color: var(--kiro-text, rgba(255, 255, 255, 0.9)); pointer-events: auto; }
 .tour-head { display: flex; align-items: center; gap: 8px; }
-.tour-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--nectar-group-bg, rgba(255, 255, 255, 0.1)); flex-shrink: 0; }
+.tour-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--kiro-group-bg, rgba(255, 255, 255, 0.1)); flex-shrink: 0; }
 .tour-title { flex: 1; font-size: 13px; font-weight: 600; }
 .tour-skip { border: 0; background: none; color: inherit; opacity: 0.55; font-size: 11px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
-.tour-skip:hover { opacity: 1; background: var(--nectar-group-bg, rgba(255, 255, 255, 0.1)); }
+.tour-skip:hover { opacity: 1; background: var(--kiro-group-bg, rgba(255, 255, 255, 0.1)); }
 .tour-text { margin: 0; flex: 1; font-size: 12px; line-height: 1.45; opacity: 0.85; white-space: normal; }
 .tour-foot { display: flex; align-items: center; gap: 6px; }
 .tour-dots { display: flex; gap: 5px; flex: 1; }
 .tour-dots i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.25; }
 .tour-dots i.on { opacity: 0.95; }
-.tour-btn { height: 26px; border: 0; border-radius: 8px; padding: 0 14px; font-size: 12px; font-weight: 600; cursor: pointer; background: var(--nectar-text, rgba(255, 255, 255, 0.92)); color: var(--nectar-bg-expanded, #000); }
-.tour-btn.ghost { background: var(--nectar-group-bg, rgba(255, 255, 255, 0.1)); color: inherit; font-weight: 500; }
+.tour-btn { height: 26px; border: 0; border-radius: 8px; padding: 0 14px; font-size: 12px; font-weight: 600; cursor: pointer; background: var(--kiro-text, rgba(255, 255, 255, 0.92)); color: var(--kiro-bg-expanded, #000); }
+.tour-btn.ghost { background: var(--kiro-group-bg, rgba(255, 255, 255, 0.1)); color: inherit; font-weight: 500; }
 .tour-btn:hover { filter: brightness(0.9); }
 .cc-classic-slider-label.clickable { cursor: pointer; border-radius: 6px; }
 .cc-classic-slider-label.clickable:hover { background: rgba(255, 255, 255, 0.08); }
@@ -2369,7 +2369,7 @@ img {
 }
 
 .notch-progress-fill {
-    stroke: var(--nectar-text, white);
+    stroke: var(--kiro-text, white);
     opacity: 0.7;
     transition: stroke-dasharray 1s linear, opacity 0.3s ease;
 }
@@ -2649,7 +2649,7 @@ img {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    color: var(--nectar-text, #fff);
+    color: var(--kiro-text, #fff);
 }
 
 .agent-panel-head {
@@ -2682,7 +2682,7 @@ img {
 
 .agent-panel-text span {
     font-size: 12px;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.65));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.65));
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -2700,13 +2700,13 @@ img {
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.12));
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.12));
     color: inherit;
 }
 
 .agent-btn.primary {
-    background: var(--nectar-text, #fff);
-    color: var(--nectar-bg-expanded, #000);
+    background: var(--kiro-text, #fff);
+    color: var(--kiro-bg-expanded, #000);
 }
 
 .agent-btn:disabled {
@@ -2731,8 +2731,8 @@ img {
 .agent-ask code {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.7));
-    background: var(--nectar-group-bg, rgba(255, 255, 255, 0.08));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.7));
+    background: var(--kiro-group-bg, rgba(255, 255, 255, 0.08));
     border-radius: 6px;
     padding: 4px 7px;
     white-space: nowrap;
@@ -2757,15 +2757,15 @@ img {
     align-items: center;
     margin-left: 8px;
     padding-left: 9px;
-    border-left: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.12));
+    border-left: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.12));
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.02em;
-    color: var(--nectar-text-muted, rgba(255, 255, 255, 0.65));
+    color: var(--kiro-text-muted, rgba(255, 255, 255, 0.65));
     cursor: pointer;
     white-space: nowrap;
 }
 
 .time-date:hover {
-    color: var(--nectar-text, white);
+    color: var(--kiro-text, white);
 }

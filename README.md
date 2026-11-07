@@ -35,12 +35,12 @@ Licensed under GPL-3.0-only, like the original.
 
 <p><strong>A notch and a dock for Windows.<br />Physics-animated, reactive, and built to replace your taskbar.</strong></p>
 
-[![Latest release](https://shieldcn.dev/badge/release-v1.8.0.svg?logo=lu:Tag)](https://github.com/kua8/Nectar/releases/latest)
-[![Downloads](https://badges.kua8.lol/downloads.svg)](https://github.com/kua8/Nectar/releases)
-[![License](https://shieldcn.dev/github/license/kua8/Nectar.svg?logo=lu:Scale)](LICENSE)
+[![Latest release](https://shieldcn.dev/badge/release-v1.8.1.svg?logo=lu:Tag)](https://github.com/fruyorsan/Kiro/releases/latest)
+[![Downloads](https://badges.kua8.lol/downloads.svg)](https://github.com/fruyorsan/Kiro/releases)
+[![License](https://shieldcn.dev/github/license/fruyorsan/Kiro.svg?logo=lu:Scale)](LICENSE)
 [![Platform](https://shieldcn.dev/badge/platform-Windows.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)
 
-[**Download**](https://github.com/kua8/Nectar/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Report a bug](https://github.com/kua8/Nectar/issues/new/choose)
+[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
 
 <br />
 
@@ -90,7 +90,7 @@ Licensed under GPL-3.0-only, like the original.
 
 ## Install
 
-1. Download the installer from the [latest release](https://github.com/kua8/Nectar/releases/latest).
+1. Download the installer from the [latest release](https://github.com/fruyorsan/Kiro/releases/latest).
 2. Choose **Just me** or **All users**. An all-users install asks for administrator permission once.
 3. Nectar starts with a short splash, then the notch and dock appear together.
 
@@ -101,7 +101,7 @@ Nectar updates itself: a green dot on the notch means an update is ready, and **
 
 <br />
 
-Only download Nectar from the [releases page](https://github.com/kua8/Nectar/releases) of this repository. Each release has a `SHA256SUMS.txt`. Compare the output of this command with the matching line:
+Only download Kiro from the [releases page](https://github.com/fruyorsan/Kiro/releases) of this repository. Each release has a `SHA256SUMS.txt`. Compare the output of this command with the matching line:
 
 ```powershell
 Get-FileHash .\Nectar-Setup-<version>.exe -Algorithm SHA256
@@ -176,7 +176,7 @@ External monitors are controlled over DDC/CI. Turn DDC/CI on in the monitor's ow
 
 <br />
 
-Open **Settings › About › Copy Diagnostics** and paste the result into a [bug report](https://github.com/kua8/Nectar/issues/new/choose). It includes your versions, monitors and recent log.
+Open **Settings › About › Copy Diagnostics** and paste the result into a [bug report](https://github.com/fruyorsan/Kiro/issues/new/choose). It includes your versions, monitors and recent log.
 
 </details>
 
@@ -185,7 +185,7 @@ Open **Settings › About › Copy Diagnostics** and paste the result into a [bu
 You need [Rust](https://rustup.rs/) and [Bun](https://bun.sh/) on Windows.
 
 ```bash
-git clone https://github.com/kua8/Nectar.git
+git clone https://github.com/fruyorsan/Kiro.git
 cd Nectar
 bun install
 bun run tauri dev
@@ -203,7 +203,7 @@ These are ideas under consideration, not promises.
 - [x] Stable and pre-release update channels
 - [x] Multiple media sessions, Task Manager in the dock menu, show desktop corner
 
-See the [open issues](https://github.com/kua8/Nectar/issues) for requests and known bugs.
+See the [open issues](https://github.com/fruyorsan/Kiro/issues) for requests and known bugs.
 
 ## Built with
 

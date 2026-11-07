@@ -131,7 +131,7 @@ pub fn set_ignore_cursor_events(window: Window, ignore: bool) {
 #[tauri::command]
 pub async fn init_dock(app: AppHandle, mode: String) {
     // Backend guard: bail if dock is disabled in settings.
-    let enabled = get_setting_str(&app, "nectar-dock-enabled")
+    let enabled = get_setting_str(&app, "kiro-dock-enabled")
         .unwrap_or_else(|| "true".to_string());
     if enabled != "true" {
         if let Some(dock_win) = app.get_webview_window("dock") {
@@ -228,7 +228,7 @@ pub async fn toggle_dock(app: AppHandle, enable: bool) {
     if let Some(dock_win) = app.get_webview_window("dock") {
         if enable {
             // Saved dock mode, smart on a fresh install.
-            let saved_mode = crate::utils::get_setting_str(&app, "nectar-dock-mode")
+            let saved_mode = crate::utils::get_setting_str(&app, "kiro-dock-mode")
                 .unwrap_or_else(|| "smart".to_string());
             init_dock(app.clone(), saved_mode).await;
         } else {
@@ -255,7 +255,7 @@ pub async fn toggle_dock(app: AppHandle, enable: bool) {
 
 #[tauri::command]
 pub async fn sync_appbar(app: AppHandle) {
-    let dock_enabled = get_setting_str(&app, "nectar-dock-enabled")
+    let dock_enabled = get_setting_str(&app, "kiro-dock-enabled")
         .unwrap_or_else(|| "true".to_string());
     for (label, win) in app.webview_windows() {
         if crate::state::is_notch_label(&label) {
@@ -279,7 +279,7 @@ pub async fn sync_appbar(app: AppHandle) {
 pub async fn change_dock_mode(app: AppHandle, mode: String) {
     // A disabled dock keeps the mode in settings (init_dock applies it on re-enable),
     // just don't show it now.
-    let enabled = get_setting_str(&app, "nectar-dock-enabled").unwrap_or_else(|| "true".to_string());
+    let enabled = get_setting_str(&app, "kiro-dock-enabled").unwrap_or_else(|| "true".to_string());
     if enabled != "true" {
         return;
     }
@@ -415,10 +415,10 @@ pub async fn init_notch_window(app: &AppHandle, main_win: tauri::WebviewWindow, 
         let m_pos = monitor.position();
         let m_size = monitor.size();
         let scale = monitor.scale_factor();
-        let nectar_scale = crate::utils::get_nectar_scale(app);
-        let target_height = (420.0 * nectar_scale * scale) as u32;
+        let kiro_scale = crate::utils::get_kiro_scale(app);
+        let target_height = (420.0 * kiro_scale * scale) as u32;
         if bottom_right {
-            let target_width = (crate::services::NOTCH_BR_WINDOW_W * nectar_scale * scale) as u32;
+            let target_width = (crate::services::NOTCH_BR_WINDOW_W * kiro_scale * scale) as u32;
             let _ = main_win.set_position(tauri::PhysicalPosition::new(
                 m_pos.x + m_size.width as i32 - target_width as i32,
                 m_pos.y + m_size.height as i32 - target_height as i32,
@@ -613,9 +613,9 @@ pub async fn open_app(app: AppHandle, window: Window, app_name: String, args: Op
     }
 
     if app_name == "search" {
-        let legacy = get_setting_str(&app, "nectar-legacy-mode").is_some_and(|v| v == "true");
-        let provider = if legacy { String::new() } else { get_setting_str(&app, "nectar-dock-search-provider").unwrap_or_default() };
-        let shortcut = get_setting_str(&app, "nectar-dock-search-shortcut");
+        let legacy = get_setting_str(&app, "kiro-legacy-mode").is_some_and(|v| v == "true");
+        let provider = if legacy { String::new() } else { get_setting_str(&app, "kiro-dock-search-provider").unwrap_or_default() };
+        let shortcut = get_setting_str(&app, "kiro-dock-search-shortcut");
         let label = window.label().to_string();
         tauri::async_runtime::spawn_blocking(move || {
             if let Some(note) = crate::launchers::open_search(&provider, shortcut.as_deref()) {
@@ -653,7 +653,7 @@ pub async fn open_app(app: AppHandle, window: Window, app_name: String, args: Op
         return;
     }
 
-    if app_name == "nectar-settings" {
+    if app_name == "kiro-settings" {
         open_settings_window(app);
         return;
     }
@@ -1679,7 +1679,7 @@ pub async fn get_app_icon(app: AppHandle, path: String, name: Option<String>, hw
     let cache_path = cache_dir.join("icons_cache.json");
     let cache_key = get_cache_key(&path, name.as_deref());
 
-    if path == "nectar-settings" {
+    if path == "kiro-settings" {
         if let Some(icon) = app.default_window_icon() {
             if let Some(rgba) = image::RgbaImage::from_raw(icon.width(), icon.height(), icon.rgba().to_vec()) {
                 let mut out = Vec::new();
@@ -2011,7 +2011,7 @@ pub async fn load_pinned_apps(app: AppHandle) -> Vec<AppInfo> {
         AppInfo { name: "File Explorer".into(), path: "C:\\Windows\\explorer.exe".into(), icon: None, is_running: false, hwnd: None, executable: Some("explorer.exe".into()), all_hwnds: None, args: None },
         AppInfo { name: "Microsoft Edge".into(), path: "msedge".into(), icon: None, is_running: false, hwnd: None, executable: Some("msedge.exe".into()), all_hwnds: None, args: None },
         AppInfo { name: "Notepad".into(), path: "notepad.exe".into(), icon: None, is_running: false, hwnd: None, executable: Some("notepad.exe".into()), all_hwnds: None, args: None },
-        AppInfo { name: "Settings".into(), path: "nectar-settings".into(), icon: None, is_running: false, hwnd: None, executable: None, all_hwnds: None, args: None },
+        AppInfo { name: "Settings".into(), path: "kiro-settings".into(), icon: None, is_running: false, hwnd: None, executable: None, all_hwnds: None, args: None },
     ]
 }
 
@@ -2866,7 +2866,7 @@ pub fn get_perf_mode() -> bool {
 }
 
 #[tauri::command]
-pub async fn quit_nectar(handle: AppHandle) {
+pub async fn quit_kiro(handle: AppHandle) {
     restore_taskbar_and_exit(&handle);
 }
 
@@ -2893,7 +2893,7 @@ fn registered_uninstaller() -> Option<std::path::PathBuf> {
 }
 
 #[tauri::command]
-pub async fn uninstall_nectar(handle: AppHandle) -> Result<(), String> {
+pub async fn uninstall_kiro(handle: AppHandle) -> Result<(), String> {
     crate::uninstall_registry::heal_uninstall_registration();
 
     let mut uninstaller = std::env::current_exe()
@@ -2946,7 +2946,7 @@ pub fn get_hitbox_logging() -> bool {
 }
 
 #[tauri::command]
-pub async fn restart_nectar(handle: AppHandle) {
+pub async fn restart_kiro(handle: AppHandle) {
     #[cfg(debug_assertions)]
     {
         // Dev just reloads the pages. Leave SHUTTING_DOWN alone here or the hooks stay off.
@@ -2957,17 +2957,17 @@ pub async fn restart_nectar(handle: AppHandle) {
     }
     #[cfg(not(debug_assertions))]
     {
-        relaunch_nectar(&handle);
+        relaunch_kiro(&handle);
     }
 }
 
 /// Relaunches the process. Also used for webview crashes, reloading pages can't fix those.
-pub fn relaunch_nectar(handle: &AppHandle) {
+pub fn relaunch_kiro(handle: &AppHandle) {
     SHUTTING_DOWN.store(true, Ordering::Relaxed);
     if let Some(w) = handle.get_webview_window("main") { if let Ok(hwnd) = w.hwnd() { unregister_appbar_native(hwnd); } }
     if let Some(w) = handle.get_webview_window("dock") { if let Ok(hwnd) = w.hwnd() { unregister_appbar_native(hwnd); } }
     if let Some(w) = handle.get_webview_window("settings") { let _ = w.destroy(); }
-    std::env::set_var("NECTAR_RESTARTING", "1");
+    std::env::set_var("KIRO_RESTARTING", "1");
     close_single_instance_handles();
     handle.restart();
 }
@@ -3100,8 +3100,8 @@ pub async fn close_window(hwnd: isize) {
 }
 
 fn re_register_appbars(app: &AppHandle, settings: &HashMap<String, serde_json::Value>) {
-    let notch_fixed = settings.get("nectar-notch-mode").map(|v| v.as_str() == Some("fixed")).unwrap_or(true);
-    let dock_fixed = settings.get("nectar-dock-mode").map(|v| v.as_str() == Some("fixed")).unwrap_or(false);
+    let notch_fixed = settings.get("kiro-notch-mode").map(|v| v.as_str() == Some("fixed")).unwrap_or(true);
+    let dock_fixed = settings.get("kiro-dock-mode").map(|v| v.as_str() == Some("fixed")).unwrap_or(false);
     for (label, win) in app.webview_windows() {
         if crate::state::is_notch_label(&label) && notch_fixed {
             crate::services::register_appbar(win);
@@ -3112,11 +3112,11 @@ fn re_register_appbars(app: &AppHandle, settings: &HashMap<String, serde_json::V
 }
 
 const MONITOR_TARGETING_KEYS: [&str; 5] = [
-    "nectar-dock-monitor-mode",
-    "nectar-dock-monitor-id",
-    "nectar-notch-monitor-mode",
-    "nectar-notch-monitor-id",
-    "nectar-dock-enabled",
+    "kiro-dock-monitor-mode",
+    "kiro-dock-monitor-id",
+    "kiro-notch-monitor-mode",
+    "kiro-notch-monitor-id",
+    "kiro-dock-enabled",
 ];
 
 #[tauri::command]
@@ -3133,16 +3133,16 @@ pub fn save_setting(app: AppHandle, key: String, value: serde_json::Value) -> Re
 
     let _ = app.emit("settings-changed", serde_json::json!({ "key": &key, "value": &settings[&key] }));
 
-    if key == "nectar-scale" {
+    if key == "kiro-scale" {
         re_register_appbars(&app, &settings);
     }
 
-    if key == "nectar-agent-api" {
+    if key == "kiro-agent-api" {
         let on = matches!(settings[&key].as_str(), Some("true")) || settings[&key].as_bool() == Some(true);
         std::thread::spawn(move || crate::agent_api::set_hooks(on));
     }
 
-    if key == "nectar-language" {
+    if key == "kiro-language" {
         crate::i18n::refresh_tray_labels(&app);
     }
 
@@ -3150,14 +3150,14 @@ pub fn save_setting(app: AppHandle, key: String, value: serde_json::Value) -> Re
         let app_clone = app.clone();
         tauri::async_runtime::spawn(async move {
             crate::monitors::sync_monitor_windows(&app_clone);
-            let dock_enabled = crate::utils::get_setting_str(&app_clone, "nectar-dock-enabled")
+            let dock_enabled = crate::utils::get_setting_str(&app_clone, "kiro-dock-enabled")
                 .map(|v| v == "true").unwrap_or(true);
             if dock_enabled {
-                let dock_mode = crate::utils::get_setting_str(&app_clone, "nectar-dock-mode")
+                let dock_mode = crate::utils::get_setting_str(&app_clone, "kiro-dock-mode")
                     .unwrap_or_else(|| "smart".to_string());
                 change_dock_mode(app_clone.clone(), dock_mode).await;
             }
-            let notch_mode = crate::utils::get_setting_str(&app_clone, "nectar-notch-mode")
+            let notch_mode = crate::utils::get_setting_str(&app_clone, "kiro-notch-mode")
                 .unwrap_or_else(|| "fixed".to_string());
             change_notch_mode(app_clone.clone(), notch_mode).await;
         });
@@ -3554,7 +3554,7 @@ pub async fn get_battery_saver_state() -> Result<bool, String> {
 #[tauri::command]
 pub async fn set_battery_saver(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        const PREV: &str = "nectar-battery-saver-prev-overlay";
+        const PREV: &str = "kiro-battery-saver-prev-overlay";
         if enabled {
             if let Some(current) = active_overlay_guid() {
                 if current != OVERLAY_BEST_EFFICIENCY && current != OVERLAY_BALANCED {
@@ -3972,7 +3972,7 @@ pub async fn export_settings_dialog(app: AppHandle) -> Result<bool, String> {
         .dialog()
         .file()
         .set_title("Export Kiro Settings")
-        .set_file_name("nectar-settings.json")
+        .set_file_name("kiro-settings.json")
         .add_filter("JSON", &["json"])
         .blocking_save_file();
 
@@ -4033,7 +4033,7 @@ pub fn import_settings(app: AppHandle, settings: String) -> Result<(), String> {
         let _ = app.emit("settings-changed", serde_json::json!({ "key": key, "value": value }));
     }
 
-    if imported.get("nectar-scale").is_some() {
+    if imported.get("kiro-scale").is_some() {
         re_register_appbars(&app, &imported);
     }
 
@@ -4425,7 +4425,7 @@ pub fn shelf_text_file(text: String) -> Option<String> {
         .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '_' })
         .collect();
     let name = if name.trim().is_empty() { "note".to_string() } else { name.trim().to_string() };
-    let dir = std::env::temp_dir().join("nectar-shelf");
+    let dir = std::env::temp_dir().join("kiro-shelf");
     std::fs::create_dir_all(&dir).ok()?;
     let path = dir.join(format!("{name}.txt"));
     std::fs::write(&path, text).ok()?;

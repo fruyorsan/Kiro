@@ -3,10 +3,10 @@
   --cw-bar: rgba(255, 255, 255, 0.02);
   --cw-bar-line: rgba(255, 255, 255, 0.05);
   --cw-title: rgba(255, 255, 255, 0.7);
-  --cw-text: var(--nectar-text, #f5f5f5);
-  --cw-muted: var(--nectar-text-muted, #999999);
+  --cw-text: var(--kiro-text, #f5f5f5);
+  --cw-muted: var(--kiro-text-muted, #999999);
   --cw-line: rgba(255, 255, 255, 0.08);
-  --cw-inverse: var(--nectar-bg-expanded, #000);
+  --cw-inverse: var(--kiro-bg-expanded, #000);
 }
 
 .light-mode {
@@ -281,8 +281,8 @@ button {
 .cw-segment button.active {
   opacity: 1;
   font-weight: 700;
-  background: var(--nectar-highlight, var(--cw-text));
-  color: var(--nectar-on-highlight, var(--cw-inverse));
+  background: var(--kiro-highlight, var(--cw-text));
+  color: var(--kiro-on-highlight, var(--cw-inverse));
 }
 
 .cw-nav {
@@ -492,8 +492,8 @@ button {
 }
 
 .cw-daynum.today {
-  background: var(--nectar-highlight, var(--cw-text));
-  color: var(--nectar-on-highlight, var(--cw-inverse));
+  background: var(--kiro-highlight, var(--cw-text));
+  color: var(--kiro-on-highlight, var(--cw-inverse));
   font-weight: 700;
 }
 

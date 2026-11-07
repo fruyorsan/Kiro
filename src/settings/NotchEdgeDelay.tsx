@@ -10,14 +10,14 @@ const DELAYS = ["0", "200", "400", "700", "1000", "2000"];
 export function NotchEdgeDelay() {
   const t = useT();
   const [value, setValue] = useState(() => {
-    const saved = localStorage.getItem("nectar-notch-edge-delay");
+    const saved = localStorage.getItem("kiro-notch-edge-delay");
     return saved && DELAYS.includes(saved) ? saved : "200";
   });
 
   const change = (next: string) => {
     setValue(next);
-    localStorage.setItem("nectar-notch-edge-delay", next);
-    invoke("save_setting", { key: "nectar-notch-edge-delay", value: next }).catch(() => { });
+    localStorage.setItem("kiro-notch-edge-delay", next);
+    invoke("save_setting", { key: "kiro-notch-edge-delay", value: next }).catch(() => { });
   };
 
   return (

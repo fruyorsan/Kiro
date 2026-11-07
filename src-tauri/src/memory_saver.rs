@@ -197,14 +197,14 @@ pub fn trim_tree() -> usize {
 fn ram_saver_enabled(app: &tauri::AppHandle) -> bool {
     // On by default: a taskbar replacement should not be the reason a game
     // stutters. Users can turn it off in Settings > General.
-    crate::utils::get_setting_str(app, "nectar-ram-saver")
+    crate::utils::get_setting_str(app, "kiro-ram-saver")
         .map(|v| v != "false")
         .unwrap_or(true)
 }
 
 pub fn start_reclaim_worker(app: tauri::AppHandle) {
     std::thread::Builder::new()
-        .name("nectar-mem".into())
+        .name("kiro-mem".into())
         .spawn(move || {
             let mut last_trim = 0i64;
 

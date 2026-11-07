@@ -114,7 +114,7 @@ fn write_store(app: &AppHandle, store: &Store) {
 }
 
 fn interval_minutes(app: &AppHandle) -> i64 {
-    crate::utils::get_setting_str(app, "nectar-caldav-interval")
+    crate::utils::get_setting_str(app, "kiro-caldav-interval")
         .and_then(|s| s.parse::<i64>().ok())
         .unwrap_or(DEFAULT_INTERVAL_MIN)
         .max(MIN_INTERVAL_MIN)

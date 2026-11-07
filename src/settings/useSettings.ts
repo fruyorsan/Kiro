@@ -9,6 +9,7 @@ import { useSettingsSync } from "../hooks/useSettingsSync";
 import { hexToHsl, DEFAULT_ACCENT_COLOR, STYLE_OPACITY, type ThemePreset } from "../theme";
 import { DEFAULT_DUAL_CLOCK_ZONE } from "../dualClock";
 import type { WidgetConfig, MonitorInfo, MonitorMode } from "./types";
+import { hydrateStorageFromSettings } from "../migrate";
 
 function saveSetting(key: string, value: string) {
   localStorage.setItem(key, value);
@@ -35,68 +36,68 @@ export function useSettings() {
   const [timerEnabled, setTimerEnabled] = useState(true);
   const [timerSoundEnabled, setTimerSoundEnabled] = useState(true);
   const [notchTimerProgress, setNotchTimerProgress] = useState(
-    () => localStorage.getItem("nectar-notch-timer-progress") !== "false"
+    () => localStorage.getItem("kiro-notch-timer-progress") !== "false"
   );
   const [stopwatchEnabled, setStopwatchEnabled] = useState(true);
   const [dualClockEnabled, setDualClockEnabled] = useState(
-    () => localStorage.getItem("nectar-dual-clock-enabled") === "true"
+    () => localStorage.getItem("kiro-dual-clock-enabled") === "true"
   );
   const [dualClockZone, setDualClockZone] = useState(
-    () => localStorage.getItem("nectar-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE
+    () => localStorage.getItem("kiro-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE
   );
   const [dualClockLabel, setDualClockLabel] = useState(
-    () => localStorage.getItem("nectar-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE
+    () => localStorage.getItem("kiro-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE
   );
   const [musicModeEnabled, setMusicModeEnabled] = useState(true);
   const [musicCompactNotch, setMusicCompactNotch] = useState(true);
-  const [agentApi, setAgentApi] = useState(() => localStorage.getItem("nectar-agent-api") === "true");
+  const [agentApi, setAgentApi] = useState(() => localStorage.getItem("kiro-agent-api") === "true");
   const [notchScrollVolume, setNotchScrollVolume] = useState(
-    () => localStorage.getItem("nectar-notch-scroll-volume") === "true"
+    () => localStorage.getItem("kiro-notch-scroll-volume") === "true"
   );
   const [rememberMode, setRememberMode] = useState(
-    () => localStorage.getItem("nectar-notch-remember-mode") === "true"
+    () => localStorage.getItem("kiro-notch-remember-mode") === "true"
   );
   const [shelfPersist, setShelfPersist] = useState(
-    () => localStorage.getItem("nectar-shelf-persist") === "true"
+    () => localStorage.getItem("kiro-shelf-persist") === "true"
   );
   const [volumeOverlayEnabled, setVolumeOverlayEnabled] = useState(true);
   const [volumeEdgeEnabled, setVolumeEdgeEnabled] = useState(
-    () => localStorage.getItem("nectar-volume-edge-enabled") !== "false"
+    () => localStorage.getItem("kiro-volume-edge-enabled") !== "false"
   );
   const [brightnessOverlayEnabled, setBrightnessOverlayEnabled] = useState(
-    () => localStorage.getItem("nectar-brightness-overlay-enabled") !== "false"
+    () => localStorage.getItem("kiro-brightness-overlay-enabled") !== "false"
   );
   const [brightnessEdgeEnabled, setBrightnessEdgeEnabled] = useState(
-    () => localStorage.getItem("nectar-brightness-edge-enabled") !== "false"
+    () => localStorage.getItem("kiro-brightness-edge-enabled") !== "false"
   );
   const [mediaAmbienceEnabled, setMediaAmbienceEnabled] = useState(true);
   const [mediaCompactGlowEnabled, setMediaCompactGlowEnabled] = useState(true);
   const [mediaArtworkThemeEnabled, setMediaArtworkThemeEnabled] = useState(
-    () => localStorage.getItem("nectar-media-artwork-theme") === "true"
+    () => localStorage.getItem("kiro-media-artwork-theme") === "true"
   );
   const [mediaLayout, setMediaLayout] = useState<"classic" | "compact">(
-    () => (localStorage.getItem("nectar-media-layout") as "classic" | "compact") || "classic"
+    () => (localStorage.getItem("kiro-media-layout") as "classic" | "compact") || "classic"
   );
   const [cornersEnabled, setCornersEnabled] = useState(
-    () => localStorage.getItem("nectar-corners-enabled") === "true"
+    () => localStorage.getItem("kiro-corners-enabled") === "true"
   );
   const [showUpdateIndicator, setShowUpdateIndicator] = useState(
-    () => localStorage.getItem("nectar-show-update-indicator") !== "false"
+    () => localStorage.getItem("kiro-show-update-indicator") !== "false"
   );
   const [timeFormat24h, setTimeFormat24h] = useState(
-    () => localStorage.getItem("nectar-time-format-24h") === "true"
+    () => localStorage.getItem("kiro-time-format-24h") !== "false"
   );
   const [legacyMode, setLegacyMode] = useState(
-    () => localStorage.getItem("nectar-legacy-mode") === "true"
+    () => localStorage.getItem("kiro-legacy-mode") === "true"
   );
   const [ramSaver, setRamSaver] = useState(
-    () => localStorage.getItem("nectar-ram-saver") !== "false"
+    () => localStorage.getItem("kiro-ram-saver") !== "false"
   );
   const [autoPerf, setAutoPerf] = useState(
-    () => localStorage.getItem("nectar-auto-perf") !== "false"
+    () => localStorage.getItem("kiro-auto-perf") !== "false"
   );
   const [ramUltra, setRamUltra] = useState(
-    () => localStorage.getItem("nectar-ram-ultra") === "true"
+    () => localStorage.getItem("kiro-ram-ultra") === "true"
   );
   const [tempUnitFahrenheit, setTempUnitFahrenheit] = useState(false);
   const [cityName, setCityName] = useState("");
@@ -116,119 +117,119 @@ export function useSettings() {
   // Kiro's own launcher is the default; the provider rows below only apply
   // when it is switched off.
   const [dockSearchNative, setDockSearchNative] = useState(
-    () => localStorage.getItem("nectar-dock-search-native") !== "false"
+    () => localStorage.getItem("kiro-dock-search-native") !== "false"
   );
   const [dockSearchProvider, setDockSearchProvider] = useState(
-    () => localStorage.getItem("nectar-dock-search-provider") || "windows"
+    () => localStorage.getItem("kiro-dock-search-provider") || "windows"
   );
   const [dockSearchShortcut, setDockSearchShortcut] = useState(
-    () => localStorage.getItem("nectar-dock-search-shortcut") || ""
+    () => localStorage.getItem("kiro-dock-search-shortcut") || ""
   );
   const [dockCalendarEnabled, setDockCalendarEnabled] = useState(true);
   const [dockTray, setDockTray] = useState(
-    () => localStorage.getItem("nectar-dock-tray-enabled") !== "false"
+    () => localStorage.getItem("kiro-dock-tray-enabled") !== "false"
   );
   const [dockShowDesktop, setDockShowDesktop] = useState(
-    () => localStorage.getItem("nectar-dock-show-desktop-corner") === "true"
+    () => localStorage.getItem("kiro-dock-show-desktop-corner") === "true"
   );
   const [panelControlCenter, setPanelControlCenter] = useState(
-    () => localStorage.getItem("nectar-panel-control-center-enabled") !== "false"
+    () => localStorage.getItem("kiro-panel-control-center-enabled") !== "false"
   );
   const [panelOrder, setPanelOrder] = useState<PanelId[] | null>(
-    () => parsePanelOrder(localStorage.getItem("nectar-panel-order"))
+    () => parsePanelOrder(localStorage.getItem("kiro-panel-order"))
   );
   const [ccLayout, setCcLayout] = useState<CcLayout>(
-    () => parseCcLayout(localStorage.getItem("nectar-cc-layout"))
+    () => parseCcLayout(localStorage.getItem("kiro-cc-layout"))
   );
   const [panelShelf, setPanelShelf] = useState(
-    () => localStorage.getItem("nectar-panel-shelf-enabled") !== "false"
+    () => localStorage.getItem("kiro-panel-shelf-enabled") !== "false"
   );
   const [dockTaskView, setDockTaskView] = useState(
-    () => localStorage.getItem("nectar-dock-taskview-enabled") === "true"
+    () => localStorage.getItem("kiro-dock-taskview-enabled") === "true"
   );
   const [dockRecycle, setDockRecycle] = useState(
-    () => localStorage.getItem("nectar-dock-recycle-enabled") === "true"
+    () => localStorage.getItem("kiro-dock-recycle-enabled") === "true"
   );
-  const [dockDrives, setDockDrives] = useState<string[]>(() => parseDrives(localStorage.getItem("nectar-dock-drives")));
+  const [dockDrives, setDockDrives] = useState<string[]>(() => parseDrives(localStorage.getItem("kiro-dock-drives")));
   const [dockIconOnly, setDockIconOnly] = useState(
-    () => localStorage.getItem("nectar-dock-icon-only") === "true"
+    () => localStorage.getItem("kiro-dock-icon-only") === "true"
   );
   const [startIcon, setStartIcon] = useState(
-    () => localStorage.getItem("nectar-start-icon") || "default"
+    () => localStorage.getItem("kiro-start-icon") || "default"
   );
   const [dockAdaptive, setDockAdaptive] = useState(
-    () => localStorage.getItem("nectar-dock-adaptive") === "true"
+    () => localStorage.getItem("kiro-dock-adaptive") === "true"
   );
   const [dockDesktopPersist, setDockDesktopPersist] = useState(
-    () => localStorage.getItem("nectar-dock-desktop-persist") !== "false"
+    () => localStorage.getItem("kiro-dock-desktop-persist") !== "false"
   );
   const [notchPosition, setNotchPosition] = useState(
-    () => localStorage.getItem("nectar-notch-position") || "top"
+    () => localStorage.getItem("kiro-notch-position") || "bottom-right"
   );
   const [dockWinNumberEnabled, setDockWinNumberEnabled] = useState(
-    () => localStorage.getItem("nectar-dock-win-number-enabled") !== "false"
+    () => localStorage.getItem("kiro-dock-win-number-enabled") !== "false"
   );
   const [dockMixedReorder, setDockMixedReorder] = useState(
-    () => localStorage.getItem("nectar-dock-mixed-reorder") === "true"
+    () => localStorage.getItem("kiro-dock-mixed-reorder") === "true"
   );
   const [dockMode, setDockMode] = useState(() => {
-    const raw = localStorage.getItem("nectar-dock-mode") || "smart";
+    const raw = localStorage.getItem("kiro-dock-mode") || "smart";
     return raw === "auto-hide" ? "smart" : raw;
   });
   const [notchMode, setNotchMode] = useState("fixed");
   const [dockMonitorMode, setDockMonitorMode] = useState<MonitorMode>(
-    () => (localStorage.getItem("nectar-dock-monitor-mode") as MonitorMode) || "primary"
+    () => (localStorage.getItem("kiro-dock-monitor-mode") as MonitorMode) || "primary"
   );
   const [dockMonitorId, setDockMonitorId] = useState(
-    () => localStorage.getItem("nectar-dock-monitor-id") || ""
+    () => localStorage.getItem("kiro-dock-monitor-id") || ""
   );
   const [notchMonitorMode, setNotchMonitorMode] = useState<MonitorMode>(
-    () => (localStorage.getItem("nectar-notch-monitor-mode") as MonitorMode) || "primary"
+    () => (localStorage.getItem("kiro-notch-monitor-mode") as MonitorMode) || "primary"
   );
   const [notchMonitorId, setNotchMonitorId] = useState(
-    () => localStorage.getItem("nectar-notch-monitor-id") || ""
+    () => localStorage.getItem("kiro-notch-monitor-id") || ""
   );
   const [dockModeByMonitor, setDockModeByMonitor] = useState<Record<string, string>>({});
   const [notchModeByMonitor, setNotchModeByMonitor] = useState<Record<string, string>>({});
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
   const [lowBatteryThreshold, setLowBatteryThreshold] = useState(20);
-  const [hasBattery, setHasBattery] = useState(() => localStorage.getItem("nectar-has-battery") !== "false");
+  const [hasBattery, setHasBattery] = useState(() => localStorage.getItem("kiro-has-battery") !== "false");
   const [updateStatus, setUpdateStatus] = useState<
     "idle" | "checking" | "available" | "uptodate" | "error" | "downloading" | "installing"
   >("idle");
   const [updateVersion, setUpdateVersion] = useState("");
   const [appVersion, setAppVersion] = useState("");
   const [autoUpdate, setAutoUpdate] = useState(
-    () => localStorage.getItem("nectar-auto-update") === "true"
+    () => localStorage.getItem("kiro-auto-update") === "true"
   );
   const [prereleaseChannel, setPrereleaseChannel] = useState(
-    () => localStorage.getItem("nectar-update-channel") === "prerelease"
+    () => localStorage.getItem("kiro-update-channel") === "prerelease"
   );
   const [scale, setScale] = useState(
-    () => parseFloat(localStorage.getItem("nectar-scale") || "1.0")
+    () => parseFloat(localStorage.getItem("kiro-scale") || "1.0")
   );
   const [themeMode, setThemeMode] = useState(
-    () => localStorage.getItem("nectar-theme-mode") || "dark"
+    () => localStorage.getItem("kiro-theme-mode") || "dark"
   );
   const [themeColor, setThemeColor] = useState(
-    () => localStorage.getItem("nectar-theme-color") || "#007aff"
+    () => localStorage.getItem("kiro-theme-color") || "#007aff"
   );
   const [themeOpacity, setThemeOpacity] = useState(() => {
-    const val = localStorage.getItem("nectar-theme-opacity");
+    const val = localStorage.getItem("kiro-theme-opacity");
     return val !== null ? parseFloat(val) : 0.8;
   });
   const [themeSaturation, setThemeSaturation] = useState(() => {
-    const val = localStorage.getItem("nectar-theme-saturation");
+    const val = localStorage.getItem("kiro-theme-saturation");
     return val !== null ? parseFloat(val) : 0.5;
   });
   const [themeBrightness, setThemeBrightness] = useState(() => {
-    const val = localStorage.getItem("nectar-theme-brightness");
+    const val = localStorage.getItem("kiro-theme-brightness");
     return val !== null ? parseFloat(val) : 0.15;
   });
-  const [themeStyle, setThemeStyle] = useState(() => localStorage.getItem("nectar-theme-style") || "solid");
-  const [themeAccent, setThemeAccent] = useState(() => localStorage.getItem("nectar-theme-accent") || "mono");
+  const [themeStyle, setThemeStyle] = useState(() => localStorage.getItem("kiro-theme-style") || "solid");
+  const [themeAccent, setThemeAccent] = useState(() => localStorage.getItem("kiro-theme-accent") || "mono");
   const [themeAccentColor, setThemeAccentColor] = useState(
-    () => localStorage.getItem("nectar-theme-accent-color") || DEFAULT_ACCENT_COLOR
+    () => localStorage.getItem("kiro-theme-accent-color") || DEFAULT_ACCENT_COLOR
   );
   const [exportStatus, setExportStatus] = useState<"idle" | "exporting" | "success" | "error">("idle");
   const [importStatus, setImportStatus] = useState<"idle" | "importing" | "success" | "error">("idle");
@@ -240,6 +241,7 @@ export function useSettings() {
   const loadAllSettings = useCallback(async () => {
     try {
       const settings: Record<string, string> = await invoke("load_settings");
+      hydrateStorageFromSettings(settings);
       const getVal = (key: string) => {
         const val = settings[key];
         if (val !== undefined && val !== null) return String(val);
@@ -250,99 +252,99 @@ export function useSettings() {
         if (val !== null) setter(transform(val));
       };
 
-      apply(getVal("nectar-weather-enabled"), setWeatherEnabled, readBool);
-      apply(getVal("nectar-calendar-enabled"), setCalendarEnabled, readBool);
-      apply(getVal("nectar-timer-enabled") ?? getVal("nectar-calendar-enabled"), setTimerEnabled, readBool);
-      apply(getVal("nectar-timer-sound-enabled"), setTimerSoundEnabled, readBool);
-      apply(getVal("nectar-notch-timer-progress"), setNotchTimerProgress, readBool);
-      apply(getVal("nectar-stopwatch-enabled") ?? getVal("nectar-calendar-enabled"), setStopwatchEnabled, readBool);
-      apply(getVal("nectar-dual-clock-enabled"), setDualClockEnabled, readBool);
-      apply(getVal("nectar-dual-clock-zone"), setDualClockZone, (v) => v);
-      apply(getVal("nectar-dual-clock-label"), setDualClockLabel, (v) => v);
-      apply(getVal("nectar-music-mode-enabled"), setMusicModeEnabled, readBool);
-      apply(getVal("nectar-music-compact-notch"), setMusicCompactNotch, readBool);
-      apply(getVal("nectar-notch-scroll-volume"), setNotchScrollVolume, (v) => v === "true");
-      apply(getVal("nectar-agent-api"), setAgentApi, (v) => v === "true");
-      apply(getVal("nectar-shelf-persist"), setShelfPersist, (v) => v === "true");
-      apply(getVal("nectar-notch-remember-mode"), setRememberMode, (v) => v === "true");
-      apply(getVal("nectar-volume-overlay-enabled"), setVolumeOverlayEnabled, readBool);
-      apply(getVal("nectar-brightness-overlay-enabled"), setBrightnessOverlayEnabled, readBool);
-      apply(getVal("nectar-media-ambience-enabled"), setMediaAmbienceEnabled, readBool);
-      apply(getVal("nectar-media-compact-glow-enabled"), setMediaCompactGlowEnabled, readBool);
-      apply(getVal("nectar-media-artwork-theme"), setMediaArtworkThemeEnabled, (v) => v === "true");
-      apply(getVal("nectar-corners-enabled"), setCornersEnabled, readBool);
-      apply(getVal("nectar-time-format-24h"), setTimeFormat24h, readBool);
-      apply(getVal("nectar-legacy-mode"), setLegacyMode, readBool);
-      apply(getVal("nectar-show-update-indicator"), setShowUpdateIndicator, readBool);
-      apply(getVal("nectar-ram-saver"), setRamSaver, (v) => v !== "false");
-      apply(getVal("nectar-auto-perf"), setAutoPerf, (v) => v !== "false");
-      apply(getVal("nectar-ram-ultra"), setRamUltra, readBool);
-      apply(getVal("nectar-auto-update"), setAutoUpdate, readBool);
-      apply(getVal("nectar-update-channel"), setPrereleaseChannel, (v) => v === "prerelease");
-      apply(getVal("nectar-volume-edge-enabled"), setVolumeEdgeEnabled, readBool);
-      apply(getVal("nectar-brightness-edge-enabled"), setBrightnessEdgeEnabled, readBool);
-      apply(getVal("nectar-dock-enabled"), setDockEnabled, readBool);
-      apply(getVal("nectar-dock-preview-enabled"), setDockPreviewEnabled, readBool);
-      apply(getVal("nectar-dock-attention-enabled"), setDockAttentionEnabled, (v) => v !== "false");
-      apply(getVal("nectar-dock-search-enabled"), setDockSearchEnabled, readBool);
-      apply(getVal("nectar-dock-search-native"), setDockSearchNative, (v) => v !== "false");
-      apply(getVal("nectar-dock-search-provider"), setDockSearchProvider, (v) => v);
-      apply(getVal("nectar-dock-search-shortcut"), setDockSearchShortcut, (v) => v);
-      apply(getVal("nectar-dock-calendar-enabled"), setDockCalendarEnabled, readBool);
-      apply(getVal("nectar-dock-tray-enabled"), setDockTray, (v) => v !== "false");
-      apply(getVal("nectar-dock-taskview-enabled"), setDockTaskView, readBool);
-      apply(getVal("nectar-dock-show-desktop-corner"), setDockShowDesktop, readBool);
-      apply(getVal("nectar-panel-control-center-enabled"), setPanelControlCenter, (v) => v !== "false");
-      apply(getVal("nectar-panel-shelf-enabled"), setPanelShelf, (v) => v !== "false");
-      apply(getVal("nectar-panel-order"), setPanelOrder, (v) => parsePanelOrder(v));
-      apply(getVal("nectar-cc-layout"), setCcLayout, (v) => parseCcLayout(v));
-      apply(getVal("nectar-dock-recycle-enabled"), setDockRecycle, readBool);
-      apply(getVal("nectar-dock-drives"), setDockDrives, parseDrives);
-      apply(getVal("nectar-dock-icon-only"), setDockIconOnly, readBool);
-      apply(getVal("nectar-start-icon"), setStartIcon, (v) => v);
-      apply(getVal("nectar-dock-adaptive"), setDockAdaptive, readBool);
-      apply(getVal("nectar-dock-desktop-persist"), setDockDesktopPersist, (v) => v !== "false");
-      apply(getVal("nectar-notch-position"), setNotchPosition, (v) => (v === "bottom-right" ? "bottom-right" : "top"));
-      apply(getVal("nectar-dock-win-number-enabled"), setDockWinNumberEnabled, readBool);
-      apply(getVal("nectar-dock-mixed-reorder"), setDockMixedReorder, readBool);
+      apply(getVal("kiro-weather-enabled"), setWeatherEnabled, readBool);
+      apply(getVal("kiro-calendar-enabled"), setCalendarEnabled, readBool);
+      apply(getVal("kiro-timer-enabled") ?? getVal("kiro-calendar-enabled"), setTimerEnabled, readBool);
+      apply(getVal("kiro-timer-sound-enabled"), setTimerSoundEnabled, readBool);
+      apply(getVal("kiro-notch-timer-progress"), setNotchTimerProgress, readBool);
+      apply(getVal("kiro-stopwatch-enabled") ?? getVal("kiro-calendar-enabled"), setStopwatchEnabled, readBool);
+      apply(getVal("kiro-dual-clock-enabled"), setDualClockEnabled, readBool);
+      apply(getVal("kiro-dual-clock-zone"), setDualClockZone, (v) => v);
+      apply(getVal("kiro-dual-clock-label"), setDualClockLabel, (v) => v);
+      apply(getVal("kiro-music-mode-enabled"), setMusicModeEnabled, readBool);
+      apply(getVal("kiro-music-compact-notch"), setMusicCompactNotch, readBool);
+      apply(getVal("kiro-notch-scroll-volume"), setNotchScrollVolume, (v) => v === "true");
+      apply(getVal("kiro-agent-api"), setAgentApi, (v) => v === "true");
+      apply(getVal("kiro-shelf-persist"), setShelfPersist, (v) => v === "true");
+      apply(getVal("kiro-notch-remember-mode"), setRememberMode, (v) => v === "true");
+      apply(getVal("kiro-volume-overlay-enabled"), setVolumeOverlayEnabled, readBool);
+      apply(getVal("kiro-brightness-overlay-enabled"), setBrightnessOverlayEnabled, readBool);
+      apply(getVal("kiro-media-ambience-enabled"), setMediaAmbienceEnabled, readBool);
+      apply(getVal("kiro-media-compact-glow-enabled"), setMediaCompactGlowEnabled, readBool);
+      apply(getVal("kiro-media-artwork-theme"), setMediaArtworkThemeEnabled, (v) => v === "true");
+      apply(getVal("kiro-corners-enabled"), setCornersEnabled, readBool);
+      apply(getVal("kiro-time-format-24h"), setTimeFormat24h, readBool);
+      apply(getVal("kiro-legacy-mode"), setLegacyMode, readBool);
+      apply(getVal("kiro-show-update-indicator"), setShowUpdateIndicator, readBool);
+      apply(getVal("kiro-ram-saver"), setRamSaver, (v) => v !== "false");
+      apply(getVal("kiro-auto-perf"), setAutoPerf, (v) => v !== "false");
+      apply(getVal("kiro-ram-ultra"), setRamUltra, readBool);
+      apply(getVal("kiro-auto-update"), setAutoUpdate, readBool);
+      apply(getVal("kiro-update-channel"), setPrereleaseChannel, (v) => v === "prerelease");
+      apply(getVal("kiro-volume-edge-enabled"), setVolumeEdgeEnabled, readBool);
+      apply(getVal("kiro-brightness-edge-enabled"), setBrightnessEdgeEnabled, readBool);
+      apply(getVal("kiro-dock-enabled"), setDockEnabled, readBool);
+      apply(getVal("kiro-dock-preview-enabled"), setDockPreviewEnabled, readBool);
+      apply(getVal("kiro-dock-attention-enabled"), setDockAttentionEnabled, (v) => v !== "false");
+      apply(getVal("kiro-dock-search-enabled"), setDockSearchEnabled, readBool);
+      apply(getVal("kiro-dock-search-native"), setDockSearchNative, (v) => v !== "false");
+      apply(getVal("kiro-dock-search-provider"), setDockSearchProvider, (v) => v);
+      apply(getVal("kiro-dock-search-shortcut"), setDockSearchShortcut, (v) => v);
+      apply(getVal("kiro-dock-calendar-enabled"), setDockCalendarEnabled, readBool);
+      apply(getVal("kiro-dock-tray-enabled"), setDockTray, (v) => v !== "false");
+      apply(getVal("kiro-dock-taskview-enabled"), setDockTaskView, readBool);
+      apply(getVal("kiro-dock-show-desktop-corner"), setDockShowDesktop, readBool);
+      apply(getVal("kiro-panel-control-center-enabled"), setPanelControlCenter, (v) => v !== "false");
+      apply(getVal("kiro-panel-shelf-enabled"), setPanelShelf, (v) => v !== "false");
+      apply(getVal("kiro-panel-order"), setPanelOrder, (v) => parsePanelOrder(v));
+      apply(getVal("kiro-cc-layout"), setCcLayout, (v) => parseCcLayout(v));
+      apply(getVal("kiro-dock-recycle-enabled"), setDockRecycle, readBool);
+      apply(getVal("kiro-dock-drives"), setDockDrives, parseDrives);
+      apply(getVal("kiro-dock-icon-only"), setDockIconOnly, readBool);
+      apply(getVal("kiro-start-icon"), setStartIcon, (v) => v);
+      apply(getVal("kiro-dock-adaptive"), setDockAdaptive, readBool);
+      apply(getVal("kiro-dock-desktop-persist"), setDockDesktopPersist, (v) => v !== "false");
+      apply(getVal("kiro-notch-position"), setNotchPosition, (v) => (v === "bottom-right" ? "bottom-right" : "top"));
+      apply(getVal("kiro-dock-win-number-enabled"), setDockWinNumberEnabled, readBool);
+      apply(getVal("kiro-dock-mixed-reorder"), setDockMixedReorder, readBool);
 
-      apply(getVal("nectar-temp-unit"), setTempUnitFahrenheit, (v) => v === "fahrenheit");
-      apply(getVal("nectar-scale"), setScale, parseFloat);
-      apply(getVal("nectar-low-battery-threshold"), setLowBatteryThreshold, parseInt);
+      apply(getVal("kiro-temp-unit"), setTempUnitFahrenheit, (v) => v === "fahrenheit");
+      apply(getVal("kiro-scale"), setScale, parseFloat);
+      apply(getVal("kiro-low-battery-threshold"), setLowBatteryThreshold, parseInt);
 
-      apply(getVal("nectar-notch-mode"), setNotchMode, (v) => (v === "auto-hide" ? "smart" : v));
-      apply(getVal("nectar-dock-mode"), setDockMode, (v) => (v === "auto-hide" ? "smart" : v));
+      apply(getVal("kiro-notch-mode"), setNotchMode, (v) => (v === "auto-hide" ? "smart" : v));
+      apply(getVal("kiro-dock-mode"), setDockMode, (v) => (v === "auto-hide" ? "smart" : v));
 
-      apply(getVal("nectar-dock-monitor-mode"), setDockMonitorMode, (v) => v as MonitorMode);
-      apply(getVal("nectar-dock-monitor-id"), setDockMonitorId, (v) => v);
-      apply(getVal("nectar-notch-monitor-mode"), setNotchMonitorMode, (v) => v as MonitorMode);
-      apply(getVal("nectar-notch-monitor-id"), setNotchMonitorId, (v) => v);
+      apply(getVal("kiro-dock-monitor-mode"), setDockMonitorMode, (v) => v as MonitorMode);
+      apply(getVal("kiro-dock-monitor-id"), setDockMonitorId, (v) => v);
+      apply(getVal("kiro-notch-monitor-mode"), setNotchMonitorMode, (v) => v as MonitorMode);
+      apply(getVal("kiro-notch-monitor-id"), setNotchMonitorId, (v) => v);
 
-      const dockByMonVal = getVal("nectar-dock-mode-by-monitor");
+      const dockByMonVal = getVal("kiro-dock-mode-by-monitor");
       if (dockByMonVal) {
         try { setDockModeByMonitor(JSON.parse(dockByMonVal)); } catch {}
       }
-      const notchByMonVal = getVal("nectar-notch-mode-by-monitor");
+      const notchByMonVal = getVal("kiro-notch-mode-by-monitor");
       if (notchByMonVal) {
         try { setNotchModeByMonitor(JSON.parse(notchByMonVal)); } catch {}
       }
 
-      const savedCity = getVal("nectar-weather-city");
+      const savedCity = getVal("kiro-weather-city");
       if (savedCity) {
         setCityName(savedCity);
         setCityQuery(savedCity);
       }
 
-      apply(getVal("nectar-theme-mode"), setThemeMode, (v) => v);
-      apply(getVal("nectar-theme-color"), setThemeColor, (v) => v);
-      apply(getVal("nectar-theme-opacity"), setThemeOpacity, parseFloat);
-      apply(getVal("nectar-theme-saturation"), setThemeSaturation, parseFloat);
-      apply(getVal("nectar-theme-brightness"), setThemeBrightness, parseFloat);
-      apply(getVal("nectar-theme-style"), setThemeStyle, (v) => v);
-      apply(getVal("nectar-theme-accent"), setThemeAccent, (v) => v);
-      apply(getVal("nectar-theme-accent-color"), setThemeAccentColor, (v) => v);
+      apply(getVal("kiro-theme-mode"), setThemeMode, (v) => v);
+      apply(getVal("kiro-theme-color"), setThemeColor, (v) => v);
+      apply(getVal("kiro-theme-opacity"), setThemeOpacity, parseFloat);
+      apply(getVal("kiro-theme-saturation"), setThemeSaturation, parseFloat);
+      apply(getVal("kiro-theme-brightness"), setThemeBrightness, parseFloat);
+      apply(getVal("kiro-theme-style"), setThemeStyle, (v) => v);
+      apply(getVal("kiro-theme-accent"), setThemeAccent, (v) => v);
+      apply(getVal("kiro-theme-accent-color"), setThemeAccentColor, (v) => v);
 
-      const widgetsVal = getVal("nectar-status-widgets");
+      const widgetsVal = getVal("kiro-status-widgets");
       if (widgetsVal) {
         try {
           const parsed = JSON.parse(widgetsVal);
@@ -370,7 +372,7 @@ export function useSettings() {
 
     invoke<boolean>("has_battery").then((present) => {
       setHasBattery(present);
-      localStorage.setItem("nectar-has-battery", String(present));
+      localStorage.setItem("kiro-has-battery", String(present));
     }).catch(() => {});
 
     checkForUpdates(false);
@@ -389,81 +391,81 @@ export function useSettings() {
 
   // ── Sync settings from other windows ──
   useSettingsSync({
-    "nectar-dock-mode": setDockMode,
-    "nectar-notch-mode": setNotchMode,
-    "nectar-dock-monitor-mode": (v) => setDockMonitorMode(v as MonitorMode),
-    "nectar-dock-monitor-id": setDockMonitorId,
-    "nectar-notch-monitor-mode": (v) => setNotchMonitorMode(v as MonitorMode),
-    "nectar-notch-monitor-id": setNotchMonitorId,
-    "nectar-dock-mode-by-monitor": (v) => { try { setDockModeByMonitor(JSON.parse(v)); } catch {} },
-    "nectar-notch-mode-by-monitor": (v) => { try { setNotchModeByMonitor(JSON.parse(v)); } catch {} },
-    "nectar-dock-enabled": setDockEnabled,
-    "nectar-dock-tray-enabled": (v) => setDockTray(v !== false && v !== "false"),
-    "nectar-dock-taskview-enabled": setDockTaskView,
-    "nectar-dock-show-desktop-corner": setDockShowDesktop,
-    "nectar-panel-control-center-enabled": (v) => setPanelControlCenter(v !== false && v !== "false"),
-    "nectar-panel-shelf-enabled": (v) => setPanelShelf(v !== false && v !== "false"),
-    "nectar-panel-order": (v) => setPanelOrder(parsePanelOrder(v === null ? null : String(v))),
-    "nectar-cc-layout": (v) => setCcLayout(parseCcLayout(v === null ? null : String(v))),
-    "nectar-dock-recycle-enabled": setDockRecycle,
-    "nectar-dock-drives": (v) => setDockDrives(parseDrives(v)),
-    "nectar-dock-icon-only": setDockIconOnly,
-    "nectar-start-icon": setStartIcon,
-    "nectar-dock-adaptive": setDockAdaptive,
-    "nectar-dock-desktop-persist": (v) => setDockDesktopPersist(v !== false && v !== "false"),
-    "nectar-notch-position": (v) => setNotchPosition(v === "bottom-right" ? "bottom-right" : "top"),
-    "nectar-dock-win-number-enabled": setDockWinNumberEnabled,
-    "nectar-dock-preview-enabled": setDockPreviewEnabled,
-    "nectar-dock-attention-enabled": (v) => setDockAttentionEnabled(v !== false && v !== "false"),
-    "nectar-dock-search-enabled": setDockSearchEnabled,
-    "nectar-dock-search-provider": (v) => setDockSearchProvider(String(v)),
-    "nectar-dock-search-shortcut": (v) => setDockSearchShortcut(String(v)),
-    "nectar-dock-calendar-enabled": setDockCalendarEnabled,
-    "nectar-dock-mixed-reorder": setDockMixedReorder,
-    "nectar-weather-enabled": setWeatherEnabled,
-    "nectar-calendar-enabled": setCalendarEnabled,
-    "nectar-timer-enabled": setTimerEnabled,
-    "nectar-timer-sound-enabled": setTimerSoundEnabled,
-    "nectar-notch-timer-progress": setNotchTimerProgress,
-    "nectar-stopwatch-enabled": setStopwatchEnabled,
-    "nectar-dual-clock-enabled": setDualClockEnabled,
-    "nectar-dual-clock-zone": (v) => setDualClockZone(String(v)),
-    "nectar-dual-clock-label": (v) => setDualClockLabel(String(v)),
-    "nectar-music-mode-enabled": setMusicModeEnabled,
-    "nectar-music-compact-notch": setMusicCompactNotch,
-    "nectar-notch-scroll-volume": setNotchScrollVolume,
-    "nectar-agent-api": setAgentApi,
-    "nectar-shelf-persist": setShelfPersist,
-    "nectar-notch-remember-mode": setRememberMode,
-    "nectar-media-ambience-enabled": setMediaAmbienceEnabled,
-    "nectar-media-compact-glow-enabled": setMediaCompactGlowEnabled,
-    "nectar-media-artwork-theme": setMediaArtworkThemeEnabled,
-    "nectar-media-layout": setMediaLayout,
-    "nectar-corners-enabled": setCornersEnabled,
-    "nectar-show-update-indicator": setShowUpdateIndicator,
-    "nectar-time-format-24h": setTimeFormat24h,
-    "nectar-legacy-mode": setLegacyMode,
-    "nectar-ram-saver": (v) => setRamSaver(v !== false && v !== "false"),
-    "nectar-ram-ultra": (v) => setRamUltra(v === true || v === "true"),
-    "nectar-auto-perf": (v) => setAutoPerf(v !== false && v !== "false"),
-    "nectar-low-battery-threshold": setLowBatteryThreshold,
-    "nectar-scale": setScale,
-    "nectar-temp-unit": (v) => setTempUnitFahrenheit(v === "fahrenheit"),
-    "nectar-auto-update": setAutoUpdate,
-    "nectar-update-channel": (v) => setPrereleaseChannel(v === "prerelease"),
-    "nectar-volume-overlay-enabled": setVolumeOverlayEnabled,
-    "nectar-volume-edge-enabled": setVolumeEdgeEnabled,
-    "nectar-brightness-overlay-enabled": setBrightnessOverlayEnabled,
-    "nectar-brightness-edge-enabled": setBrightnessEdgeEnabled,
-    "nectar-theme-mode": setThemeMode,
-    "nectar-theme-color": setThemeColor,
-    "nectar-theme-opacity": setThemeOpacity,
-    "nectar-theme-saturation": setThemeSaturation,
-    "nectar-theme-brightness": setThemeBrightness,
-    "nectar-theme-style": (v) => setThemeStyle(String(v)),
-    "nectar-theme-accent": (v) => setThemeAccent(String(v)),
-    "nectar-theme-accent-color": (v) => setThemeAccentColor(String(v)),
-    "nectar-weather-city": (v) => {
+    "kiro-dock-mode": setDockMode,
+    "kiro-notch-mode": setNotchMode,
+    "kiro-dock-monitor-mode": (v) => setDockMonitorMode(v as MonitorMode),
+    "kiro-dock-monitor-id": setDockMonitorId,
+    "kiro-notch-monitor-mode": (v) => setNotchMonitorMode(v as MonitorMode),
+    "kiro-notch-monitor-id": setNotchMonitorId,
+    "kiro-dock-mode-by-monitor": (v) => { try { setDockModeByMonitor(JSON.parse(v)); } catch {} },
+    "kiro-notch-mode-by-monitor": (v) => { try { setNotchModeByMonitor(JSON.parse(v)); } catch {} },
+    "kiro-dock-enabled": setDockEnabled,
+    "kiro-dock-tray-enabled": (v) => setDockTray(v !== false && v !== "false"),
+    "kiro-dock-taskview-enabled": setDockTaskView,
+    "kiro-dock-show-desktop-corner": setDockShowDesktop,
+    "kiro-panel-control-center-enabled": (v) => setPanelControlCenter(v !== false && v !== "false"),
+    "kiro-panel-shelf-enabled": (v) => setPanelShelf(v !== false && v !== "false"),
+    "kiro-panel-order": (v) => setPanelOrder(parsePanelOrder(v === null ? null : String(v))),
+    "kiro-cc-layout": (v) => setCcLayout(parseCcLayout(v === null ? null : String(v))),
+    "kiro-dock-recycle-enabled": setDockRecycle,
+    "kiro-dock-drives": (v) => setDockDrives(parseDrives(v)),
+    "kiro-dock-icon-only": setDockIconOnly,
+    "kiro-start-icon": setStartIcon,
+    "kiro-dock-adaptive": setDockAdaptive,
+    "kiro-dock-desktop-persist": (v) => setDockDesktopPersist(v !== false && v !== "false"),
+    "kiro-notch-position": (v) => setNotchPosition(v === "bottom-right" ? "bottom-right" : "top"),
+    "kiro-dock-win-number-enabled": setDockWinNumberEnabled,
+    "kiro-dock-preview-enabled": setDockPreviewEnabled,
+    "kiro-dock-attention-enabled": (v) => setDockAttentionEnabled(v !== false && v !== "false"),
+    "kiro-dock-search-enabled": setDockSearchEnabled,
+    "kiro-dock-search-provider": (v) => setDockSearchProvider(String(v)),
+    "kiro-dock-search-shortcut": (v) => setDockSearchShortcut(String(v)),
+    "kiro-dock-calendar-enabled": setDockCalendarEnabled,
+    "kiro-dock-mixed-reorder": setDockMixedReorder,
+    "kiro-weather-enabled": setWeatherEnabled,
+    "kiro-calendar-enabled": setCalendarEnabled,
+    "kiro-timer-enabled": setTimerEnabled,
+    "kiro-timer-sound-enabled": setTimerSoundEnabled,
+    "kiro-notch-timer-progress": setNotchTimerProgress,
+    "kiro-stopwatch-enabled": setStopwatchEnabled,
+    "kiro-dual-clock-enabled": setDualClockEnabled,
+    "kiro-dual-clock-zone": (v) => setDualClockZone(String(v)),
+    "kiro-dual-clock-label": (v) => setDualClockLabel(String(v)),
+    "kiro-music-mode-enabled": setMusicModeEnabled,
+    "kiro-music-compact-notch": setMusicCompactNotch,
+    "kiro-notch-scroll-volume": setNotchScrollVolume,
+    "kiro-agent-api": setAgentApi,
+    "kiro-shelf-persist": setShelfPersist,
+    "kiro-notch-remember-mode": setRememberMode,
+    "kiro-media-ambience-enabled": setMediaAmbienceEnabled,
+    "kiro-media-compact-glow-enabled": setMediaCompactGlowEnabled,
+    "kiro-media-artwork-theme": setMediaArtworkThemeEnabled,
+    "kiro-media-layout": setMediaLayout,
+    "kiro-corners-enabled": setCornersEnabled,
+    "kiro-show-update-indicator": setShowUpdateIndicator,
+    "kiro-time-format-24h": setTimeFormat24h,
+    "kiro-legacy-mode": setLegacyMode,
+    "kiro-ram-saver": (v) => setRamSaver(v !== false && v !== "false"),
+    "kiro-ram-ultra": (v) => setRamUltra(v === true || v === "true"),
+    "kiro-auto-perf": (v) => setAutoPerf(v !== false && v !== "false"),
+    "kiro-low-battery-threshold": setLowBatteryThreshold,
+    "kiro-scale": setScale,
+    "kiro-temp-unit": (v) => setTempUnitFahrenheit(v === "fahrenheit"),
+    "kiro-auto-update": setAutoUpdate,
+    "kiro-update-channel": (v) => setPrereleaseChannel(v === "prerelease"),
+    "kiro-volume-overlay-enabled": setVolumeOverlayEnabled,
+    "kiro-volume-edge-enabled": setVolumeEdgeEnabled,
+    "kiro-brightness-overlay-enabled": setBrightnessOverlayEnabled,
+    "kiro-brightness-edge-enabled": setBrightnessEdgeEnabled,
+    "kiro-theme-mode": setThemeMode,
+    "kiro-theme-color": setThemeColor,
+    "kiro-theme-opacity": setThemeOpacity,
+    "kiro-theme-saturation": setThemeSaturation,
+    "kiro-theme-brightness": setThemeBrightness,
+    "kiro-theme-style": (v) => setThemeStyle(String(v)),
+    "kiro-theme-accent": (v) => setThemeAccent(String(v)),
+    "kiro-theme-accent-color": (v) => setThemeAccentColor(String(v)),
+    "kiro-weather-city": (v) => {
       setCityName(v || "");
       setCityQuery(v || "");
     },
@@ -472,7 +474,7 @@ export function useSettings() {
   // ── Listen for system accent changes (adaptive theme) ──
   useEffect(() => {
     const unlisten = listen<string>("system-accent-changed", (event) => {
-      const mode = localStorage.getItem("nectar-theme-mode") || "dark";
+      const mode = localStorage.getItem("kiro-theme-mode") || "dark";
       if (mode === "adaptive") {
         try {
           const hsl = hexToHsl(event.payload);
@@ -589,326 +591,326 @@ export function useSettings() {
   const toggleWeather = () => {
     const next = !weatherEnabled;
     setWeatherEnabled(next);
-    saveSetting("nectar-weather-enabled", String(next));
+    saveSetting("kiro-weather-enabled", String(next));
   };
 
   const toggleCalendar = () => {
     const next = !calendarEnabled;
     setCalendarEnabled(next);
-    saveSetting("nectar-calendar-enabled", String(next));
+    saveSetting("kiro-calendar-enabled", String(next));
   };
 
   const toggleTimerEnabled = () => {
     const next = !timerEnabled;
     setTimerEnabled(next);
-    saveSetting("nectar-timer-enabled", String(next));
+    saveSetting("kiro-timer-enabled", String(next));
   };
 
   const toggleTimerSound = () => {
     const next = !timerSoundEnabled;
     setTimerSoundEnabled(next);
-    saveSetting("nectar-timer-sound-enabled", String(next));
+    saveSetting("kiro-timer-sound-enabled", String(next));
   };
 
   const toggleNotchTimerProgress = () => {
     const next = !notchTimerProgress;
     setNotchTimerProgress(next);
-    saveSetting("nectar-notch-timer-progress", String(next));
+    saveSetting("kiro-notch-timer-progress", String(next));
   };
 
   const toggleStopwatchEnabled = () => {
     const next = !stopwatchEnabled;
     setStopwatchEnabled(next);
-    saveSetting("nectar-stopwatch-enabled", String(next));
+    saveSetting("kiro-stopwatch-enabled", String(next));
   };
 
   const toggleDualClock = () => {
     const next = !dualClockEnabled;
     setDualClockEnabled(next);
-    saveSetting("nectar-dual-clock-enabled", String(next));
+    saveSetting("kiro-dual-clock-enabled", String(next));
   };
 
   const selectDualClockZone = ({ label, zone }: { label: string; zone: string }) => {
     setDualClockZone(zone);
     setDualClockLabel(label);
-    saveSetting("nectar-dual-clock-zone", zone);
-    saveSetting("nectar-dual-clock-label", label);
+    saveSetting("kiro-dual-clock-zone", zone);
+    saveSetting("kiro-dual-clock-label", label);
   };
 
   const toggleMusicMode = () => {
     const next = !musicModeEnabled;
     setMusicModeEnabled(next);
-    saveSetting("nectar-music-mode-enabled", String(next));
+    saveSetting("kiro-music-mode-enabled", String(next));
   };
 
   const toggleMusicCompactNotch = () => {
     const next = !musicCompactNotch;
     setMusicCompactNotch(next);
-    saveSetting("nectar-music-compact-notch", String(next));
+    saveSetting("kiro-music-compact-notch", String(next));
   };
 
   const toggleAgentApi = () => {
     const next = !agentApi;
     setAgentApi(next);
-    saveSetting("nectar-agent-api", String(next));
+    saveSetting("kiro-agent-api", String(next));
   };
 
   const toggleNotchScrollVolume = () => {
     const next = !notchScrollVolume;
     setNotchScrollVolume(next);
-    saveSetting("nectar-notch-scroll-volume", String(next));
+    saveSetting("kiro-notch-scroll-volume", String(next));
   };
 
   const toggleRememberMode = () => {
     const next = !rememberMode;
     setRememberMode(next);
-    saveSetting("nectar-notch-remember-mode", String(next));
+    saveSetting("kiro-notch-remember-mode", String(next));
   };
 
   const toggleShelfPersist = () => {
     const next = !shelfPersist;
     setShelfPersist(next);
-    saveSetting("nectar-shelf-persist", String(next));
+    saveSetting("kiro-shelf-persist", String(next));
   };
 
   const toggleMediaLayout = (layout: "classic" | "compact") => {
     setMediaLayout(layout);
-    saveSetting("nectar-media-layout", layout);
+    saveSetting("kiro-media-layout", layout);
   };
 
   const toggleVolumeOverlay = () => {
     const next = !volumeOverlayEnabled;
     setVolumeOverlayEnabled(next);
-    saveSetting("nectar-volume-overlay-enabled", String(next));
+    saveSetting("kiro-volume-overlay-enabled", String(next));
   };
 
   const toggleVolumeEdge = () => {
     const next = !volumeEdgeEnabled;
     setVolumeEdgeEnabled(next);
-    saveSetting("nectar-volume-edge-enabled", String(next));
+    saveSetting("kiro-volume-edge-enabled", String(next));
   };
 
   const toggleBrightnessOverlay = () => {
     const next = !brightnessOverlayEnabled;
     setBrightnessOverlayEnabled(next);
-    saveSetting("nectar-brightness-overlay-enabled", String(next));
+    saveSetting("kiro-brightness-overlay-enabled", String(next));
   };
 
   const toggleBrightnessEdge = () => {
     const next = !brightnessEdgeEnabled;
     setBrightnessEdgeEnabled(next);
-    saveSetting("nectar-brightness-edge-enabled", String(next));
+    saveSetting("kiro-brightness-edge-enabled", String(next));
   };
 
   const toggleAmbience = () => {
     const next = !mediaAmbienceEnabled;
     setMediaAmbienceEnabled(next);
-    saveSetting("nectar-media-ambience-enabled", String(next));
+    saveSetting("kiro-media-ambience-enabled", String(next));
   };
 
   const toggleCompactGlow = () => {
     const next = !mediaCompactGlowEnabled;
     setMediaCompactGlowEnabled(next);
-    saveSetting("nectar-media-compact-glow-enabled", String(next));
+    saveSetting("kiro-media-compact-glow-enabled", String(next));
   };
 
   const toggleArtworkTheme = () => {
     const next = !mediaArtworkThemeEnabled;
     setMediaArtworkThemeEnabled(next);
-    saveSetting("nectar-media-artwork-theme", String(next));
+    saveSetting("kiro-media-artwork-theme", String(next));
   };
 
   const toggleCorners = () => {
     const next = !cornersEnabled;
     setCornersEnabled(next);
-    saveSetting("nectar-corners-enabled", String(next));
+    saveSetting("kiro-corners-enabled", String(next));
   };
 
   const toggleUpdateIndicator = () => {
     const next = !showUpdateIndicator;
     setShowUpdateIndicator(next);
-    saveSetting("nectar-show-update-indicator", String(next));
+    saveSetting("kiro-show-update-indicator", String(next));
   };
 
   const toggleTimeFormat24h = () => {
     const next = !timeFormat24h;
     setTimeFormat24h(next);
-    saveSetting("nectar-time-format-24h", String(next));
+    saveSetting("kiro-time-format-24h", String(next));
   };
 
   const toggleLegacyMode = () => {
     const next = !legacyMode;
     setLegacyMode(next);
-    saveSetting("nectar-legacy-mode", String(next));
+    saveSetting("kiro-legacy-mode", String(next));
   };
 
   const toggleRamSaver = () => {
     const next = !ramSaver;
     setRamSaver(next);
-    saveSetting("nectar-ram-saver", String(next));
+    saveSetting("kiro-ram-saver", String(next));
   };
 
   const toggleAutoPerf = () => {
     const next = !autoPerf;
     setAutoPerf(next);
-    saveSetting("nectar-auto-perf", String(next));
+    saveSetting("kiro-auto-perf", String(next));
   };
 
   const toggleRamUltra = () => {
     const next = !ramUltra;
     setRamUltra(next);
-    saveSetting("nectar-ram-ultra", String(next));
+    saveSetting("kiro-ram-ultra", String(next));
   };
 
   const toggleTempUnit = () => {
     const next = !tempUnitFahrenheit;
     setTempUnitFahrenheit(next);
-    saveSetting("nectar-temp-unit", next ? "fahrenheit" : "celsius");
+    saveSetting("kiro-temp-unit", next ? "fahrenheit" : "celsius");
   };
 
   const toggleDock = () => {
     const next = !dockEnabled;
     setDockEnabled(next);
-    saveSetting("nectar-dock-enabled", String(next));
+    saveSetting("kiro-dock-enabled", String(next));
   };
 
   const toggleDockPreview = () => {
     const next = !dockPreviewEnabled;
     setDockPreviewEnabled(next);
-    saveSetting("nectar-dock-preview-enabled", String(next));
+    saveSetting("kiro-dock-preview-enabled", String(next));
   };
 
   const toggleDockAttention = () => {
     const next = !dockAttentionEnabled;
     setDockAttentionEnabled(next);
-    saveSetting("nectar-dock-attention-enabled", String(next));
+    saveSetting("kiro-dock-attention-enabled", String(next));
   };
 
   const handleDockSearchProviderChange = (provider: string) => {
     setDockSearchProvider(provider);
-    saveSetting("nectar-dock-search-provider", provider);
+    saveSetting("kiro-dock-search-provider", provider);
   };
 
   const handleDockSearchShortcutChange = (shortcut: string) => {
     setDockSearchShortcut(shortcut);
-    saveSetting("nectar-dock-search-shortcut", shortcut);
+    saveSetting("kiro-dock-search-shortcut", shortcut);
   };
 
   const toggleDockSearch = () => {
     const next = !dockSearchEnabled;
     setDockSearchEnabled(next);
-    saveSetting("nectar-dock-search-enabled", String(next));
+    saveSetting("kiro-dock-search-enabled", String(next));
   };
 
   const toggleDockSearchNative = () => {
     const next = !dockSearchNative;
     setDockSearchNative(next);
-    saveSetting("nectar-dock-search-native", String(next));
+    saveSetting("kiro-dock-search-native", String(next));
   };
 
   const toggleDockTray = () => {
     const next = !dockTray;
     setDockTray(next);
-    saveSetting("nectar-dock-tray-enabled", String(next));
+    saveSetting("kiro-dock-tray-enabled", String(next));
   };
 
   const toggleDockShowDesktop = () => {
     const next = !dockShowDesktop;
     setDockShowDesktop(next);
-    saveSetting("nectar-dock-show-desktop-corner", String(next));
+    saveSetting("kiro-dock-show-desktop-corner", String(next));
   };
 
   const togglePanelControlCenter = () => {
     const next = !panelControlCenter;
     setPanelControlCenter(next);
-    saveSetting("nectar-panel-control-center-enabled", String(next));
+    saveSetting("kiro-panel-control-center-enabled", String(next));
   };
 
   const reorderPanels = (order: PanelId[]) => {
     setPanelOrder(order);
-    saveSetting("nectar-panel-order", JSON.stringify(order));
+    saveSetting("kiro-panel-order", JSON.stringify(order));
   };
 
   const changeCcLayout = (next: CcLayout) => {
     setCcLayout(next);
-    saveSetting("nectar-cc-layout", JSON.stringify(next));
+    saveSetting("kiro-cc-layout", JSON.stringify(next));
   };
 
   const resetCcLayout = () => {
     setCcLayout({});
-    localStorage.removeItem("nectar-cc-layout");
-    invoke("save_setting", { key: "nectar-cc-layout", value: null }).catch(() => {});
+    localStorage.removeItem("kiro-cc-layout");
+    invoke("save_setting", { key: "kiro-cc-layout", value: null }).catch(() => {});
   };
 
   const resetPanelOrder = () => {
     setPanelOrder(null);
-    localStorage.removeItem("nectar-panel-order");
-    invoke("save_setting", { key: "nectar-panel-order", value: null }).catch(() => {});
+    localStorage.removeItem("kiro-panel-order");
+    invoke("save_setting", { key: "kiro-panel-order", value: null }).catch(() => {});
   };
 
   const togglePanelShelf = () => {
     const next = !panelShelf;
     setPanelShelf(next);
-    saveSetting("nectar-panel-shelf-enabled", String(next));
+    saveSetting("kiro-panel-shelf-enabled", String(next));
   };
 
   const toggleDockTaskView = () => {
     const next = !dockTaskView;
     setDockTaskView(next);
-    saveSetting("nectar-dock-taskview-enabled", String(next));
+    saveSetting("kiro-dock-taskview-enabled", String(next));
   };
 
   const toggleDockRecycle = () => {
     const next = !dockRecycle;
     setDockRecycle(next);
-    saveSetting("nectar-dock-recycle-enabled", String(next));
+    saveSetting("kiro-dock-recycle-enabled", String(next));
   };
 
   const toggleDockDrive = (letter: string) => {
     const next = dockDrives.includes(letter) ? dockDrives.filter((d) => d !== letter) : [...dockDrives, letter].sort();
     setDockDrives(next);
-    saveSetting("nectar-dock-drives", JSON.stringify(next));
+    saveSetting("kiro-dock-drives", JSON.stringify(next));
   };
 
   const toggleDockCalendar = () => {
     const next = !dockCalendarEnabled;
     setDockCalendarEnabled(next);
-    saveSetting("nectar-dock-calendar-enabled", String(next));
+    saveSetting("kiro-dock-calendar-enabled", String(next));
   };
 
   const toggleDockMixedReorder = () => {
     const next = !dockMixedReorder;
     setDockMixedReorder(next);
-    saveSetting("nectar-dock-mixed-reorder", String(next));
+    saveSetting("kiro-dock-mixed-reorder", String(next));
   };
 
   const toggleDockIconOnly = () => {
     const next = !dockIconOnly;
     setDockIconOnly(next);
-    saveSetting("nectar-dock-icon-only", String(next));
+    saveSetting("kiro-dock-icon-only", String(next));
   };
 
   const handleStartIconChange = (icon: string) => {
     setStartIcon(icon);
-    saveSetting("nectar-start-icon", icon);
+    saveSetting("kiro-start-icon", icon);
   };
 
   const toggleDockAdaptive = () => {
     const next = !dockAdaptive;
     setDockAdaptive(next);
-    saveSetting("nectar-dock-adaptive", String(next));
+    saveSetting("kiro-dock-adaptive", String(next));
   };
 
   const toggleDockDesktopPersist = () => {
     const next = !dockDesktopPersist;
     setDockDesktopPersist(next);
-    saveSetting("nectar-dock-desktop-persist", String(next));
+    saveSetting("kiro-dock-desktop-persist", String(next));
   };
 
   const changeNotchPosition = (position: string) => {
     const next = position === "bottom-right" ? "bottom-right" : "top";
     setNotchPosition(next);
-    saveSetting("nectar-notch-position", next);
+    saveSetting("kiro-notch-position", next);
     // The notch window is repositioned by the backend.
     setTimeout(() => invoke("sync_appbar").catch(() => {}), 80);
   };
@@ -916,111 +918,111 @@ export function useSettings() {
   const toggleDockWinNumber = () => {
     const next = !dockWinNumberEnabled;
     setDockWinNumberEnabled(next);
-    saveSetting("nectar-dock-win-number-enabled", String(next));
+    saveSetting("kiro-dock-win-number-enabled", String(next));
   };
 
   const toggleAutoUpdate = () => {
     const next = !autoUpdate;
     setAutoUpdate(next);
-    saveSetting("nectar-auto-update", String(next));
+    saveSetting("kiro-auto-update", String(next));
   };
 
   const togglePrereleaseChannel = async () => {
     const next = !prereleaseChannel;
     const value = next ? "prerelease" : "stable";
     setPrereleaseChannel(next);
-    localStorage.setItem("nectar-update-channel", value);
-    await invoke("save_setting", { key: "nectar-update-channel", value }).catch(console.error);
+    localStorage.setItem("kiro-update-channel", value);
+    await invoke("save_setting", { key: "kiro-update-channel", value }).catch(console.error);
     checkForUpdates();
   };
 
   // ── Value setters ──
   const setDockModeValue = (newMode: string) => {
     setDockMode(newMode);
-    saveSetting("nectar-dock-mode", newMode);
+    saveSetting("kiro-dock-mode", newMode);
   };
 
   const setNotchModeValue = (newMode: string) => {
     setNotchMode(newMode);
-    saveSetting("nectar-notch-mode", newMode);
+    saveSetting("kiro-notch-mode", newMode);
   };
 
   const setDockMonitorModeValue = (mode: MonitorMode) => {
     setDockMonitorMode(mode);
-    saveSetting("nectar-dock-monitor-mode", mode);
+    saveSetting("kiro-dock-monitor-mode", mode);
   };
 
   const setDockMonitorIdValue = (id: string) => {
     setDockMonitorId(id);
-    saveSetting("nectar-dock-monitor-id", id);
+    saveSetting("kiro-dock-monitor-id", id);
   };
 
   const setNotchMonitorModeValue = (mode: MonitorMode) => {
     setNotchMonitorMode(mode);
-    saveSetting("nectar-notch-monitor-mode", mode);
+    saveSetting("kiro-notch-monitor-mode", mode);
   };
 
   const setNotchMonitorIdValue = (id: string) => {
     setNotchMonitorId(id);
-    saveSetting("nectar-notch-monitor-id", id);
+    saveSetting("kiro-notch-monitor-id", id);
   };
 
   const setDockModeForMonitor = (monitorId: string, mode: string | null) => {
     setDockModeByMonitor((prev) => {
       const next = { ...prev };
       if (mode === null) delete next[monitorId]; else next[monitorId] = mode;
-      saveSetting("nectar-dock-mode-by-monitor", JSON.stringify(next));
+      saveSetting("kiro-dock-mode-by-monitor", JSON.stringify(next));
       return next;
     });
   };
 
   const replaceDockModesByMonitor = (next: Record<string, string>) => {
     setDockModeByMonitor(next);
-    saveSetting("nectar-dock-mode-by-monitor", JSON.stringify(next));
+    saveSetting("kiro-dock-mode-by-monitor", JSON.stringify(next));
   };
 
   const replaceNotchModesByMonitor = (next: Record<string, string>) => {
     setNotchModeByMonitor(next);
-    saveSetting("nectar-notch-mode-by-monitor", JSON.stringify(next));
+    saveSetting("kiro-notch-mode-by-monitor", JSON.stringify(next));
   };
 
   const setNotchModeForMonitor = (monitorId: string, mode: string | null) => {
     setNotchModeByMonitor((prev) => {
       const next = { ...prev };
       if (mode === null) delete next[monitorId]; else next[monitorId] = mode;
-      saveSetting("nectar-notch-mode-by-monitor", JSON.stringify(next));
+      saveSetting("kiro-notch-mode-by-monitor", JSON.stringify(next));
       return next;
     });
   };
 
   const handleThresholdChange = (val: number) => {
     setLowBatteryThreshold(val);
-    saveSetting("nectar-low-battery-threshold", val.toString());
+    saveSetting("kiro-low-battery-threshold", val.toString());
   };
 
   const handleScaleChange = (val: number) => {
     setScale(val);
-    saveSetting("nectar-scale", val.toString());
+    saveSetting("kiro-scale", val.toString());
   };
 
   const handleWidgetsChange = (config: WidgetConfig) => {
     setStatusWidgets(config);
-    saveSetting("nectar-status-widgets", JSON.stringify(config));
+    saveSetting("kiro-status-widgets", JSON.stringify(config));
   };
 
   // ── Theme handlers ──
   const handleThemeModeChange = async (mode: string) => {
     setThemeMode(mode);
-    saveSetting("nectar-theme-mode", mode);
+    saveSetting("kiro-theme-mode", mode);
 
     if (mode === "adaptive") {
       try {
         const accentHex = await invoke<string>("get_system_accent_color");
         const hsl = hexToHsl(accentHex);
         setThemeSaturation(hsl.s / 100);
-        saveSetting("nectar-theme-saturation", String(hsl.s / 100));
+        saveSetting("kiro-theme-saturation", String(hsl.s / 100));
         setThemeBrightness(hsl.l / 100);
-        saveSetting("nectar-theme-brightness", String(hsl.l / 100));
+        saveSetting("kiro-theme-brightness", String(hsl.l / 100));
       } catch (e) {
         console.error("Failed to parse adaptive accent HSL:", e);
       }
@@ -1029,14 +1031,14 @@ export function useSettings() {
 
   const handleThemeColorChange = (color: string) => {
     setThemeColor(color);
-    saveSetting("nectar-theme-color", color);
+    saveSetting("kiro-theme-color", color);
 
     try {
       const hsl = hexToHsl(color);
       setThemeSaturation(hsl.s / 100);
-      saveSetting("nectar-theme-saturation", String(hsl.s / 100));
+      saveSetting("kiro-theme-saturation", String(hsl.s / 100));
       setThemeBrightness(hsl.l / 100);
-      saveSetting("nectar-theme-brightness", String(hsl.l / 100));
+      saveSetting("kiro-theme-brightness", String(hsl.l / 100));
     } catch (e) {
       console.error("Failed to parse custom color HSL:", e);
     }
@@ -1044,38 +1046,38 @@ export function useSettings() {
 
   const handleOpacityChange = (value: number) => {
     setThemeOpacity(value);
-    saveSetting("nectar-theme-opacity", String(value));
+    saveSetting("kiro-theme-opacity", String(value));
   };
 
   const handleSaturationChange = (value: number) => {
     setThemeSaturation(value);
-    saveSetting("nectar-theme-saturation", String(value));
+    saveSetting("kiro-theme-saturation", String(value));
   };
 
   const handleBrightnessChange = (value: number) => {
     setThemeBrightness(value);
-    saveSetting("nectar-theme-brightness", String(value));
+    saveSetting("kiro-theme-brightness", String(value));
   };
 
   const handleThemeStyleChange = (style: string) => {
     setThemeStyle(style);
-    saveSetting("nectar-theme-style", style);
+    saveSetting("kiro-theme-style", style);
     // Each style is tuned for an opacity; the slider can still change it afterwards.
     const opacity = STYLE_OPACITY[style];
     if (opacity !== undefined) {
       setThemeOpacity(opacity);
-      saveSetting("nectar-theme-opacity", String(opacity));
+      saveSetting("kiro-theme-opacity", String(opacity));
     }
   };
 
   const handleAccentChange = (accent: string) => {
     setThemeAccent(accent);
-    saveSetting("nectar-theme-accent", accent);
+    saveSetting("kiro-theme-accent", accent);
   };
 
   const handleAccentColorChange = (color: string) => {
     setThemeAccentColor(color);
-    saveSetting("nectar-theme-accent-color", color);
+    saveSetting("kiro-theme-accent-color", color);
   };
 
   const applyThemePreset = (preset: ThemePreset) => {
@@ -1085,12 +1087,12 @@ export function useSettings() {
     setThemeBrightness(preset.brightness);
     setThemeAccent("custom");
     setThemeAccentColor(preset.accent);
-    saveSetting("nectar-theme-mode", "custom");
-    saveSetting("nectar-theme-color", preset.color);
-    saveSetting("nectar-theme-saturation", String(preset.saturation));
-    saveSetting("nectar-theme-brightness", String(preset.brightness));
-    saveSetting("nectar-theme-accent", "custom");
-    saveSetting("nectar-theme-accent-color", preset.accent);
+    saveSetting("kiro-theme-mode", "custom");
+    saveSetting("kiro-theme-color", preset.color);
+    saveSetting("kiro-theme-saturation", String(preset.saturation));
+    saveSetting("kiro-theme-brightness", String(preset.brightness));
+    saveSetting("kiro-theme-accent", "custom");
+    saveSetting("kiro-theme-accent-color", preset.accent);
   };
 
   // ── City search ──
@@ -1104,12 +1106,12 @@ export function useSettings() {
     setCityQuery(city.name);
     setShowCityDropdown(false);
     setCitySearchResults([]);
-    localStorage.setItem("nectar-weather-city", city.name);
-    localStorage.setItem("nectar-weather-lat", city.latitude.toString());
-    localStorage.setItem("nectar-weather-lon", city.longitude.toString());
-    await invoke("save_setting", { key: "nectar-weather-lat", value: city.latitude.toString() }).catch(() => {});
-    await invoke("save_setting", { key: "nectar-weather-lon", value: city.longitude.toString() }).catch(() => {});
-    await invoke("save_setting", { key: "nectar-weather-city", value: city.name }).catch(() => {});
+    localStorage.setItem("kiro-weather-city", city.name);
+    localStorage.setItem("kiro-weather-lat", city.latitude.toString());
+    localStorage.setItem("kiro-weather-lon", city.longitude.toString());
+    await invoke("save_setting", { key: "kiro-weather-lat", value: city.latitude.toString() }).catch(() => {});
+    await invoke("save_setting", { key: "kiro-weather-lon", value: city.longitude.toString() }).catch(() => {});
+    await invoke("save_setting", { key: "kiro-weather-city", value: city.name }).catch(() => {});
     emit("weather-refresh", { lat: city.latitude, lon: city.longitude, city: city.name });
   };
 
@@ -1118,12 +1120,12 @@ export function useSettings() {
     setCityQuery("");
     setShowCityDropdown(false);
     setCitySearchResults([]);
-    localStorage.removeItem("nectar-weather-city");
-    localStorage.removeItem("nectar-weather-lat");
-    localStorage.removeItem("nectar-weather-lon");
-    await invoke("save_setting", { key: "nectar-weather-lat", value: null }).catch(() => {});
-    await invoke("save_setting", { key: "nectar-weather-lon", value: null }).catch(() => {});
-    await invoke("save_setting", { key: "nectar-weather-city", value: null }).catch(() => {});
+    localStorage.removeItem("kiro-weather-city");
+    localStorage.removeItem("kiro-weather-lat");
+    localStorage.removeItem("kiro-weather-lon");
+    await invoke("save_setting", { key: "kiro-weather-lat", value: null }).catch(() => {});
+    await invoke("save_setting", { key: "kiro-weather-lon", value: null }).catch(() => {});
+    await invoke("save_setting", { key: "kiro-weather-city", value: null }).catch(() => {});
     emit("weather-refresh", true);
   };
 
@@ -1175,14 +1177,14 @@ export function useSettings() {
     try {
       await invoke("reset_settings");
       localStorage.clear();
-      await invoke("restart_nectar");
+      await invoke("restart_kiro");
     } catch (e) {
       console.error("Reset failed:", e);
       setResetStatus("idle");
     }
   };
 
-  const handleUninstallNectar = async () => {
+  const handleUninstallKiro = async () => {
     if (uninstallStatus === "idle" || uninstallStatus === "error") {
       setUninstallStatus("confirm");
       setTimeout(() => setUninstallStatus((s) => (s === "confirm" ? "idle" : s)), 4000);
@@ -1192,7 +1194,7 @@ export function useSettings() {
 
     setUninstallStatus("uninstalling");
     try {
-      await invoke("uninstall_nectar");
+      await invoke("uninstall_kiro");
     } catch (e) {
       console.error("Uninstall failed:", e);
       setUninstallError(typeof e === "string" ? e : String((e as Error)?.message ?? e));
@@ -1400,10 +1402,10 @@ export function useSettings() {
     handleResetSettings,
     uninstallStatus,
     uninstallError,
-    handleUninstallNectar,
+    handleUninstallKiro,
 
     // Utilities
-    restartNectar: () => invoke("restart_nectar"),
-    quitNectar: () => invoke("quit_nectar"),
+    restartKiro: () => invoke("restart_kiro"),
+    quitKiro: () => invoke("quit_kiro"),
   };
 }

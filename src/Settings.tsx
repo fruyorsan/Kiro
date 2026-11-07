@@ -1,3 +1,4 @@
+import "./migrate";
 import { StrictMode, useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
@@ -123,8 +124,8 @@ function SettingsApp() {
               handleThresholdChange={settings.handleThresholdChange}
               autoPerf={settings.autoPerf}
               toggleAutoPerf={settings.toggleAutoPerf}
-              restartNectar={settings.restartNectar}
-              quitNectar={settings.quitNectar}
+              restartKiro={settings.restartKiro}
+              quitKiro={settings.quitKiro}
             />
           )}
           {activeTab === "appearance" && (
@@ -316,7 +317,7 @@ function SettingsApp() {
               handleResetSettings={settings.handleResetSettings}
               uninstallStatus={settings.uninstallStatus}
               uninstallError={settings.uninstallError}
-              handleUninstallNectar={settings.handleUninstallNectar}
+              handleUninstallKiro={settings.handleUninstallKiro}
             />
           )}
         </div>

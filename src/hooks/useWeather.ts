@@ -130,7 +130,7 @@ async function fetchWeatherForCoords(
   };
 }
 
-const IP_LOCATION_KEY = "nectar-weather-ip-location";
+const IP_LOCATION_KEY = "kiro-weather-ip-location";
 
 function rememberIpLocation(location: ResolvedLocation): ResolvedLocation {
   try {
@@ -156,11 +156,11 @@ async function resolveLocation(): Promise<ResolvedLocation | null> {
       any
     >;
     const savedLat =
-      settings["nectar-weather-lat"] || localStorage.getItem("nectar-weather-lat");
+      settings["kiro-weather-lat"] || localStorage.getItem("kiro-weather-lat");
     const savedLon =
-      settings["nectar-weather-lon"] || localStorage.getItem("nectar-weather-lon");
+      settings["kiro-weather-lon"] || localStorage.getItem("kiro-weather-lon");
     const savedCity =
-      settings["nectar-weather-city"] || localStorage.getItem("nectar-weather-city");
+      settings["kiro-weather-city"] || localStorage.getItem("kiro-weather-city");
 
     if (savedLat && savedLon) {
       return {
@@ -229,13 +229,13 @@ async function persistWeather(
 ): Promise<void> {
   if (temp !== null) {
     invoke("save_setting", {
-      key: "nectar-weather-cached-temp",
+      key: "kiro-weather-cached-temp",
       value: temp,
     }).catch(() => {});
   }
   if (condition) {
     invoke("save_setting", {
-      key: "nectar-weather-cached-condition",
+      key: "kiro-weather-cached-condition",
       value: condition,
     }).catch(() => {});
   }
@@ -243,20 +243,20 @@ async function persistWeather(
 
 export function useWeather(enabled: boolean) {
   const [temperature, setTemperature] = useState<number | null>(() => {
-    const cached = localStorage.getItem("nectar-weather-cached-temp");
+    const cached = localStorage.getItem("kiro-weather-cached-temp");
     return cached !== null ? Number(cached) : null;
   });
   const [weatherCondition, setWeatherCondition] = useState<string>(
-    () => localStorage.getItem("nectar-weather-cached-condition") || "",
+    () => localStorage.getItem("kiro-weather-cached-condition") || "",
   );
   const [weatherIcon, setWeatherIcon] = useState<ComponentType<LucideProps>>(
     () => Thermometer,
   );
   const [cityName, setCityName] = useState<string>(
-    () => localStorage.getItem("nectar-weather-city") || "",
+    () => localStorage.getItem("kiro-weather-city") || "",
   );
   const [tempUnit, setTempUnit] = useState<string>(
-    () => localStorage.getItem("nectar-temp-unit") || "celsius",
+    () => localStorage.getItem("kiro-temp-unit") || "celsius",
   );
 
   const tempUnitRef = useRef(tempUnit);
@@ -287,7 +287,7 @@ export function useWeather(enabled: boolean) {
         // Update city name if resolved from IP geolocation
         if (location.city) {
           setCityName(location.city);
-          localStorage.setItem("nectar-weather-city", location.city);
+          localStorage.setItem("kiro-weather-city", location.city);
         }
       } catch (e) {
         console.warn("Weather fetch failed:", e);
@@ -307,26 +307,26 @@ export function useWeather(enabled: boolean) {
     invoke("load_settings")
       .then((settings: any) => {
         const cachedTemp =
-          settings["nectar-weather-cached-temp"] ??
-          localStorage.getItem("nectar-weather-cached-temp");
+          settings["kiro-weather-cached-temp"] ??
+          localStorage.getItem("kiro-weather-cached-temp");
         if (cachedTemp !== undefined && cachedTemp !== null) {
           setTemperature(Number(cachedTemp));
         }
         const cachedCond =
-          settings["nectar-weather-cached-condition"] ??
-          localStorage.getItem("nectar-weather-cached-condition");
+          settings["kiro-weather-cached-condition"] ??
+          localStorage.getItem("kiro-weather-cached-condition");
         if (cachedCond) {
           setWeatherCondition(String(cachedCond));
           setWeatherIcon(() => getWeatherIcon(String(cachedCond)));
         }
         const savedUnit =
-          settings["nectar-temp-unit"] ?? localStorage.getItem("nectar-temp-unit");
+          settings["kiro-temp-unit"] ?? localStorage.getItem("kiro-temp-unit");
         if (savedUnit) {
           setTempUnit(String(savedUnit));
         }
         const savedCity =
-          settings["nectar-weather-city"] ??
-          localStorage.getItem("nectar-weather-city");
+          settings["kiro-weather-city"] ??
+          localStorage.getItem("kiro-weather-city");
         if (savedCity) {
           setCityName(String(savedCity));
         }
@@ -340,7 +340,7 @@ export function useWeather(enabled: boolean) {
       "settings-changed",
       (event) => {
         const { key, value } = event.payload;
-        if (key === "nectar-temp-unit") {
+        if (key === "kiro-temp-unit") {
           setTempUnit(String(value));
         }
       },
@@ -349,7 +349,7 @@ export function useWeather(enabled: boolean) {
       "settings-external-changed",
       (event) => {
         const { key, value } = event.payload;
-        if (key === "nectar-temp-unit") {
+        if (key === "kiro-temp-unit") {
           setTempUnit(String(value));
         }
       },
@@ -392,10 +392,10 @@ export function useWeather(enabled: boolean) {
       "settings-changed",
       (event) => {
         const { key, value } = event.payload;
-        if (key === "nectar-weather-city") {
+        if (key === "kiro-weather-city") {
           setCityName(String(value || ""));
         }
-        if (key === "nectar-weather-city" || key === "nectar-weather-lat" || key === "nectar-weather-lon") {
+        if (key === "kiro-weather-city" || key === "kiro-weather-lat" || key === "kiro-weather-lon") {
           clearTimeout(timer);
           timer = setTimeout(() => doFetch(false), 250);
         }

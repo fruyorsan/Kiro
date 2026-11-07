@@ -27,7 +27,7 @@ function loadIfNeeded(lang: string) {
     });
 }
 
-const STORAGE_KEY = "nectar-language";
+const STORAGE_KEY = "kiro-language";
 const listeners = new Set<() => void>();
 
 function readPreference(): string {

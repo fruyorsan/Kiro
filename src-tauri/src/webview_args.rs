@@ -45,7 +45,7 @@ fn flag_enabled(key: &str) -> bool {
 
 pub fn arguments() -> String {
     let mut args = String::from(BASE_ARGS);
-    if flag_enabled("nectar-ram-ultra") {
+    if flag_enabled("kiro-ram-ultra") {
         args.push_str(ULTRA_ARGS);
     }
     args

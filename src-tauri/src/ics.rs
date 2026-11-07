@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager};
 use crate::caldav::{error_chain, unescape, unfold};
 use crate::calendar_sync::{self, link_key, CalEvent, SourceData, LOOKAHEAD_DAYS, LOOKBACK_DAYS};
 
-const KEYRING_SERVICE: &str = "Nectar Calendar Link";
+const KEYRING_SERVICE: &str = "Kiro Calendar Link";
 const LINKS_FILE: &str = "calendar_links.json";
 const MAX_BYTES: usize = 15 * 1024 * 1024;
 const MAX_LINKS: usize = 12;
@@ -153,7 +153,7 @@ async fn download(url: &Url) -> Result<String, String> {
     let host = url.host_str().unwrap_or("the server").to_string();
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
-        .user_agent("Nectar")
+        .user_agent("Kiro")
         .build()
         .map_err(|e| e.to_string())?;
     let resp = client

@@ -15,7 +15,7 @@ export type ShelfItem = {
   preview?: string | null;
 };
 
-const STORAGE_KEY = "nectar-shelf-items";
+const STORAGE_KEY = "kiro-shelf-items";
 const MAX_ITEMS = 10;
 
 const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path;

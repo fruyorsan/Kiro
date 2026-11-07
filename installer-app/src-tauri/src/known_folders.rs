@@ -43,11 +43,11 @@ pub fn default_install_dir(all_users: bool) -> PathBuf {
     if all_users {
         program_files_dir()
             .unwrap_or_else(|| PathBuf::from(r"C:\Program Files"))
-            .join("Nectar")
+            .join("Kiro")
     } else {
         user_programs_dir()
             .unwrap_or_else(|| PathBuf::from(r"C:\Users\Default\AppData\Local\Programs"))
-            .join("Nectar")
+            .join("Kiro")
     }
 }
 

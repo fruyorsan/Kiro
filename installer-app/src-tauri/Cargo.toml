@@ -1,7 +1,7 @@
 [package]
-name = "nectar-installer"
+name = "kiro-installer"
 version = "1.8.0"
-description = "Nectar installer"
+description = "Kiro installer"
 authors = ["kua8"]
 edition = "2021"
 license = "GPL-3.0-only"

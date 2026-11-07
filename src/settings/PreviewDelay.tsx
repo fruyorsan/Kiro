@@ -10,14 +10,14 @@ const DELAYS = ["0", "100", "200", "300", "500", "800"];
 export function PreviewDelay() {
   const t = useT();
   const [value, setValue] = useState(() => {
-    const saved = localStorage.getItem("nectar-dock-preview-delay");
+    const saved = localStorage.getItem("kiro-dock-preview-delay");
     return saved && DELAYS.includes(saved) ? saved : "300";
   });
 
   const change = (next: string) => {
     setValue(next);
-    localStorage.setItem("nectar-dock-preview-delay", next);
-    invoke("save_setting", { key: "nectar-dock-preview-delay", value: next }).catch(() => { });
+    localStorage.setItem("kiro-dock-preview-delay", next);
+    invoke("save_setting", { key: "kiro-dock-preview-delay", value: next }).catch(() => { });
   };
 
   return (

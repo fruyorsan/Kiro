@@ -246,7 +246,7 @@ function buildActions(t: (key: string) => string): Action[] {
       id: "restart",
       label: t("general.restart"),
       hint: "↵",
-      run: () => invoke("restart_nectar").catch(() => {}),
+      run: () => invoke("restart_kiro").catch(() => {}),
     },
   ];
 }

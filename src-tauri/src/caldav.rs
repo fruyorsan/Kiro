@@ -8,7 +8,7 @@ use crate::calendar_sync::{
     self, CalEvent, CalInfo, SourceData, ACCOUNT_KEY, LOOKAHEAD_DAYS, LOOKBACK_DAYS,
 };
 
-const KEYRING_SERVICE: &str = "Nectar CalDAV";
+const KEYRING_SERVICE: &str = "Kiro CalDAV";
 pub const AUTH_ERROR: &str = "Login failed. Check the username and app password.";
 const CALDAV_NS: &str = "urn:ietf:params:xml:ns:caldav";
 
@@ -27,9 +27,9 @@ fn load_password(username: &str) -> Option<String> {
 }
 
 fn configured(app: &AppHandle) -> Option<(String, String)> {
-    let enabled = crate::utils::get_setting_str(app, "nectar-caldav-enabled").as_deref() == Some("true");
-    let url = crate::utils::get_setting_str(app, "nectar-caldav-url").filter(|s| !s.is_empty())?;
-    let username = crate::utils::get_setting_str(app, "nectar-caldav-username").filter(|s| !s.is_empty())?;
+    let enabled = crate::utils::get_setting_str(app, "kiro-caldav-enabled").as_deref() == Some("true");
+    let url = crate::utils::get_setting_str(app, "kiro-caldav-url").filter(|s| !s.is_empty())?;
+    let username = crate::utils::get_setting_str(app, "kiro-caldav-username").filter(|s| !s.is_empty())?;
     enabled.then_some((url, username))
 }
 
@@ -343,7 +343,7 @@ fn parse_report(xml: &str, calendar: &str, color: &Option<String>) -> Result<Vec
 pub async fn fetch_all(creds: &Creds) -> Result<(Vec<CalInfo>, Vec<CalEvent>), String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
-        .user_agent("Nectar")
+        .user_agent("Kiro")
         .build()
         .map_err(|e| e.to_string())?;
     let base = normalize_base(&creds.url)?;
@@ -399,7 +399,7 @@ pub async fn caldav_connect(
     })
     .await?;
 
-    if let Some(previous) = crate::utils::get_setting_str(&app, "nectar-caldav-username") {
+    if let Some(previous) = crate::utils::get_setting_str(&app, "kiro-caldav-username") {
         if previous != username {
             if let Ok(old) = entry(&previous) {
                 let _ = old.delete_credential();
@@ -411,9 +411,9 @@ pub async fn caldav_connect(
         .map_err(|e| format!("Couldn't save the password to Windows Credential Manager: {}", e))?;
 
     for (key, value) in [
-        ("nectar-caldav-url", url),
-        ("nectar-caldav-username", username),
-        ("nectar-caldav-enabled", "true".to_string()),
+        ("kiro-caldav-url", url),
+        ("kiro-caldav-username", username),
+        ("kiro-caldav-enabled", "true".to_string()),
     ] {
         crate::commands::save_setting(app.clone(), key.to_string(), serde_json::Value::String(value))?;
     }
@@ -433,7 +433,7 @@ pub async fn caldav_connect(
 
 #[tauri::command]
 pub fn caldav_disconnect(app: AppHandle) -> Result<calendar_sync::CalendarState, String> {
-    if let Some(username) = crate::utils::get_setting_str(&app, "nectar-caldav-username") {
+    if let Some(username) = crate::utils::get_setting_str(&app, "kiro-caldav-username") {
         if let Ok(e) = entry(&username) {
             let _ = e.delete_credential();
         }
@@ -441,7 +441,7 @@ pub fn caldav_disconnect(app: AppHandle) -> Result<calendar_sync::CalendarState,
     calendar_sync::drop_source(&app, ACCOUNT_KEY);
     crate::commands::save_setting(
         app.clone(),
-        "nectar-caldav-enabled".to_string(),
+        "kiro-caldav-enabled".to_string(),
         serde_json::Value::String("false".to_string()),
     )?;
     Ok(calendar_sync::emit_state(&app))

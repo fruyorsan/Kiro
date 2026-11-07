@@ -53,13 +53,13 @@ function updateReleaseBadge() {
 updateJson("package.json");
 updateJson("src-tauri/tauri.conf.json");
 updateCargoToml();
-updateCargoLock("src-tauri/Cargo.lock", "nectar");
+updateCargoLock("src-tauri/Cargo.lock", "kiro");
 updatePackageLockJson("package-lock.json");
 
 updateJson("installer-app/package.json");
 updateJson("installer-app/src-tauri/tauri.conf.json");
 updateInstallerCargoToml();
-updateCargoLock("installer-app/src-tauri/Cargo.lock", "nectar-installer");
+updateCargoLock("installer-app/src-tauri/Cargo.lock", "kiro-installer");
 updatePackageLockJson("installer-app/package-lock.json");
 updateReleaseBadge();
 

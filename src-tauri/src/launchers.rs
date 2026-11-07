@@ -15,7 +15,7 @@ const RAYCAST_DEFAULT_SHORTCUT: &str = "Alt+Space";
 /// that isn't running, or a shortcut that can't be read) it opens Windows Search instead and
 /// returns which one failed, so the dock can say why rather than seem to ignore the setting.
 pub fn open_search(provider: &str, shortcut: Option<&str>) -> Option<&'static str> {
-    // The click went to Nectar, so only Nectar may bring a window to the front right now. Hand
+    // The click went to Kiro, so only Kiro may bring a window to the front right now. Hand
     // that on, or the launcher can open behind the active window or without keyboard focus.
     allow_foreground();
     let failed = match provider {

@@ -7,6 +7,7 @@ import type { UpdateCheckResult } from "./updater";
 import "./App.css";
 import "./surfaces.css";
 import { initTheme } from "./theme";
+import { hydrateStorageFromSettings } from "./migrate";
 import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon, VolumeLowIcon, VolumeHighIcon, MusicNoteIcon } from "./icons";
 import { CompactMediaPlayer } from "./CompactMediaPlayer";
 import { artTheme, FALLBACK_THEME, type ArtTheme } from "./music/palette";
@@ -389,18 +390,18 @@ function App() {
   const [dualDayShift, setDualDayShift] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [scale, setScale] = useState(() => parseFloat(localStorage.getItem("nectar-scale") || "1.0"));
-  const [timeFormat24h, setTimeFormat24h] = useState(() => localStorage.getItem("nectar-time-format-24h") === "true");
+  const [scale, setScale] = useState(() => parseFloat(localStorage.getItem("kiro-scale") || "1.0"));
+  const [timeFormat24h, setTimeFormat24h] = useState(() => localStorage.getItem("kiro-time-format-24h") !== "false");
 
 
   const [batteryLevel, setBatteryLevel] = useState(100);
   const [isCharging, setIsCharging] = useState(false);
   const [batterySecondsLeft, setBatterySecondsLeft] = useState<number | null>(null);
   const [widgetTip, setWidgetTip] = useState<string | null>(null);
-  const [hasBattery, setHasBattery] = useState(() => localStorage.getItem("nectar-has-battery") !== "false");
+  const [hasBattery, setHasBattery] = useState(() => localStorage.getItem("kiro-has-battery") !== "false");
   const [showPowerPulse, setShowPowerPulse] = useState(false);
   const [showLowBatteryPulse, setShowLowBatteryPulse] = useState(false);
-  const [lowBatteryThreshold, setLowBatteryThreshold] = useState(() => parseInt(localStorage.getItem("nectar-low-battery-threshold") || "20"));
+  const [lowBatteryThreshold, setLowBatteryThreshold] = useState(() => parseInt(localStorage.getItem("kiro-low-battery-threshold") || "20"));
   const prevChargingRef = useRef<boolean | null>(null);
   const powerPulseTimeoutRef = useRef<any>(null);
   const lowBatteryPulseShownRef = useRef<boolean>(false);
@@ -415,7 +416,7 @@ function App() {
   }, []);
 
   const [notchMode, setNotchMode] = useState(() => {
-    const raw = localStorage.getItem("nectar-notch-mode") || "fixed";
+    const raw = localStorage.getItem("kiro-notch-mode") || "fixed";
     if (raw === "auto-hide") return "smart";
     return raw;
   });
@@ -471,7 +472,7 @@ function App() {
   const wifiEnabled = wifiStatus?.enabled ?? false;
   const wifiConnected = wifiStatus?.connected ?? false;
   const [bluetoothEnabled, setBluetoothEnabled] = useState(true);
-  const [settingsLegacyMode, setSettingsLegacyMode] = useState(() => localStorage.getItem("nectar-legacy-mode") === "true");
+  const [settingsLegacyMode, setSettingsLegacyMode] = useState(() => localStorage.getItem("kiro-legacy-mode") === "true");
   const [ccView, setCcView] = useState<'main' | 'wifi' | 'bluetooth' | 'audio'>('main');
   const showConnections = !settingsLegacyMode && ccView !== 'main';
   const [lanStatus, setLanStatus] = useState<{ present: boolean; connected: boolean; name: string } | null>(null);
@@ -495,7 +496,7 @@ function App() {
 
   // Update state
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [showUpdateIndicator, setShowUpdateIndicator] = useState(() => localStorage.getItem("nectar-show-update-indicator") !== "false");
+  const [showUpdateIndicator, setShowUpdateIndicator] = useState(() => localStorage.getItem("kiro-show-update-indicator") !== "false");
   const [showUpdatePulse, setShowUpdatePulse] = useState(false);
 
   useEffect(() => {
@@ -539,12 +540,12 @@ function App() {
   const [startupAnimating, setStartupAnimating] = useState(false);
 
   const [dockMode, setDockMode] = useState(() => {
-    const raw = localStorage.getItem("nectar-dock-mode") || "smart";
+    const raw = localStorage.getItem("kiro-dock-mode") || "smart";
     if (raw === "auto-hide") return "smart";
     return raw;
   });
   const [dndActive, setDndActive] = useState(false);
-  const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem("nectar-dock-enabled") !== "false");
+  const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem("kiro-dock-enabled") !== "false");
   const [isNotchHovered, setIsNotchHovered] = useState(false);
   const [agentActivity, setAgentActivity] = useState<AgentActivity | null>(null);
   const lastAgentKey = useRef("");
@@ -555,15 +556,15 @@ function App() {
   const [isOverlapped, setIsOverlapped] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [interactionState, setInteractionState] = useState<'active' | 'grace' | 'none'>('none');
-  const nectarRef = useRef<HTMLDivElement>(null);
+  const kiroRef = useRef<HTMLDivElement>(null);
   const dockEnabledInitial = useRef(true);
   const dockModeInitial = useRef(true);
   const notchModeInitial = useRef(true);
 
-  const [nectarMode, setNectarMode] = useState<'music' | 'calendar' | 'command-center' | 'status' | 'shelf' | 'tour' | 'agent'>('status');
+  const [kiroMode, setKiroMode] = useState<'music' | 'calendar' | 'command-center' | 'status' | 'shelf' | 'tour' | 'agent'>('status');
 
   const isAnyInteraction = isHovered || isNotchHovered || isEdgeHovered;
-  const [notchBottomRight, setNotchBottomRight] = useState(() => localStorage.getItem("nectar-notch-position") === "bottom-right");
+  const [notchBottomRight, setNotchBottomRight] = useState(() => localStorage.getItem("kiro-notch-position") === "bottom-right");
   // The bottom-right layout is a floating pill, not an edge strip: it stays
   // visible and only gets out of the way for a fullscreen app (or a window
   // actually covering that corner, handled by the smart-mode overlap check).
@@ -575,7 +576,7 @@ function App() {
   // fullscreen video players put their controls, so it gets out of the way
   // whenever an app owns the whole screen, whatever the notch mode.
   const isHidden = ((notchMode === 'smart' || notchMode === 'peek' || notchBottomRight) && isFullscreen) ||
-    (!startupAnimating && nectarMode !== 'tour' && !(agentActivity && isNotchWindow) && notchIdleHidden);
+    (!startupAnimating && kiroMode !== 'tour' && !(agentActivity && isNotchWindow) && notchIdleHidden);
 
   useEffect(() => {
     if (isAnyInteraction) {
@@ -603,8 +604,8 @@ function App() {
   useEffect(() => {
     let lastSent = "";
     const updateRect = () => {
-      if (nectarRef.current && isNotchWindow) {
-        const rect = nectarRef.current.getBoundingClientRect();
+      if (kiroRef.current && isNotchWindow) {
+        const rect = kiroRef.current.getBoundingClientRect();
         const next = {
           x: Math.round(rect.x),
           y: Math.round(rect.y),
@@ -621,7 +622,7 @@ function App() {
     updateRect();
     window.addEventListener('resize', updateRect);
     const observer = new ResizeObserver(updateRect);
-    if (nectarRef.current) observer.observe(nectarRef.current);
+    if (kiroRef.current) observer.observe(kiroRef.current);
 
     const poll = setVisibleInterval(updateRect, 500);
 
@@ -703,33 +704,33 @@ function App() {
   }, [windowLabel]);
 
   // Settings state
-  const [settingsWeatherEnabled, setSettingsWeatherEnabled] = useState(() => localStorage.getItem("nectar-weather-enabled") !== "false");
-  const [settingsCalendarEnabled, setSettingsCalendarEnabled] = useState(() => localStorage.getItem("nectar-calendar-enabled") !== "false");
+  const [settingsWeatherEnabled, setSettingsWeatherEnabled] = useState(() => localStorage.getItem("kiro-weather-enabled") !== "false");
+  const [settingsCalendarEnabled, setSettingsCalendarEnabled] = useState(() => localStorage.getItem("kiro-calendar-enabled") !== "false");
   const [settingsTimerEnabled, setSettingsTimerEnabled] = useState(
-    () => (localStorage.getItem("nectar-timer-enabled") ?? localStorage.getItem("nectar-calendar-enabled")) !== "false",
+    () => (localStorage.getItem("kiro-timer-enabled") ?? localStorage.getItem("kiro-calendar-enabled")) !== "false",
   );
   const [settingsTimerSoundEnabled, setSettingsTimerSoundEnabled] = useState(
-    () => localStorage.getItem("nectar-timer-sound-enabled") !== "false",
+    () => localStorage.getItem("kiro-timer-sound-enabled") !== "false",
   );
   const [settingsTimerProgressEnabled, setSettingsTimerProgressEnabled] = useState(
-    () => localStorage.getItem("nectar-notch-timer-progress") !== "false",
+    () => localStorage.getItem("kiro-notch-timer-progress") !== "false",
   );
   const [settingsStopwatchEnabled, setSettingsStopwatchEnabled] = useState(
-    () => (localStorage.getItem("nectar-stopwatch-enabled") ?? localStorage.getItem("nectar-calendar-enabled")) !== "false",
+    () => (localStorage.getItem("kiro-stopwatch-enabled") ?? localStorage.getItem("kiro-calendar-enabled")) !== "false",
   );
   const showClockColumn = settingsTimerEnabled || settingsStopwatchEnabled;
-  const [settingsDualClockEnabled, setSettingsDualClockEnabled] = useState(() => localStorage.getItem("nectar-dual-clock-enabled") === "true");
-  const [dualClockZone, setDualClockZone] = useState(() => localStorage.getItem("nectar-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE);
-  const [dualClockLabel, setDualClockLabel] = useState(() => localStorage.getItem("nectar-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE);
+  const [settingsDualClockEnabled, setSettingsDualClockEnabled] = useState(() => localStorage.getItem("kiro-dual-clock-enabled") === "true");
+  const [dualClockZone, setDualClockZone] = useState(() => localStorage.getItem("kiro-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE);
+  const [dualClockLabel, setDualClockLabel] = useState(() => localStorage.getItem("kiro-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE);
   const productivityEnabled = settingsCalendarEnabled || showClockColumn;
-  const [settingsMusicModeEnabled, setSettingsMusicModeEnabled] = useState(() => localStorage.getItem("nectar-music-mode-enabled") !== "false");
-  const [settingsMusicCompactNotch, setSettingsMusicCompactNotch] = useState(() => localStorage.getItem("nectar-music-compact-notch") !== "false");
-  const [settingsScrollVolume, setSettingsScrollVolume] = useState(() => localStorage.getItem("nectar-notch-scroll-volume") === "true");
-  const [settingsShelfPersist, setSettingsShelfPersist] = useState(() => localStorage.getItem("nectar-shelf-persist") === "true");
-  const [settingsRememberMode, setSettingsRememberMode] = useState(() => localStorage.getItem("nectar-notch-remember-mode") === "true");
-  const [panelControlCenter, setPanelControlCenter] = useState(() => localStorage.getItem("nectar-panel-control-center-enabled") !== "false");
-  const [panelShelf, setPanelShelf] = useState(() => localStorage.getItem("nectar-panel-shelf-enabled") !== "false");
-  const [panelOrder, setPanelOrder] = useState(() => parsePanelOrder(localStorage.getItem("nectar-panel-order")));
+  const [settingsMusicModeEnabled, setSettingsMusicModeEnabled] = useState(() => localStorage.getItem("kiro-music-mode-enabled") !== "false");
+  const [settingsMusicCompactNotch, setSettingsMusicCompactNotch] = useState(() => localStorage.getItem("kiro-music-compact-notch") !== "false");
+  const [settingsScrollVolume, setSettingsScrollVolume] = useState(() => localStorage.getItem("kiro-notch-scroll-volume") === "true");
+  const [settingsShelfPersist, setSettingsShelfPersist] = useState(() => localStorage.getItem("kiro-shelf-persist") === "true");
+  const [settingsRememberMode, setSettingsRememberMode] = useState(() => localStorage.getItem("kiro-notch-remember-mode") === "true");
+  const [panelControlCenter, setPanelControlCenter] = useState(() => localStorage.getItem("kiro-panel-control-center-enabled") !== "false");
+  const [panelShelf, setPanelShelf] = useState(() => localStorage.getItem("kiro-panel-shelf-enabled") !== "false");
+  const [panelOrder, setPanelOrder] = useState(() => parsePanelOrder(localStorage.getItem("kiro-panel-order")));
   // Date shown in the bottom-right pill. Minute precision is enough; the notch
   // re-renders often enough that a plain interval is cheaper than polling.
   const [todayDate, setTodayDate] = useState(() => new Date());
@@ -737,20 +738,23 @@ function App() {
     const id = setInterval(() => setTodayDate(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
-  const [ccLayout, setCcLayout] = useState(() => parseCcLayout(localStorage.getItem("nectar-cc-layout")));
+  const [ccLayout, setCcLayout] = useState(() => parseCcLayout(localStorage.getItem("kiro-cc-layout")));
   const ccResolved = resolveCcLayout(ccLayout);
   const ccStyle = (kind: CcKind, id: string) => {
     const index = ccResolved[kind].indexOf(id);
     return index < 0 ? { display: 'none' as const } : { order: index };
   };
-  const rememberedModeRef = useRef<"command-center" | "calendar" | null>(null);
-  const [settingsVisualizerEnabled, setSettingsVisualizerEnabled] = useState(() => localStorage.getItem("nectar-visualizer-enabled") !== "false");
-  const [settingsAlbumArtEnabled, setSettingsAlbumArtEnabled] = useState(() => localStorage.getItem("nectar-media-album-art-enabled") !== "false");
-  const [settingsAmbienceEnabled, setSettingsAmbienceEnabled] = useState(() => localStorage.getItem("nectar-media-ambience-enabled") !== "false");
-  const [settingsCompactGlowEnabled, setSettingsCompactGlowEnabled] = useState(() => localStorage.getItem("nectar-media-compact-glow-enabled") !== "false");
-  const [settingsArtworkTheme, setSettingsArtworkTheme] = useState(() => localStorage.getItem("nectar-media-artwork-theme") === "true");
-  const [settingsCornersEnabled, setSettingsCornersEnabled] = useState(() => localStorage.getItem("nectar-corners-enabled") === "true");
-  const [mediaLayout, setMediaLayout] = useState<'classic' | 'compact'>(() => (localStorage.getItem("nectar-media-layout") as 'classic' | 'compact') || 'classic');
+  const rememberedModeRef = useRef<"command-center" | "calendar" | "shelf" | null>(null);
+  // True while the shelf was the panel the user last saw (e.g. right after a
+  // drop). Used to reopen it on the next hover instead of the quick settings.
+  const wasShelfRef = useRef(false);
+  const [settingsVisualizerEnabled, setSettingsVisualizerEnabled] = useState(() => localStorage.getItem("kiro-visualizer-enabled") !== "false");
+  const [settingsAlbumArtEnabled, setSettingsAlbumArtEnabled] = useState(() => localStorage.getItem("kiro-media-album-art-enabled") !== "false");
+  const [settingsAmbienceEnabled, setSettingsAmbienceEnabled] = useState(() => localStorage.getItem("kiro-media-ambience-enabled") !== "false");
+  const [settingsCompactGlowEnabled, setSettingsCompactGlowEnabled] = useState(() => localStorage.getItem("kiro-media-compact-glow-enabled") !== "false");
+  const [settingsArtworkTheme, setSettingsArtworkTheme] = useState(() => localStorage.getItem("kiro-media-artwork-theme") === "true");
+  const [settingsCornersEnabled, setSettingsCornersEnabled] = useState(() => localStorage.getItem("kiro-corners-enabled") === "true");
+  const [mediaLayout, setMediaLayout] = useState<'classic' | 'compact'>(() => (localStorage.getItem("kiro-media-layout") as 'classic' | 'compact') || 'classic');
   const [compactVolumeExpanded, setCompactVolumeExpanded] = useState(false);
 
   // Album-art color grading: extract the palette once per artwork URL and cache
@@ -795,6 +799,7 @@ function App() {
     if (!windowLabel) return;
 
     invoke("load_settings").then((settings: any) => {
+      hydrateStorageFromSettings(settings);
       const getVal = (key: string, fallback: string | null = null) => {
         const val = settings[key];
         if (val !== undefined && val !== null) return String(val);
@@ -803,55 +808,55 @@ function App() {
         return fallback;
       };
 
-      setSettingsWeatherEnabled(getVal("nectar-weather-enabled", "true") !== "false");
-      setSettingsCalendarEnabled(getVal("nectar-calendar-enabled", "true") !== "false");
-      setSettingsTimerEnabled((getVal("nectar-timer-enabled") ?? getVal("nectar-calendar-enabled", "true")) !== "false");
-      setSettingsTimerSoundEnabled(getVal("nectar-timer-sound-enabled", "true") !== "false");
-      setSettingsStopwatchEnabled((getVal("nectar-stopwatch-enabled") ?? getVal("nectar-calendar-enabled", "true")) !== "false");
-      setSettingsDualClockEnabled(getVal("nectar-dual-clock-enabled", "false") === "true");
-      setDualClockZone(getVal("nectar-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE);
-      setDualClockLabel(getVal("nectar-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE);
-      setSettingsMusicModeEnabled(getVal("nectar-music-mode-enabled", "true") !== "false");
-      setSettingsMusicCompactNotch(getVal("nectar-music-compact-notch", "true") !== "false");
-      const viz = getVal("nectar-media-visualizer-enabled") ?? getVal("nectar-visualizer-enabled", "true");
+      setSettingsWeatherEnabled(getVal("kiro-weather-enabled", "true") !== "false");
+      setSettingsCalendarEnabled(getVal("kiro-calendar-enabled", "true") !== "false");
+      setSettingsTimerEnabled((getVal("kiro-timer-enabled") ?? getVal("kiro-calendar-enabled", "true")) !== "false");
+      setSettingsTimerSoundEnabled(getVal("kiro-timer-sound-enabled", "true") !== "false");
+      setSettingsStopwatchEnabled((getVal("kiro-stopwatch-enabled") ?? getVal("kiro-calendar-enabled", "true")) !== "false");
+      setSettingsDualClockEnabled(getVal("kiro-dual-clock-enabled", "false") === "true");
+      setDualClockZone(getVal("kiro-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE);
+      setDualClockLabel(getVal("kiro-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE);
+      setSettingsMusicModeEnabled(getVal("kiro-music-mode-enabled", "true") !== "false");
+      setSettingsMusicCompactNotch(getVal("kiro-music-compact-notch", "true") !== "false");
+      const viz = getVal("kiro-media-visualizer-enabled") ?? getVal("kiro-visualizer-enabled", "true");
       setSettingsVisualizerEnabled(viz !== "false");
-      setSettingsAlbumArtEnabled(getVal("nectar-media-album-art-enabled", "true") !== "false");
-      setSettingsAmbienceEnabled(getVal("nectar-media-ambience-enabled", "true") !== "false");
-      setSettingsCompactGlowEnabled(getVal("nectar-media-compact-glow-enabled", "true") !== "false");
-      setSettingsArtworkTheme(getVal("nectar-media-artwork-theme", "false") === "true");
-      setSettingsCornersEnabled(getVal("nectar-corners-enabled", "false") === "true");
-      setNotchBottomRight(getVal("nectar-notch-position", "top") === "bottom-right");
+      setSettingsAlbumArtEnabled(getVal("kiro-media-album-art-enabled", "true") !== "false");
+      setSettingsAmbienceEnabled(getVal("kiro-media-ambience-enabled", "true") !== "false");
+      setSettingsCompactGlowEnabled(getVal("kiro-media-compact-glow-enabled", "true") !== "false");
+      setSettingsArtworkTheme(getVal("kiro-media-artwork-theme", "false") === "true");
+      setSettingsCornersEnabled(getVal("kiro-corners-enabled", "false") === "true");
+      setNotchBottomRight(getVal("kiro-notch-position", "bottom-right") === "bottom-right");
       // Panel visibility has to come from the stored settings too, otherwise a
       // stale localStorage value can hide the quick-settings panel forever.
-      setPanelControlCenter(getVal("nectar-panel-control-center-enabled", "true") !== "false");
-      setPanelShelf(getVal("nectar-panel-shelf-enabled", "true") !== "false");
-      setPanelOrder(parsePanelOrder(getVal("nectar-panel-order")));
-      setTimeFormat24h(getVal("nectar-time-format-24h") === "true");
-      setSettingsLegacyMode(getVal("nectar-legacy-mode") === "true");
-      const scrollVolume = getVal("nectar-notch-scroll-volume") === "true";
-      localStorage.setItem("nectar-notch-scroll-volume", String(scrollVolume));
+      setPanelControlCenter(getVal("kiro-panel-control-center-enabled", "true") !== "false");
+      setPanelShelf(getVal("kiro-panel-shelf-enabled", "true") !== "false");
+      setPanelOrder(parsePanelOrder(getVal("kiro-panel-order")));
+      setTimeFormat24h(getVal("kiro-time-format-24h") !== "false");
+      setSettingsLegacyMode(getVal("kiro-legacy-mode") === "true");
+      const scrollVolume = getVal("kiro-notch-scroll-volume") === "true";
+      localStorage.setItem("kiro-notch-scroll-volume", String(scrollVolume));
       setSettingsScrollVolume(scrollVolume);
 
-      const thresholdStr = getVal("nectar-low-battery-threshold", "20");
+      const thresholdStr = getVal("kiro-low-battery-threshold", "20");
       if (thresholdStr) setLowBatteryThreshold(parseInt(thresholdStr as string));
 
       refreshNotchMode();
       refreshDockMode();
 
       if (windowLabel === 'main') {
-        const firstRun = localStorage.getItem("nectar-first-run") === null;
+        const firstRun = localStorage.getItem("kiro-first-run") === null;
         if (firstRun) {
           import("@tauri-apps/plugin-autostart").then(({ enable, isEnabled }) => {
             isEnabled().then(enabled => {
               if (!enabled) enable().catch(() => { });
             });
           });
-          localStorage.setItem("nectar-first-run", "done");
+          localStorage.setItem("kiro-first-run", "done");
         }
-        const rawDockMode = getVal("nectar-dock-mode", "smart") as string;
+        const rawDockMode = getVal("kiro-dock-mode", "smart") as string;
         const dockMode = rawDockMode === "auto-hide" ? "smart" : rawDockMode;
         const syncWindows = async () => {
-          const dockEnabled = getVal("nectar-dock-enabled", "true") === "true";
+          const dockEnabled = getVal("kiro-dock-enabled", "true") === "true";
           const resolvedNotchMode = await invoke<string>('get_notch_mode_for_window').catch(() => "fixed");
           await Promise.all([
             dockEnabled ? invoke("init_dock", { mode: dockMode }) : Promise.resolve(),
@@ -860,7 +865,7 @@ function App() {
           await invoke("sync_appbar");
         };
 
-        const dockEnabled = getVal("nectar-dock-enabled", "true") === "true";
+        const dockEnabled = getVal("kiro-dock-enabled", "true") === "true";
         const runDockInit = () => {
           // 1. Snappy initial sync
           setTimeout(syncWindows, 400);
@@ -893,10 +898,10 @@ function App() {
         runDockInitAfterSplash();
       }
 
-      const scaleVal = getVal("nectar-scale");
+      const scaleVal = getVal("kiro-scale");
       if (scaleVal !== null) setScale(parseFloat(scaleVal));
 
-      const widgetsVal = getVal("nectar-status-widgets");
+      const widgetsVal = getVal("kiro-status-widgets");
       if (widgetsVal) {
         try {
           const parsed = JSON.parse(widgetsVal);
@@ -954,44 +959,44 @@ function App() {
   // Settings sync — consolidated dispatch for all settings events
   useSettingsSync(
     {
-      "nectar-weather-enabled": setSettingsWeatherEnabled,
-      "nectar-calendar-enabled": setSettingsCalendarEnabled,
-      "nectar-timer-enabled": setSettingsTimerEnabled,
-      "nectar-timer-sound-enabled": setSettingsTimerSoundEnabled,
-      "nectar-notch-timer-progress": setSettingsTimerProgressEnabled,
-      "nectar-stopwatch-enabled": setSettingsStopwatchEnabled,
-      "nectar-dual-clock-enabled": setSettingsDualClockEnabled,
-      "nectar-dual-clock-zone": (value) => setDualClockZone(String(value)),
-      "nectar-dual-clock-label": (value) => setDualClockLabel(String(value)),
-      "nectar-music-mode-enabled": setSettingsMusicModeEnabled,
-      "nectar-music-compact-notch": setSettingsMusicCompactNotch,
-      "nectar-notch-scroll-volume": setSettingsScrollVolume,
-      "nectar-shelf-persist": setSettingsShelfPersist,
-      "nectar-notch-remember-mode": setSettingsRememberMode,
-      "nectar-panel-control-center-enabled": (v) => setPanelControlCenter(v !== false && v !== "false"),
-      "nectar-panel-shelf-enabled": (v) => setPanelShelf(v !== false && v !== "false"),
-      "nectar-panel-order": (v) => setPanelOrder(parsePanelOrder(v === null ? null : String(v))),
-      "nectar-cc-layout": (v) => setCcLayout(parseCcLayout(v === null ? null : String(v))),
-      "nectar-media-visualizer-enabled": setSettingsVisualizerEnabled,
-      "nectar-visualizer-enabled": setSettingsVisualizerEnabled,
-      "nectar-media-album-art-enabled": setSettingsAlbumArtEnabled,
-      "nectar-media-ambience-enabled": setSettingsAmbienceEnabled,
-      "nectar-media-compact-glow-enabled": setSettingsCompactGlowEnabled,
-      "nectar-media-artwork-theme": setSettingsArtworkTheme,
-      "nectar-media-layout": setMediaLayout,
-      "nectar-corners-enabled": setSettingsCornersEnabled,
-      "nectar-scale": setScale,
-      "nectar-low-battery-threshold": setLowBatteryThreshold,
-      "nectar-dock-enabled": setDockEnabled,
-      "nectar-dock-mode": refreshDockMode,
-      "nectar-dock-mode-by-monitor": refreshDockMode,
-      "nectar-dock-monitor-mode": refreshDockMode,
-      "nectar-dock-monitor-id": refreshDockMode,
-      "nectar-notch-mode": refreshNotchMode,
-      "nectar-notch-mode-by-monitor": refreshNotchMode,
-      "nectar-notch-monitor-mode": refreshNotchMode,
-      "nectar-notch-monitor-id": refreshNotchMode,
-      "nectar-status-widgets": (value) => {
+      "kiro-weather-enabled": setSettingsWeatherEnabled,
+      "kiro-calendar-enabled": setSettingsCalendarEnabled,
+      "kiro-timer-enabled": setSettingsTimerEnabled,
+      "kiro-timer-sound-enabled": setSettingsTimerSoundEnabled,
+      "kiro-notch-timer-progress": setSettingsTimerProgressEnabled,
+      "kiro-stopwatch-enabled": setSettingsStopwatchEnabled,
+      "kiro-dual-clock-enabled": setSettingsDualClockEnabled,
+      "kiro-dual-clock-zone": (value) => setDualClockZone(String(value)),
+      "kiro-dual-clock-label": (value) => setDualClockLabel(String(value)),
+      "kiro-music-mode-enabled": setSettingsMusicModeEnabled,
+      "kiro-music-compact-notch": setSettingsMusicCompactNotch,
+      "kiro-notch-scroll-volume": setSettingsScrollVolume,
+      "kiro-shelf-persist": setSettingsShelfPersist,
+      "kiro-notch-remember-mode": setSettingsRememberMode,
+      "kiro-panel-control-center-enabled": (v) => setPanelControlCenter(v !== false && v !== "false"),
+      "kiro-panel-shelf-enabled": (v) => setPanelShelf(v !== false && v !== "false"),
+      "kiro-panel-order": (v) => setPanelOrder(parsePanelOrder(v === null ? null : String(v))),
+      "kiro-cc-layout": (v) => setCcLayout(parseCcLayout(v === null ? null : String(v))),
+      "kiro-media-visualizer-enabled": setSettingsVisualizerEnabled,
+      "kiro-visualizer-enabled": setSettingsVisualizerEnabled,
+      "kiro-media-album-art-enabled": setSettingsAlbumArtEnabled,
+      "kiro-media-ambience-enabled": setSettingsAmbienceEnabled,
+      "kiro-media-compact-glow-enabled": setSettingsCompactGlowEnabled,
+      "kiro-media-artwork-theme": setSettingsArtworkTheme,
+      "kiro-media-layout": setMediaLayout,
+      "kiro-corners-enabled": setSettingsCornersEnabled,
+      "kiro-scale": setScale,
+      "kiro-low-battery-threshold": setLowBatteryThreshold,
+      "kiro-dock-enabled": setDockEnabled,
+      "kiro-dock-mode": refreshDockMode,
+      "kiro-dock-mode-by-monitor": refreshDockMode,
+      "kiro-dock-monitor-mode": refreshDockMode,
+      "kiro-dock-monitor-id": refreshDockMode,
+      "kiro-notch-mode": refreshNotchMode,
+      "kiro-notch-mode-by-monitor": refreshNotchMode,
+      "kiro-notch-monitor-mode": refreshNotchMode,
+      "kiro-notch-monitor-id": refreshNotchMode,
+      "kiro-status-widgets": (value) => {
         try {
           const parsed = JSON.parse(value);
           if (parsed && Array.isArray(parsed.left) && Array.isArray(parsed.right)) {
@@ -999,10 +1004,10 @@ function App() {
           }
         } catch {}
       },
-      "nectar-show-update-indicator": (value) => setShowUpdateIndicator(String(value) === "true"),
-      "nectar-time-format-24h": setTimeFormat24h,
-      "nectar-legacy-mode": setSettingsLegacyMode,
-      "nectar-notch-position": (v) => {
+      "kiro-show-update-indicator": (value) => setShowUpdateIndicator(String(value) === "true"),
+      "kiro-time-format-24h": setTimeFormat24h,
+      "kiro-legacy-mode": setSettingsLegacyMode,
+      "kiro-notch-position": (v) => {
         setNotchBottomRight(v === "bottom-right");
         // The window has to be repositioned/resized by the backend.
         setTimeout(() => invoke("sync_appbar"), 60);
@@ -1016,7 +1021,7 @@ function App() {
     if (windowLabel !== 'main') return;
     if (dockEnabledInitial.current) { dockEnabledInitial.current = false; return; }
     if (dockEnabled) {
-      invoke("init_dock", { mode: localStorage.getItem("nectar-dock-mode") || "smart" });
+      invoke("init_dock", { mode: localStorage.getItem("kiro-dock-mode") || "smart" });
     } else {
       invoke("toggle_dock", { enable: false });
     }
@@ -1043,19 +1048,19 @@ function App() {
 
   const startTour = useCallback(() => {
     setTourStep(0);
-    setNectarMode('tour');
+    setKiroMode('tour');
   }, []);
 
   const closeTour = useCallback(() => {
-    setNectarMode('status');
-    localStorage.setItem("nectar-tour-seen", "1");
-    invoke("save_setting", { key: "nectar-tour-seen", value: "1" }).catch(console.error);
+    setKiroMode('status');
+    localStorage.setItem("kiro-tour-seen", "1");
+    invoke("save_setting", { key: "kiro-tour-seen", value: "1" }).catch(console.error);
   }, []);
 
   useEffect(() => {
     if (windowLabel !== 'main' || settingsLegacyMode || !isReady || !isExpanded || tourAutoStartedRef.current) return;
     tourAutoStartedRef.current = true;
-    if (localStorage.getItem("nectar-tour-seen") === "1") return;
+    if (localStorage.getItem("kiro-tour-seen") === "1") return;
     const timer = setTimeout(startTour, 1500);
     return () => clearTimeout(timer);
   }, [windowLabel, settingsLegacyMode, isReady, isExpanded, startTour]);
@@ -1067,8 +1072,8 @@ function App() {
   }, [windowLabel, startTour]);
 
   useEffect(() => {
-    if (ccView !== 'main' && (!isHovered || nectarMode !== 'command-center')) setCcView('main');
-  }, [ccView, isHovered, nectarMode]);
+    if (ccView !== 'main' && (!isHovered || kiroMode !== 'command-center')) setCcView('main');
+  }, [ccView, isHovered, kiroMode]);
   const caldav = useCaldav();
 
   // Window height is now kept constant to prevent rendering layout lag and sharp corners
@@ -1119,15 +1124,15 @@ function App() {
 
     const availableModes = availableNotchModes();
 
-    if (nectarMode === 'agent') { if (availableModes[0]) setNectarMode(availableModes[0]); return; }
-    if (nectarMode === 'tour') return;
-    const currentIndex = availableModes.indexOf(nectarMode);
+    if (kiroMode === 'agent') { if (availableModes[0]) setKiroMode(availableModes[0]); return; }
+    if (kiroMode === 'tour') return;
+    const currentIndex = availableModes.indexOf(kiroMode);
     if (currentIndex === -1) return;
 
     const nextIndex = (currentIndex + direction + availableModes.length) % availableModes.length;
     const nextMode = availableModes[nextIndex];
     manualMusicRef.current = nextMode === 'music';
-    setNectarMode(nextMode);
+    setKiroMode(nextMode);
   };
 
 
@@ -1235,50 +1240,50 @@ function App() {
     }
 
     if (settingsMusicModeEnabled && settingsMusicCompactNotch && mediaInfo.has_media && isPlaying
-        && nectarMode === 'status' && !isHovered && (isNewTrackWhilePlaying || justStartedPlaying)) {
+        && kiroMode === 'status' && !isHovered && (isNewTrackWhilePlaying || justStartedPlaying)) {
       manualMusicRef.current = false;
-      setNectarMode('music');
+      setKiroMode('music');
     }
 
     lastTrackRef.current = mediaInfo.title;
     lastPlayingRef.current = isPlaying;
-  }, [mediaInfo.has_media, isPlaying, mediaInfo.title, settingsMusicModeEnabled, settingsMusicCompactNotch, isHovered, nectarMode, notchMode, triggerEventPeek]);
+  }, [mediaInfo.has_media, isPlaying, mediaInfo.title, settingsMusicModeEnabled, settingsMusicCompactNotch, isHovered, kiroMode, notchMode, triggerEventPeek]);
 
   // Auto-switch back from music if music stops for 5 seconds
   // Skip if user manually scrolled to music mode
   useEffect(() => {
     let timer: any;
-    if (!isPlaying && nectarMode === 'music' && !manualMusicRef.current) {
+    if (!isPlaying && kiroMode === 'music' && !manualMusicRef.current) {
       timer = setTimeout(() => {
-        setNectarMode('status');
+        setKiroMode('status');
       }, 5000);
     }
     return () => clearTimeout(timer);
-  }, [isPlaying, nectarMode]);
+  }, [isPlaying, kiroMode]);
 
   useEffect(() => {
-    if (!productivityEnabled && nectarMode === 'calendar') {
-      setNectarMode('status');
+    if (!productivityEnabled && kiroMode === 'calendar') {
+      setKiroMode('status');
     }
-  }, [productivityEnabled, nectarMode]);
+  }, [productivityEnabled, kiroMode]);
 
   useEffect(() => {
-    if (!settingsMusicModeEnabled && nectarMode === 'music') {
-      setNectarMode('status');
+    if (!settingsMusicModeEnabled && kiroMode === 'music') {
+      setKiroMode('status');
     }
-  }, [settingsMusicModeEnabled, nectarMode]);
+  }, [settingsMusicModeEnabled, kiroMode]);
 
   useEffect(() => {
-    if (!settingsMusicCompactNotch && nectarMode === 'music' && !isHovered) {
-      setNectarMode('status');
+    if (!settingsMusicCompactNotch && kiroMode === 'music' && !isHovered) {
+      setKiroMode('status');
     }
-  }, [settingsMusicCompactNotch, nectarMode, isHovered]);
+  }, [settingsMusicCompactNotch, kiroMode, isHovered]);
 
   useEffect(() => {
-    if (settingsMusicModeEnabled && settingsMusicCompactNotch && mediaInfo.has_media && isPlaying && nectarMode === 'status' && !isHovered) {
-      setNectarMode('music');
+    if (settingsMusicModeEnabled && settingsMusicCompactNotch && mediaInfo.has_media && isPlaying && kiroMode === 'status' && !isHovered) {
+      setKiroMode('music');
     }
-  }, [settingsMusicModeEnabled, settingsMusicCompactNotch, mediaInfo.has_media, isPlaying, nectarMode, isHovered]);
+  }, [settingsMusicModeEnabled, settingsMusicCompactNotch, mediaInfo.has_media, isPlaying, kiroMode, isHovered]);
 
   // Update time
   useEffect(() => {
@@ -1302,7 +1307,7 @@ function App() {
 
     // Toggle compact timer view every 5 seconds if running
     let timerToggleInterval: any;
-    if ((isTimerRunning || stopwatch.running) && nectarMode !== 'calendar') {
+    if ((isTimerRunning || stopwatch.running) && kiroMode !== 'calendar') {
       timerToggleInterval = setVisibleInterval(() => {
         setIsCompactTimerVisible(prev => !prev);
       }, 5000);
@@ -1314,7 +1319,7 @@ function App() {
       clearInterval(interval);
       if (timerToggleInterval) clearInterval(timerToggleInterval);
     };
-  }, [isTimerRunning, stopwatch.running, nectarMode, timeFormat24h, settingsDualClockEnabled, dualClockZone]);
+  }, [isTimerRunning, stopwatch.running, kiroMode, timeFormat24h, settingsDualClockEnabled, dualClockZone]);
 
   // Battery API
   useEffect(() => {
@@ -1392,11 +1397,11 @@ function App() {
 
   // Keep Wi-Fi fresh while the command center is open (keyboard toggle, Windows quick settings).
   useEffect(() => {
-    if (nectarMode !== 'command-center') return;
+    if (kiroMode !== 'command-center') return;
     void refreshWifiStatus();
     const interval = setVisibleInterval(() => void refreshWifiStatus(), 5000);
     return () => clearInterval(interval);
-  }, [nectarMode, refreshWifiStatus]);
+  }, [kiroMode, refreshWifiStatus]);
 
   // Load bluetooth/volume/brightness state on mount
   useEffect(() => {
@@ -1404,7 +1409,7 @@ function App() {
     invoke<boolean>("get_battery_saver_state").then(setBatterySaverEnabled).catch(() => { });
     invoke<boolean>("has_battery").then((present) => {
       setHasBattery(present);
-      localStorage.setItem("nectar-has-battery", String(present));
+      localStorage.setItem("kiro-has-battery", String(present));
     }).catch(() => { });
     invoke<{ volume: number; is_muted: boolean }>("get_volume_state")
       .then((state) => { setVolume(state.volume); setIsMuted(state.is_muted); })
@@ -1663,8 +1668,8 @@ function App() {
     e.stopPropagation();
     const nextMode = dockMode === "fixed" ? "smart" : dockMode === "smart" ? "peek" : "fixed";
     setDockMode(nextMode);
-    localStorage.setItem("nectar-dock-mode", nextMode);
-    invoke("save_setting", { key: "nectar-dock-mode", value: nextMode }).catch(console.error);
+    localStorage.setItem("kiro-dock-mode", nextMode);
+    invoke("save_setting", { key: "kiro-dock-mode", value: nextMode }).catch(console.error);
     try {
       await invoke("change_dock_mode", { mode: nextMode });
     } catch (err) {
@@ -1701,7 +1706,7 @@ function App() {
     }
     if (!productivityEnabled) return;
 
-    setNectarMode(prev => {
+    setKiroMode(prev => {
       if (prev === 'calendar') {
         // Return to music mode if media is present and playing and music mode is enabled, otherwise status
         return (settingsMusicModeEnabled && mediaInfo.has_media && isPlaying) ? 'music' : 'status';
@@ -1716,7 +1721,7 @@ function App() {
       resetTimer();
       return;
     }
-    if (nectarMode === 'tour') return;
+    if (kiroMode === 'tour') return;
     const modes = availableNotchModes();
     if (!modes.includes('command-center')) {
       cycleNotchMode(e);
@@ -1724,11 +1729,11 @@ function App() {
     }
     // Click opens the control center, clicking the clock again closes it and
     // falls back to whatever the notch was showing before.
-    if (nectarMode === 'command-center') {
+    if (kiroMode === 'command-center') {
       const home = settingsMusicModeEnabled && mediaInfo.has_media && isPlaying ? 'music' : 'status';
-      setNectarMode(modes.includes(home) ? home : modes[0]);
+      setKiroMode(modes.includes(home) ? home : modes[0]);
     } else {
-      setNectarMode('command-center');
+      setKiroMode('command-center');
     }
   };
 
@@ -1740,8 +1745,8 @@ function App() {
       resetTimer();
       return;
     }
-    if (nectarMode === 'tour') return;
-    if (availableNotchModes().includes('status')) setNectarMode('status');
+    if (kiroMode === 'tour') return;
+    if (availableNotchModes().includes('status')) setKiroMode('status');
   };
 
   const cycleNotchMode = (e: React.MouseEvent) => {
@@ -1750,21 +1755,21 @@ function App() {
       resetTimer();
       return;
     }
-    if (nectarMode === 'tour') return;
+    if (kiroMode === 'tour') return;
     // Clicking the clock opens the quick-settings panel (Wi-Fi, Bluetooth,
     // volume, brightness). Scrolling still cycles through every panel.
     const allModes = availableNotchModes();
-    if (nectarMode === 'agent') { if (allModes[0]) setNectarMode(allModes[0]); return; }
+    if (kiroMode === 'agent') { if (allModes[0]) setKiroMode(allModes[0]); return; }
     if (allModes.includes('command-center')) {
-      setNectarMode('command-center');
+      setKiroMode('command-center');
       return;
     }
     const modes = allModes;
-    const index = modes.indexOf(nectarMode);
+    const index = modes.indexOf(kiroMode);
     if (index === -1 || modes.length < 2) return;
     const next = modes[(index + 1) % modes.length];
     manualMusicRef.current = next === 'music';
-    setNectarMode(next);
+    setKiroMode(next);
   };
 
   const conditionLabel = (condition: string) => {
@@ -1859,7 +1864,7 @@ function App() {
   const collapseAfterShelfDrag = () => {
     setIsHovered(false);
     setIsNotchHovered(false);
-    setNectarMode(mediaInfo.has_media && isPlaying && settingsMusicCompactNotch ? 'music' : 'status');
+    setKiroMode(mediaInfo.has_media && isPlaying && settingsMusicCompactNotch ? 'music' : 'status');
   };
   const shelfDrag = useRef({ active: false, until: 0 });
   const shelfCollapseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -1877,24 +1882,32 @@ function App() {
     onDragEnter: () => {
       setIsHovered(true);
       setIsNotchHovered(true);
-      setNectarMode('shelf');
+      setKiroMode('shelf');
     },
     onDragLeave: collapseAfterShelfDrag,
-    onDrop: () => setNectarMode('shelf'),
+    onDrop: () => setKiroMode('shelf'),
   });
 
+  // Hovering away used to always reopen the quick settings panel, so an item
+  // dropped on the shelf looked like it had vanished: the shelf was still one
+  // wheel notch away, but nothing pointed at it. Reopen the shelf instead when
+  // that was the last panel on screen and it still holds something.
   useEffect(() => {
-    if ((nectarMode === 'command-center' && !panelControlCenter) || (nectarMode === 'shelf' && !panelShelf)) {
-      setNectarMode('status');
-    }
-  }, [nectarMode, panelControlCenter, panelShelf]);
+    if (kiroMode === 'shelf' && shelf.items.length === 0) wasShelfRef.current = false;
+  }, [kiroMode, shelf.items.length]);
 
   useEffect(() => {
-    if (nectarMode === 'agent' && !agentActivity) setNectarMode('status');
-  }, [nectarMode, agentActivity]);
+    if ((kiroMode === 'command-center' && !panelControlCenter) || (kiroMode === 'shelf' && !panelShelf)) {
+      setKiroMode('status');
+    }
+  }, [kiroMode, panelControlCenter, panelShelf]);
+
+  useEffect(() => {
+    if (kiroMode === 'agent' && !agentActivity) setKiroMode('status');
+  }, [kiroMode, agentActivity]);
 
   // Music mode shows any time we have media info (playing or paused) and music mode setting is enabled
-  const isMusicMode = mediaInfo.has_media && nectarMode === 'music' && settingsMusicModeEnabled;
+  const isMusicMode = mediaInfo.has_media && kiroMode === 'music' && settingsMusicModeEnabled;
 
   // Second clock beside the time
   const showDualClock = settingsDualClockEnabled && !settingsLegacyMode && dualTime !== "";
@@ -1911,18 +1924,18 @@ function App() {
 
   // Calculate width dynamically based on enabled features
   const agentNeedsYou = !!agentActivity && isNotchWindow;
-  const agentWings = !!agentActivity && isNotchWindow && !isHovered && (nectarMode === 'status' || isMusicMode);
+  const agentWings = !!agentActivity && isNotchWindow && !isHovered && (kiroMode === 'status' || isMusicMode);
 
   const getDynamicWidth = () => {
-    if (nectarMode === 'tour') return 380;
-    if (nectarMode === 'agent') return 340;
-    if (nectarMode === 'shelf') return Math.max(300, Math.min(120 + shelf.items.length * 70, 460));
+    if (kiroMode === 'tour') return 380;
+    if (kiroMode === 'agent') return 340;
+    if (kiroMode === 'shelf') return Math.max(300, Math.min(120 + shelf.items.length * 70, 460));
     if (isCalendarMode) return Math.max(settingsCalendarEnabled && showClockColumn ? 480 : settingsCalendarEnabled ? 310 : 270, 140 + dualClockExtra);
-    if (nectarMode === 'command-center' && isHovered) {
+    if (kiroMode === 'command-center' && isHovered) {
       const totalWidgets = statusWidgets.left.length + statusWidgets.right.length;
       return Math.max(390, Math.min(200 + totalWidgets * 65, 480)) + dualClockExtra;
     }
-    if (nectarMode === 'status' && isHovered) {
+    if (kiroMode === 'status' && isHovered) {
       const totalWidgets = statusWidgets.left.length + statusWidgets.right.length;
       return Math.min(200 + totalWidgets * 65, 460) + dualClockExtra;
     }
@@ -1946,11 +1959,11 @@ function App() {
     if (!isExpanded || isHidden) {
       return isImpacted ? 28.9 : 44.2;
     }
-    if (nectarMode === 'tour') return 210;
-    if (nectarMode === 'agent') return agentActivity?.ask ? 184 : agentActivity?.detail ? 160 : 130;
-    if (nectarMode === 'shelf') return shelf.items.length === 0 ? 96 : 156;
-    if (nectarMode === 'calendar') return settingsCalendarEnabled ? (caldav.connected ? 350 : 310) : 262;
-    if (nectarMode === 'command-center') {
+    if (kiroMode === 'tour') return 210;
+    if (kiroMode === 'agent') return agentActivity?.ask ? 184 : agentActivity?.detail ? 160 : 130;
+    if (kiroMode === 'shelf') return shelf.items.length === 0 ? 96 : 156;
+    if (kiroMode === 'calendar') return settingsCalendarEnabled ? (caldav.connected ? 350 : 310) : 262;
+    if (kiroMode === 'command-center') {
       if (!isHovered) return 36;
       const tileRows = Math.ceil(ccResolved.tiles.length / 2);
       const tilesH = tileRows ? tileRows * 42 + (tileRows - 1) * 10 + 14 : 0;
@@ -1958,7 +1971,7 @@ function App() {
       const slidersH = ccResolved.sliders.length ? ccResolved.sliders.length * 22 + (ccResolved.sliders.length - 1) * 12 + 14 : 0;
       return 46 + tilesH + buttonsH + slidersH;
     }
-    if (nectarMode === 'status') return 36;
+    if (kiroMode === 'status') return 36;
     if (isMusicMode && isHovered) {
       const hasProgressBar = (mediaInfo.duration_ms ?? 0) > 0;
       let h = mediaLayout === 'compact' ? (hasProgressBar ? 132 : 116) : 120;
@@ -1970,12 +1983,12 @@ function App() {
     return 36;
   };
 
-  const isCalendarMode = nectarMode === 'calendar';
+  const isCalendarMode = kiroMode === 'calendar';
   // Calendar, command center and shelf are big, dense panels; glass styles thicken the fill for them
-  const isPanelOpen = isHovered && (isCalendarMode || nectarMode === 'command-center' || nectarMode === 'shelf');
+  const isPanelOpen = isHovered && (isCalendarMode || kiroMode === 'command-center' || kiroMode === 'shelf');
 
   // Album tints the whole notch, collapsed pill included. The expanded state
-  // reads --nectar-bg-expanded and the muted/border vars live on :root, so all
+  // reads --kiro-bg-expanded and the muted/border vars live on :root, so all
   // of them have to be overridden or the panel loses the tint when hovered.
   const withAlpha = (color: string, alpha: number | string) => {
     const m = /^rgb\((.+)\)$/.exec(color.trim());
@@ -1984,11 +1997,11 @@ function App() {
   const musicTint =
     isMusicMode && settingsArtworkTheme && musicTheme.background
       ? ({
-          "--nectar-bg": withAlpha(musicTheme.background, "var(--nectar-opacity, 0.8)"),
-          "--nectar-bg-expanded": withAlpha(musicTheme.background, "var(--nectar-opacity-expanded, 0.92)"),
-          "--nectar-text": musicTheme.text,
-          "--nectar-text-muted": withAlpha(musicTheme.text, 0.65),
-          "--nectar-border": withAlpha(musicTheme.text, 0.12),
+          "--kiro-bg": withAlpha(musicTheme.background, "var(--kiro-opacity, 0.8)"),
+          "--kiro-bg-expanded": withAlpha(musicTheme.background, "var(--kiro-opacity-expanded, 0.92)"),
+          "--kiro-text": musicTheme.text,
+          "--kiro-text-muted": withAlpha(musicTheme.text, 0.65),
+          "--kiro-border": withAlpha(musicTheme.text, 0.12),
           "--music-accent": musicTheme.accent,
         } as React.CSSProperties)
       : undefined;
@@ -1998,7 +2011,7 @@ function App() {
     if (mediaLayout === 'compact') {
       setCompactVolumeExpanded(false);
     }
-  }, [isHovered, mediaLayout, nectarMode]);
+  }, [isHovered, mediaLayout, kiroMode]);
 
 
 
@@ -2027,8 +2040,8 @@ function App() {
 
       <div style={{ zoom: scale, width: '100%', display: 'flex', justifyContent: notchBottomRight ? 'flex-end' : 'center', alignItems: notchBottomRight ? 'flex-end' : 'flex-start', height: '100%', paddingRight: notchBottomRight ? '12px' : 0, paddingBottom: notchBottomRight ? '10px' : 0, boxSizing: 'border-box' }}>
         <motion.div
-          ref={nectarRef}
-          className={`nectar ${isHovered ? 'expanded' : ''} ${isImpacted && !notchBottomRight ? 'is-impacted' : ''} ${isPanelOpen ? 'panel-open' : ''}`}
+          ref={kiroRef}
+          className={`kiro ${isHovered ? 'expanded' : ''} ${isImpacted && !notchBottomRight ? 'is-impacted' : ''} ${isPanelOpen ? 'panel-open' : ''}`}
           onMouseEnter={() => setIsNotchHovered(true)}
         onMouseLeave={() => setIsNotchHovered(false)}
         onWheel={handleWheel}
@@ -2051,37 +2064,42 @@ function App() {
           // Bluetooth, volume, brightness). Controls inside stop the event
           // themselves so they keep working. Moving away closes it again.
           if (availableNotchModes().includes('command-center')) {
-            setNectarMode('command-center');
+            setKiroMode('command-center');
           }
         }}
         onHoverStart={() => {
           clearTimeout(shelfCollapseTimer.current);
           setIsHovered(true);
-          if (nectarMode !== 'tour' && nectarMode !== 'shelf') {
+          if (kiroMode !== 'tour' && kiroMode !== 'shelf') {
             const modes = availableNotchModes();
             const remembered = settingsRememberMode ? rememberedModeRef.current : null;
-            if (agentNeedsYou) setNectarMode('agent');
+            if (wasShelfRef.current && shelf.items.length > 0 && modes.includes('shelf')) {
+              // The shelf still holds something and was the last thing on
+              // screen: show it again instead of the quick settings.
+              setKiroMode('shelf');
+            } else if (agentNeedsYou) setKiroMode('agent');
             // Opening the notch shows the quick settings panel (Wi-Fi,
             // Bluetooth, volume, brightness). A playing track wins, and
             // scrolling still reaches every other panel.
-            else if (mediaInfo.has_media && isPlaying && settingsMusicModeEnabled && modes.includes('music')) setNectarMode('music');
-            else if (modes.includes('command-center')) setNectarMode('command-center');
-            else if (remembered && modes.includes(remembered)) setNectarMode(remembered);
-            else setNectarMode('status');
+            else if (mediaInfo.has_media && isPlaying && settingsMusicModeEnabled && modes.includes('music')) setKiroMode('music');
+            else if (modes.includes('command-center')) setKiroMode('command-center');
+            else if (remembered && modes.includes(remembered)) setKiroMode(remembered);
+            else setKiroMode('status');
           }
         }}
         onHoverEnd={() => {
-          if (nectarMode === 'shelf' && shelfHoldsOpen()) {
+          wasShelfRef.current = kiroMode === 'shelf';
+          if (kiroMode === 'shelf' && shelfHoldsOpen()) {
             deferShelfCollapse();
             return;
           }
           setIsHovered(false);
-          if (nectarMode === 'command-center' || nectarMode === 'calendar') rememberedModeRef.current = nectarMode;
+          if (kiroMode === 'command-center' || kiroMode === 'calendar' || kiroMode === 'shelf') rememberedModeRef.current = kiroMode;
           const targetMode = mediaInfo.has_media && isPlaying && settingsMusicCompactNotch ? 'music' : 'status';
-          if (nectarMode === 'music') {
-            setNectarMode(targetMode);
-          } else if (nectarMode === 'command-center' || nectarMode === 'calendar' || nectarMode === 'status' || nectarMode === 'shelf' || nectarMode === 'agent') {
-            setNectarMode(targetMode);
+          if (kiroMode === 'music') {
+            setKiroMode(targetMode);
+          } else if (kiroMode === 'command-center' || kiroMode === 'calendar' || kiroMode === 'status' || kiroMode === 'shelf' || kiroMode === 'agent') {
+            setKiroMode(targetMode);
           }
         }}
         style={{ originY: 0, ...musicTint }}
@@ -2128,7 +2146,7 @@ function App() {
         <AnimatePresence mode="wait">
           {isExpanded && (
             <motion.div
-              key="nectar-content"
+              key="kiro-content"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -2167,7 +2185,7 @@ function App() {
                         onNextPanel={cycleNotchMode}
                         onLayoutChange={(layout) => {
                           setMediaLayout(layout);
-                          localStorage.setItem("nectar-media-layout", layout);
+                          localStorage.setItem("kiro-media-layout", layout);
                           window.dispatchEvent(new CustomEvent("settings-changed", { detail: { key: "media-layout", value: layout } }));
                         }}
                       />
@@ -2181,7 +2199,7 @@ function App() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setMediaLayout('compact');
-                            localStorage.setItem("nectar-media-layout", "compact");
+                            localStorage.setItem("kiro-media-layout", "compact");
                             window.dispatchEvent(new CustomEvent("settings-changed", { detail: { key: "media-layout", value: "compact" } }));
                           }}
                           style={{ cursor: 'pointer' }}
@@ -2556,7 +2574,7 @@ function App() {
 
               {/* Command Center Panel */}
               <AnimatePresence>
-                {nectarMode === 'command-center' && (
+                {kiroMode === 'command-center' && (
                   <motion.div
                     className="command-center-content-minimal"
                     onClick={e => e.stopPropagation()}
@@ -2691,7 +2709,7 @@ function App() {
                         className="cc-circular-btn"
                         style={ccStyle("buttons", "restart")}
                         {...tip(t("general.restart"))}
-                        onClick={(e) => { e.stopPropagation(); invoke("restart_nectar"); }}
+                        onClick={(e) => { e.stopPropagation(); invoke("restart_kiro"); }}
                       >
                         <ReloadIcon />
                       </button>
@@ -2756,7 +2774,7 @@ function App() {
               </AnimatePresence>
 
               <AnimatePresence>
-                {nectarMode === 'shelf' && (
+                {kiroMode === 'shelf' && (
                   <motion.div
                     key="shelf"
                     initial={{ opacity: 0 }}
@@ -2784,7 +2802,7 @@ function App() {
               </AnimatePresence>
 
               <AnimatePresence>
-                {nectarMode === 'tour' && (
+                {kiroMode === 'tour' && (
                   <motion.div
                     key="tour"
                     initial={{ opacity: 0 }}
@@ -2798,7 +2816,7 @@ function App() {
                       onClose={closeTour}
                       onAction={(id) => {
                         closeTour();
-                        if (id === 'control-center') setNectarMode('command-center');
+                        if (id === 'control-center') setKiroMode('command-center');
                         else openSettingsWindow();
                       }}
                     />
@@ -2807,7 +2825,7 @@ function App() {
               </AnimatePresence>
 
               <AnimatePresence>
-                {nectarMode === 'agent' && agentActivity && (
+                {kiroMode === 'agent' && agentActivity && (
                   <motion.div
                     key="agent-panel"
                     className="agent-panel"
@@ -2820,11 +2838,11 @@ function App() {
                     <AgentPanel
                       activity={agentActivity}
                       onOpen={() => { if (agentActivity.window) invoke('focus_agent_window', { window: agentActivity.window }).catch(() => { }); }}
-                      onDismiss={() => { setAgentActivity(null); setNectarMode('status'); }}
+                      onDismiss={() => { setAgentActivity(null); setKiroMode('status'); }}
                       onAnswer={(allow) => {
                         if (agentActivity.ask) invoke('agent_answer', { id: agentActivity.ask.id, allow }).catch(() => { });
                         setAgentActivity({ ...agentActivity, state: 'working', ask: undefined });
-                        setNectarMode('status');
+                        setKiroMode('status');
                       }}
                     />
                   </motion.div>

@@ -8,7 +8,7 @@ fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-const UNINSTALL_SUBKEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Nectar";
+const UNINSTALL_SUBKEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Kiro";
 
 pub struct UninstallInfo<'a> {
     pub display_name: &'a str,
@@ -71,7 +71,7 @@ pub fn remove_uninstall_entry(all_users: bool) -> windows::core::Result<()> {
     unsafe {
         let root = if all_users { HKEY_LOCAL_MACHINE } else { HKEY_CURRENT_USER };
         let subkey_w = wide(UNINSTALL_SUBKEY);
-        let install_key = wide(r"Software\kua8\nectar");
+        let install_key = wide(r"Software\kua8\kiro");
         let _ = RegDeleteTreeW(root, PCWSTR(install_key.as_ptr()));
         RegDeleteTreeW(root, PCWSTR(subkey_w.as_ptr())).ok()
     }

@@ -76,7 +76,7 @@ fn run_hidden(program: &str, args: &[&str]) -> Option<String> {
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
 }
 
-fn stop_running_nectar() {
+fn stop_running_kiro() {
     let not_self = format!("PID ne {}", std::process::id());
     let filters = ["/FI", "IMAGENAME eq kiro.exe", "/FI", not_self.as_str()];
 
@@ -173,7 +173,7 @@ fn remove_dir_command(install_dir: &Path, run_once: &str) -> String {
            if (Test-Path -LiteralPath '{dir}') {{ Start-Sleep -Milliseconds 500 }} \
          }}; \
          if (Test-Path -LiteralPath '{dir}') {{ \
-           Add-Content (Join-Path $env:TEMP 'nectar-uninstall.log') (\"Could not remove {dir}: \" + ($failed | Out-String)); \
+           Add-Content (Join-Path $env:TEMP 'kiro-uninstall.log') (\"Could not remove {dir}: \" + ($failed | Out-String)); \
            New-ItemProperty -Path '{run_once}' -Name 'KiroCleanup' -Value 'cmd /c rd /s /q \"{dir}\"' -Force -ErrorAction SilentlyContinue | Out-Null \
          }}",
         pid = std::process::id(),
@@ -197,7 +197,7 @@ fn remove_app_files_command(install_dir: &Path, run_once: &str) -> String {
            if ((& $left).Count) {{ Start-Sleep -Milliseconds 500 }} \
          }}; \
          if ((& $left).Count) {{ \
-           Add-Content (Join-Path $env:TEMP 'nectar-uninstall.log') (\"Could not remove Nectar files from {dir}: \" + ($failed | Out-String)); \
+           Add-Content (Join-Path $env:TEMP 'kiro-uninstall.log') (\"Could not remove Kiro files from {dir}: \" + ($failed | Out-String)); \
            New-ItemProperty -Path '{run_once}' -Name 'KiroCleanup' -Value 'cmd /c del /f /q {del_args}' -Force -ErrorAction SilentlyContinue | Out-Null \
          }}",
         pid = std::process::id(),
@@ -225,7 +225,7 @@ pub fn run() {
         return;
     }
 
-    stop_running_nectar();
+    stop_running_kiro();
     restore_taskbar_if_left_hidden();
     remove_shortcuts(all_users);
     remove_registry(all_users);
@@ -268,9 +268,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dedicated_dir_needs_nectar_in_its_name() {
+    fn dedicated_dir_needs_kiro_in_its_name() {
         assert!(is_dedicated_install_dir(Path::new(r"C:\Users\u\AppData\Local\Programs\Kiro")));
-        assert!(is_dedicated_install_dir(Path::new(r"D:\Apps\nectar-beta")));
+        assert!(is_dedicated_install_dir(Path::new(r"D:\Apps\kiro-beta")));
         assert!(!is_dedicated_install_dir(Path::new(r"D:\Apps")));
     }
 

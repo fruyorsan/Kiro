@@ -345,7 +345,7 @@ pub fn open_native_tray(anchor: Option<(i32, i32)>) {
     };
 
     let hidden = !unsafe { IsWindowVisible(tray) }.as_bool();
-    let was_hidden_by_nectar = hidden && crate::state::NATIVE_TASKBAR_HIDDEN.swap(false, Ordering::SeqCst);
+    let was_hidden_by_kiro = hidden && crate::state::NATIVE_TASKBAR_HIDDEN.swap(false, Ordering::SeqCst);
     let original_ex = unsafe { GetWindowLongA(tray, GWL_EXSTYLE) };
     if hidden {
         unsafe {
@@ -420,7 +420,7 @@ pub fn open_native_tray(anchor: Option<(i32, i32)>) {
             let _ = ShowWindow(tray, SW_HIDE);
             SetWindowLongA(tray, GWL_EXSTYLE, original_ex);
         }
-        if was_hidden_by_nectar {
+        if was_hidden_by_kiro {
             crate::utils::set_taskbar_visibility(false, false);
             crate::state::NATIVE_TASKBAR_HIDDEN.store(true, Ordering::SeqCst);
         }

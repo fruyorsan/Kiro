@@ -1,7 +1,9 @@
+import "./migrate";
 import { StrictMode, useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { listen, emit } from "@tauri-apps/api/event";
+import { hydrateStorageFromSettings } from "./migrate";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsSync } from "./hooks/useSettingsSync";
 import { useTrailingThrottle } from "./hooks/useTrailingThrottle";
@@ -111,7 +113,7 @@ function MixerTile({
         onMouseDown={handleMouseDown}
         onTouchStart={(e) => volumeFromY(e.touches[0].clientY)}
         onWheel={(e) => {
-          if (localStorage.getItem("nectar-notch-scroll-volume") !== "true") return;
+          if (localStorage.getItem("kiro-notch-scroll-volume") !== "true") return;
           e.stopPropagation();
           const change = e.deltaY < 0 ? 0.02 : -0.02;
           const newVol = Math.max(0, Math.min(1, Math.round((session.volume + change) * 100) / 100));
@@ -459,7 +461,7 @@ function VolumeNotch({
         <motion.div
           className="volume-notch-content-group"
           onWheel={(e) => {
-            if (localStorage.getItem("nectar-notch-scroll-volume") !== "true") return;
+            if (localStorage.getItem("kiro-notch-scroll-volume") !== "true") return;
             onVolumeChange(Math.min(1, Math.max(0, Math.round((volume + (e.deltaY < 0 ? 0.02 : -0.02)) * 100) / 100)));
           }}
           initial={{ opacity: 0, x: -10 * dir }}
@@ -670,7 +672,7 @@ function BrightnessNotch({
         <motion.div
           className="brightness-notch-content-group"
           onWheel={(e) => {
-            if (localStorage.getItem("nectar-notch-scroll-volume") !== "true") return;
+            if (localStorage.getItem("kiro-notch-scroll-volume") !== "true") return;
             onBrightnessChange(Math.min(100, Math.max(0, Math.round(brightness + (e.deltaY < 0 ? 2 : -2)))));
           }}
           initial={{ opacity: 0, x: side === "right" ? 10 : -10 }}
@@ -712,18 +714,18 @@ function OverlayApp() {
   const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
   const [mixerExpanded, setMixerExpanded] = useState(false);
-  const [volumeOverlayEnabled, setVolumeOverlayEnabled] = useState(() => localStorage.getItem("nectar-volume-overlay-enabled") !== "false");
-  const [volumeEdgeEnabled, setVolumeEdgeEnabled] = useState(() => localStorage.getItem("nectar-volume-edge-enabled") !== "false");
+  const [volumeOverlayEnabled, setVolumeOverlayEnabled] = useState(() => localStorage.getItem("kiro-volume-overlay-enabled") !== "false");
+  const [volumeEdgeEnabled, setVolumeEdgeEnabled] = useState(() => localStorage.getItem("kiro-volume-edge-enabled") !== "false");
 
   // Brightness state
   const [brightness, setBrightness] = useState(50);
-  const [volumeSide, setVolumeSide] = useState<Side>(() => asSide(localStorage.getItem("nectar-volume-side"), "left"));
-  const [brightnessSide, setBrightnessSide] = useState<Side>(() => asSide(localStorage.getItem("nectar-brightness-side"), "right"));
-  const [brightnessOverlayEnabled, setBrightnessOverlayEnabled] = useState(() => localStorage.getItem("nectar-brightness-overlay-enabled") !== "false");
-  const [brightnessEdgeEnabled, setBrightnessEdgeEnabled] = useState(() => localStorage.getItem("nectar-brightness-edge-enabled") !== "false");
+  const [volumeSide, setVolumeSide] = useState<Side>(() => asSide(localStorage.getItem("kiro-volume-side"), "left"));
+  const [brightnessSide, setBrightnessSide] = useState<Side>(() => asSide(localStorage.getItem("kiro-brightness-side"), "right"));
+  const [brightnessOverlayEnabled, setBrightnessOverlayEnabled] = useState(() => localStorage.getItem("kiro-brightness-overlay-enabled") !== "false");
+  const [brightnessEdgeEnabled, setBrightnessEdgeEnabled] = useState(() => localStorage.getItem("kiro-brightness-edge-enabled") !== "false");
 
   // Shared state
-  const [scale, setScale] = useState(() => parseFloat(localStorage.getItem("nectar-scale") || "1.0"));
+  const [scale, setScale] = useState(() => parseFloat(localStorage.getItem("kiro-scale") || "1.0"));
   const timeoutRef = useRef<any>(null);
   const hideWindowTimeoutRef = useRef<any>(null);
   const splashActiveRef = useRef(false);
@@ -747,19 +749,20 @@ function OverlayApp() {
   // Load scale from settings
   useEffect(() => {
     invoke("load_settings").then((settings: any) => {
-      if (settings && settings["nectar-notch-scroll-volume"] !== undefined) {
-        localStorage.setItem("nectar-notch-scroll-volume", String(settings["nectar-notch-scroll-volume"]));
+      hydrateStorageFromSettings(settings);
+      if (settings && settings["kiro-notch-scroll-volume"] !== undefined) {
+        localStorage.setItem("kiro-notch-scroll-volume", String(settings["kiro-notch-scroll-volume"]));
       }
-      if (settings && settings["nectar-scale"] !== undefined) {
-        setScale(parseFloat(settings["nectar-scale"]));
+      if (settings && settings["kiro-scale"] !== undefined) {
+        setScale(parseFloat(settings["kiro-scale"]));
       }
-      if (settings && settings["nectar-brightness-overlay-enabled"] !== undefined) {
-        setBrightnessOverlayEnabled(settings["nectar-brightness-overlay-enabled"] === "true");
+      if (settings && settings["kiro-brightness-overlay-enabled"] !== undefined) {
+        setBrightnessOverlayEnabled(settings["kiro-brightness-overlay-enabled"] === "true");
       }
-      if (settings && settings["nectar-volume-side"] !== undefined) setVolumeSide(asSide(String(settings["nectar-volume-side"]), "left"));
-      if (settings && settings["nectar-brightness-side"] !== undefined) setBrightnessSide(asSide(String(settings["nectar-brightness-side"]), "right"));
-      if (settings && settings["nectar-volume-overlay-enabled"] !== undefined) {
-        setVolumeOverlayEnabled(settings["nectar-volume-overlay-enabled"] === "true");
+      if (settings && settings["kiro-volume-side"] !== undefined) setVolumeSide(asSide(String(settings["kiro-volume-side"]), "left"));
+      if (settings && settings["kiro-brightness-side"] !== undefined) setBrightnessSide(asSide(String(settings["kiro-brightness-side"]), "right"));
+      if (settings && settings["kiro-volume-overlay-enabled"] !== undefined) {
+        setVolumeOverlayEnabled(settings["kiro-volume-overlay-enabled"] === "true");
       }
     }).catch(console.error);
   }, []);
@@ -793,13 +796,13 @@ function OverlayApp() {
     setTimeout(() => onSplashCompleteRef.current(), 5500);
 
     showSplash();
-    getVersion().then((v) => localStorage.setItem("nectar-app-version", v)).catch(() => {});
+    getVersion().then((v) => localStorage.setItem("kiro-app-version", v)).catch(() => {});
   }, []);
 
   const onSplashComplete = useCallback(() => {
     if (splashDoneRef.current) return;
     splashDoneRef.current = true;
-    localStorage.setItem("nectar-first-run", "done");
+    localStorage.setItem("kiro-first-run", "done");
     setTimeout(() => {
       splashActiveRef.current = false;
       splashPlayingRef.current = false;
@@ -907,13 +910,13 @@ function OverlayApp() {
 
   useSettingsSync(
     {
-      "nectar-volume-overlay-enabled": setVolumeOverlayEnabled,
-      "nectar-volume-edge-enabled": setVolumeEdgeEnabled,
-      "nectar-brightness-overlay-enabled": setBrightnessOverlayEnabled,
-      "nectar-brightness-edge-enabled": setBrightnessEdgeEnabled,
-      "nectar-volume-side": (v: string) => setVolumeSide(asSide(v, "left")),
-      "nectar-brightness-side": (v: string) => setBrightnessSide(asSide(v, "right")),
-      "nectar-scale": setScale,
+      "kiro-volume-overlay-enabled": setVolumeOverlayEnabled,
+      "kiro-volume-edge-enabled": setVolumeEdgeEnabled,
+      "kiro-brightness-overlay-enabled": setBrightnessOverlayEnabled,
+      "kiro-brightness-edge-enabled": setBrightnessEdgeEnabled,
+      "kiro-volume-side": (v: string) => setVolumeSide(asSide(v, "left")),
+      "kiro-brightness-side": (v: string) => setBrightnessSide(asSide(v, "right")),
+      "kiro-scale": setScale,
     }
   );
 

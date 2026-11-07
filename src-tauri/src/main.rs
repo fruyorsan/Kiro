@@ -53,7 +53,7 @@ unsafe extern "system" fn ctrl_handler(ctrl_type: u32) -> BOOL {
 }
 
 fn main() {
-    // Bring the user's Nectar settings over on the very first launch, before
+    // Bring the user's Kiro settings over on the very first launch, before
     // anything reads the config folder.
     migrate::run();
 
@@ -194,10 +194,10 @@ fn main() {
             focus_app_windows,
             close_window,
             end_task,
-            quit_nectar,
+            quit_kiro,
             get_perf_mode,
-            restart_nectar,
-            uninstall_nectar,
+            restart_kiro,
+            uninstall_kiro,
             get_diagnostics,
             open_log_folder,
             set_hitbox_logging,
@@ -262,8 +262,8 @@ fn main() {
             // Crash-recovery: if a previous session was force-killed while the native
             // taskbar was hidden, restore it now. Runs before the frontend re-hides it
             // (init_dock fires after a delay), so the flag must be removed first.
-            if std::env::var_os("NECTAR_RESTARTING").is_some() {
-                std::env::remove_var("NECTAR_RESTARTING");
+            if std::env::var_os("KIRO_RESTARTING").is_some() {
+                std::env::remove_var("KIRO_RESTARTING");
                 RELAUNCHED.store(true, Ordering::Relaxed);
             } else if taskbar_marker_exists() {
                 RELAUNCHED.store(true, Ordering::Relaxed);
@@ -405,7 +405,7 @@ fn main() {
                             }
                             if let Some(w) = ah.get_webview_window("settings") { let _ = w.destroy(); }
                             if let Some(w) = ah.get_webview_window("calendar") { let _ = w.destroy(); }
-                            std::env::set_var("NECTAR_RESTARTING", "1");
+                            std::env::set_var("KIRO_RESTARTING", "1");
                             close_single_instance_handles();
 
                             ah.restart();

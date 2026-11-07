@@ -14,7 +14,7 @@ Push-Location $root
 bun run tauri build --no-bundle
 Pop-Location
 
-$exePath = Join-Path $mainSrcTauri "target/release/nectar.exe"
+$exePath = Join-Path $mainSrcTauri "target/release/kiro.exe"
 if (-not (Test-Path $exePath)) {
     throw "Expected build output not found at $exePath"
 }

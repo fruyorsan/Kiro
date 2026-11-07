@@ -29,8 +29,8 @@ fn find_primary_index(app: &AppHandle, monitors: &[Monitor]) -> usize {
 
 fn mode_and_id_keys(kind: WindowKind) -> (&'static str, &'static str) {
     match kind {
-        WindowKind::Dock => ("nectar-dock-monitor-mode", "nectar-dock-monitor-id"),
-        WindowKind::Notch => ("nectar-notch-monitor-mode", "nectar-notch-monitor-id"),
+        WindowKind::Dock => ("kiro-dock-monitor-mode", "kiro-dock-monitor-id"),
+        WindowKind::Notch => ("kiro-notch-monitor-mode", "kiro-notch-monitor-id"),
     }
 }
 
@@ -68,14 +68,14 @@ pub fn monitor_for_window_label(app: &AppHandle, kind: WindowKind, label: &str) 
 
 fn mode_setting_keys(kind: WindowKind) -> (&'static str, &'static str) {
     match kind {
-        WindowKind::Dock => ("nectar-dock-mode", "nectar-dock-mode-by-monitor"),
-        WindowKind::Notch => ("nectar-notch-mode", "nectar-notch-mode-by-monitor"),
+        WindowKind::Dock => ("kiro-dock-mode", "kiro-dock-mode-by-monitor"),
+        WindowKind::Notch => ("kiro-notch-mode", "kiro-notch-mode-by-monitor"),
     }
 }
 
 /// Resolves which mode (fixed/smart/peek) a specific dock or notch window
 /// should use. Per-monitor overrides live in a JSON map keyed by the same
-/// stable monitor id used elsewhere (`nectar-dock-mode-by-monitor` etc.);
+/// stable monitor id used elsewhere (`kiro-dock-mode-by-monitor` etc.);
 /// a monitor without an entry falls back to the plain global mode setting.
 pub fn resolve_mode_for_label(app: &AppHandle, kind: WindowKind, label: &str) -> String {
     let (default_key, map_key) = mode_setting_keys(kind);
@@ -160,7 +160,7 @@ fn destroy_monitor_window(app: &AppHandle, label: &str) {
 
 fn sync_kind(app: &AppHandle, kind: WindowKind, monitors: &[Monitor]) {
     let desired = if kind == WindowKind::Dock {
-        let dock_enabled = get_setting_str(app, "nectar-dock-enabled").map(|v| v == "true").unwrap_or(true);
+        let dock_enabled = get_setting_str(app, "kiro-dock-enabled").map(|v| v == "true").unwrap_or(true);
         if !dock_enabled { HashMap::new() } else { desired_extra_windows(app, kind, monitors) }
     } else {
         desired_extra_windows(app, kind, monitors)

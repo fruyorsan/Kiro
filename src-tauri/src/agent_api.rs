@@ -12,7 +12,7 @@ const MAX_HEAD: usize = 8192;
 const MAX_BODY: usize = 4096;
 const MAX_CONNECTIONS: usize = 8;
 const ASK_WAIT: u64 = 120;
-const SETTING: &str = "nectar-agent-api";
+const SETTING: &str = "kiro-agent-api";
 
 static ACTIVE: AtomicUsize = AtomicUsize::new(0);
 static NEXT_ASK: AtomicU64 = AtomicU64::new(1);
@@ -310,12 +310,12 @@ fn sync_claude_hooks(enable: bool) {
     let Ok(mut out) = serde_json::to_string_pretty(&root) else { return };
     out.push('\n');
     if let Some(text) = &text {
-        let backup = path.with_file_name("settings.json.nectar-backup");
+        let backup = path.with_file_name("settings.json.kiro-backup");
         if !backup.exists() {
             let _ = std::fs::write(&backup, text);
         }
     }
-    let temp = path.with_file_name("settings.json.nectar-tmp");
+    let temp = path.with_file_name("settings.json.kiro-tmp");
     if std::fs::write(&temp, out).is_ok() && std::fs::rename(&temp, &path).is_err() {
         let _ = std::fs::remove_file(&temp);
     }

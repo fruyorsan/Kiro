@@ -267,7 +267,7 @@
   "about.diagnostics.group": "Diagnostics",
   "about.diagnostics.desc": "System info and recent log, to paste into a bug report",
   "about.logs": "Open Log Folder",
-  "about.logs.desc": "nectar.log and diagnostics.txt",
+  "about.logs.desc": "kiro.log and diagnostics.txt",
   "about.hitbox": "Log Dock and Notch Clicks",
   "about.hitbox.desc": "Turn on, move over the dock and notch for a few seconds, then copy diagnostics. Resets on restart",
   "about.danger.group": "Danger Zone",

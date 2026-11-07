@@ -16,7 +16,7 @@ function Invoke-Step([string]$label, [scriptblock]$body) {
     if ($code -ne 0) { throw "$label failed (exit code $code)" }
 }
 
-$repo = "kua8/Nectar"
+$repo = "fruyorsan/Kiro"
 $tag = "v$Version"
 $root = Resolve-Path "$PSScriptRoot/.."
 Set-Location $root
@@ -65,16 +65,16 @@ if ($NotesFile) {
 Write-Host "`nRelease notes:`n$notes`n"
 
 Invoke-Step "Installing frontend dependencies" { bun install }
-Invoke-Step "Building Nectar (NSIS update installer)" { bun run tauri build --bundles nsis }
+Invoke-Step "Building Kiro (NSIS update installer)" { bun run tauri build --bundles nsis }
 
-$exe = Join-Path $root "src-tauri/target/release/nectar.exe"
-$setup = Join-Path $root "src-tauri/target/release/bundle/nsis/nectar_${Version}_x64-setup.exe"
+$exe = Join-Path $root "src-tauri/target/release/kiro.exe"
+$setup = Join-Path $root "src-tauri/target/release/bundle/nsis/kiro_${Version}_x64-setup.exe"
 foreach ($f in @($exe, $setup, "$setup.sig")) {
     if (-not (Test-Path $f)) { throw "Expected build output not found: $f" }
 }
 
 Write-Host "`n==> Packaging portable build" -ForegroundColor Cyan
-$portable = "nectar-$Version-portable-windows-x64.zip"
+$portable = "kiro-$Version-portable-windows-x64.zip"
 Compress-Archive -Path $exe -DestinationPath (Join-Path $out $portable)
 
 Write-Host "`n==> Packaging installer payload" -ForegroundColor Cyan
@@ -88,8 +88,8 @@ try {
 } finally {
     Pop-Location
 }
-$installerName = "Nectar-Setup-$Version.exe"
-Copy-Item (Join-Path $root "installer-app/src-tauri/target/release/nectar-installer.exe") (Join-Path $out $installerName)
+$installerName = "Kiro-Setup-$Version.exe"
+Copy-Item (Join-Path $root "installer-app/src-tauri/target/release/kiro-installer.exe") (Join-Path $out $installerName)
 
 Copy-Item $setup $out
 $setupName = Split-Path $setup -Leaf
@@ -134,7 +134,7 @@ if ($exists) {
 } else {
     $sha = (git rev-parse HEAD).Trim()
     Invoke-Step "Creating draft release $tag" {
-        gh release create $tag --repo $repo --target $sha --title "Nectar $tag" --notes-file (Join-Path $out "notes.md") --draft @assets
+        gh release create $tag --repo $repo --target $sha --title "Kiro $tag" --notes-file (Join-Path $out "notes.md") --draft @assets
     }
     if ($Prerelease) {
         Invoke-Step "Publishing $tag as a pre-release" { gh release edit $tag --repo $repo --draft=false --prerelease }

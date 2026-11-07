@@ -69,11 +69,11 @@ export function CalendarSyncPage({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     invoke<Record<string, string>>("load_settings")
       .then((s) => {
-        const savedUrl = s["nectar-caldav-url"] ?? "";
+        const savedUrl = s["kiro-caldav-url"] ?? "";
         setUrl(savedUrl);
         if (savedUrl.includes("icloud.com")) setProvider("icloud");
-        setUsername(s["nectar-caldav-username"] ?? "");
-        setIntervalValue(s["nectar-caldav-interval"] ?? "15");
+        setUsername(s["kiro-caldav-username"] ?? "");
+        setIntervalValue(s["kiro-caldav-interval"] ?? "15");
       })
       .catch(() => {});
   }, []);
@@ -107,7 +107,7 @@ export function CalendarSyncPage({ onBack }: { onBack: () => void }) {
 
   const changeInterval = (minutes: string) => {
     setIntervalValue(minutes);
-    invoke("save_setting", { key: "nectar-caldav-interval", value: minutes }).catch(() => {});
+    invoke("save_setting", { key: "kiro-caldav-interval", value: minutes }).catch(() => {});
   };
 
   const pickProvider = (next: Provider) => {

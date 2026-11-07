@@ -23,7 +23,7 @@ interface AboutTabProps {
   handleResetSettings: () => void;
   uninstallStatus: string;
   uninstallError?: string;
-  handleUninstallNectar: () => void;
+  handleUninstallKiro: () => void;
 }
 
 export function AboutTab({
@@ -44,7 +44,7 @@ export function AboutTab({
   handleResetSettings,
   uninstallStatus,
   uninstallError,
-  handleUninstallNectar,
+  handleUninstallKiro,
 }: AboutTabProps) {
   const t = useT();
   const [diagStatus, setDiagStatus] = useState<"idle" | "working" | "copied" | "error">("idle");
@@ -278,7 +278,7 @@ export function AboutTab({
           action
           divider={false}
           danger={uninstallStatus === "confirm" || uninstallStatus === "error"}
-          onClick={handleUninstallNectar}
+          onClick={handleUninstallKiro}
         />
       </div>
 

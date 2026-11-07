@@ -22,7 +22,7 @@ async function sourceFor(state: SoundState) {
 
 export async function playAgentSound(state: SoundState, force = false) {
   try {
-    if (!force && localStorage.getItem("nectar-agent-sounds") === "false") return;
+    if (!force && localStorage.getItem("kiro-agent-sounds") === "false") return;
     const audio = new Audio(await sourceFor(state));
     audio.volume = 0.6;
     await audio.play();

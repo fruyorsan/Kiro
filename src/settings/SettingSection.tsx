@@ -8,7 +8,7 @@ type Props = {
   children: ReactNode;
 };
 
-const KEY = "nectar-settings-section-";
+const KEY = "kiro-settings-section-";
 
 export function SettingSection({ id, title, defaultOpen = false, children }: Props) {
   const [open, setOpen] = useState(() => {

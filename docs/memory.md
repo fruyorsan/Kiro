@@ -1,6 +1,6 @@
 # Memory and CPU footprint
 
-Nectar is an always-on overlay: five windows, a WebView2 process tree and a
+Kiro is an always-on overlay: five windows, a WebView2 process tree and a
 Rust host that polls Windows. That shape makes footprint the feature, not an
 afterthought. This document records what was measured, what was changed and
 what the trade-offs are.
@@ -40,7 +40,7 @@ Per-process breakdown of the "before" case, private working set:
 |---|---|---|
 | GPU | 53.6 MB | 166.5 MB |
 | Renderer × 5 (one per window) | 147.2 MB | 197.0 MB |
-| Host (`nectar.exe`) | 37.2 MB | 42.8 MB |
+| Host (`kiro.exe`) | 37.2 MB | 42.8 MB |
 | Browser | 31.5 MB | 40.5 MB |
 | Network + storage utilities | 11.1 MB | 20.8 MB |
 | Crashpad | 1.8 MB | 3.0 MB |
@@ -97,7 +97,7 @@ created:
 performance guidance is explicit that the GPU must stay enabled for rendering,
 and this UI leans on `backdrop-filter` and `filter: blur` (14 and 21
 declarations): software rasterising those costs more than the GPU process does.
-It is behind the opt-in `nectar-ram-ultra` setting instead, where it is worth
+It is behind the opt-in `kiro-ram-ultra` setting instead, where it is worth
 ~140 MB of commit.
 
 ### Idle pages are handed back — `src-tauri/src/mem.rs`
@@ -125,8 +125,8 @@ Trimming hands the same pages straight back on the next touch as soft faults
 (microseconds, no I/O), which is why a 3 s cadence is cheap. A hidden settings
 window is trimmed like everything else.
 
-Both knobs are user-visible: **Memory Saver** (`nectar-ram-saver`, default off,
-applied live) and **Maximum Memory Saving** (`nectar-ram-ultra`, default off,
+Both knobs are user-visible: **Memory Saver** (`kiro-ram-saver`, default off,
+applied live) and **Maximum Memory Saving** (`kiro-ram-ultra`, default off,
 needs a restart because WebView2 arguments are read once).
 
 ### The host stops polling — `services.rs`
@@ -192,7 +192,7 @@ cargo build --release --features tauri/custom-protocol  # when driving cargo
 
 ## Reproducing the numbers
 
-* `scripts/nectar-mem.ps1` — collects the process tree (parent-PID walk, so
+* `scripts/kiro-mem.ps1` — collects the process tree (parent-PID walk, so
   other apps' WebView2 processes are never counted) and reports private working
   set, commit and working set per process.
 * `scripts/measure-ram.ps1` — averaged samples for a running instance.

@@ -45,7 +45,7 @@
 }
 
 :root.style-material {
-    --surface-outline: var(--nectar-border, rgba(255, 255, 255, 0.16));
+    --surface-outline: var(--kiro-border, rgba(255, 255, 255, 0.16));
 }
 
 :root:is(.style-frosted, .style-liquid, .style-material, .light-mode) .edge-outline {
@@ -53,7 +53,7 @@
 }
 
 /* Material and light mode: plain fill, the outline replaces any rim or shadow */
-:root:is(.style-material, .light-mode) :is(.nectar, .dock, .volume-notch, .brightness-notch) {
+:root:is(.style-material, .light-mode) :is(.kiro, .dock, .volume-notch, .brightness-notch) {
     box-shadow: none !important;
 }
 
@@ -66,7 +66,7 @@
 
 .volume-notch-wrapper,
 .brightness-notch-wrapper {
-    --surface-outline: var(--nectar-border, rgba(255, 255, 255, 0.12));
+    --surface-outline: var(--kiro-border, rgba(255, 255, 255, 0.12));
 }
 
 .volume-notch,
@@ -78,12 +78,12 @@
 .volume-notch-flares::after,
 .brightness-notch::before,
 .brightness-notch::after {
-    background: var(--nectar-bg, rgba(0, 0, 0, 0.8)) !important;
+    background: var(--kiro-bg, rgba(0, 0, 0, 0.8)) !important;
 }
 
 /* ── Glass: the fill layer carries everything, the surface itself is clear ── */
 
-:root:is(.style-frosted, .style-liquid) :is(.nectar, .dock, .volume-notch, .brightness-notch) {
+:root:is(.style-frosted, .style-liquid) :is(.kiro, .dock, .volume-notch, .brightness-notch) {
     isolation: isolate;
     background: transparent !important;
     background-image: none !important;
@@ -91,8 +91,8 @@
     border-color: transparent !important;
 }
 
-:root:is(.style-frosted, .style-liquid) :is(.nectar, .dock)::before,
-:root:is(.style-frosted, .style-liquid) :is(.nectar, .dock)::after,
+:root:is(.style-frosted, .style-liquid) :is(.kiro, .dock)::before,
+:root:is(.style-frosted, .style-liquid) :is(.kiro, .dock)::after,
 :root:is(.style-frosted, .style-liquid) .brightness-notch::before,
 :root:is(.style-frosted, .style-liquid) .brightness-notch::after,
 :root:is(.style-frosted, .style-liquid) .volume-notch-flares {
@@ -101,11 +101,11 @@
 
 :root:is(.style-frosted, .style-liquid) .surface-fill {
     display: block;
-    background-color: var(--surface-color, var(--nectar-bg, rgba(0, 0, 0, 0.8)));
+    background-color: var(--surface-color, var(--kiro-bg, rgba(0, 0, 0, 0.8)));
 }
 
-.nectar > .surface-fill {
-    --surface-color: var(--notch-bg, var(--nectar-bg, rgba(0, 0, 0, 0.8)));
+.kiro > .surface-fill {
+    --surface-color: var(--notch-bg, var(--kiro-bg, rgba(0, 0, 0, 0.8)));
     --backdrop-y: var(--backdrop-top);
 }
 
@@ -130,7 +130,7 @@
         linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 45%);
 }
 
-:root.style-liquid .nectar > .surface-fill {
+:root.style-liquid .kiro > .surface-fill {
     background-image:
         linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 22px),
         linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40px);
@@ -148,15 +148,15 @@
    x position is relative to the centre, so the flares leave it unchanged. While an app window is
    behind the surface, has-backdrop is dropped and the window shows through the tint. */
 
-:root.has-backdrop:is(.style-frosted, .style-liquid) :is(.nectar, .dock) {
-    --glass-tint: color-mix(in srgb, var(--notch-bg, var(--nectar-bg, rgba(0, 0, 0, 0.8))) 62%, transparent);
+:root.has-backdrop:is(.style-frosted, .style-liquid) :is(.kiro, .dock) {
+    --glass-tint: color-mix(in srgb, var(--notch-bg, var(--kiro-bg, rgba(0, 0, 0, 0.8))) 62%, transparent);
 }
 
 :root.has-backdrop:is(.style-frosted, .style-liquid) .dock {
-    --glass-tint: color-mix(in srgb, var(--nectar-bg, rgba(0, 0, 0, 0.8)) 62%, transparent);
+    --glass-tint: color-mix(in srgb, var(--kiro-bg, rgba(0, 0, 0, 0.8)) 62%, transparent);
 }
 
-:root.has-backdrop:is(.style-frosted, .style-liquid) :is(.nectar, .dock) > .surface-fill {
+:root.has-backdrop:is(.style-frosted, .style-liquid) :is(.kiro, .dock) > .surface-fill {
     background-color: transparent;
     background-size: auto, auto, auto, var(--backdrop-size);
     background-repeat: repeat, no-repeat, no-repeat, no-repeat;
@@ -164,7 +164,7 @@
     background-position: 0 0, 0 0, 0 0, var(--backdrop-x) var(--backdrop-y);
 }
 
-:root.has-backdrop.style-frosted :is(.nectar, .dock) > .surface-fill {
+:root.has-backdrop.style-frosted :is(.kiro, .dock) > .surface-fill {
     background-image:
         var(--surface-grain),
         linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
@@ -172,7 +172,7 @@
         var(--backdrop-image);
 }
 
-:root.has-backdrop.style-frosted.light-mode :is(.nectar, .dock) > .surface-fill {
+:root.has-backdrop.style-frosted.light-mode :is(.kiro, .dock) > .surface-fill {
     background-image:
         var(--surface-grain),
         linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.12)),
@@ -180,7 +180,7 @@
         var(--backdrop-image);
 }
 
-:root.has-backdrop.style-liquid .nectar > .surface-fill {
+:root.has-backdrop.style-liquid .kiro > .surface-fill {
     background-image:
         linear-gradient(0deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 22px),
         linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40px),
@@ -225,7 +225,7 @@
 }
 
 .light-mode .notch-ambient-glow::after {
-    background: radial-gradient(ellipse at center, transparent 25%, rgba(255, 255, 255, 0.3) 55%, var(--notch-bg, var(--nectar-bg)) 88%);
+    background: radial-gradient(ellipse at center, transparent 25%, rgba(255, 255, 255, 0.3) 55%, var(--notch-bg, var(--kiro-bg)) 88%);
 }
 
 :root:is(.style-frosted, .style-liquid) .dock:not(.dock-icon-only) .dock-icon {

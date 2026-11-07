@@ -72,14 +72,14 @@ fn win_number_index(vk: u16) -> Option<u8> {
 /// Win+Number can be turned off in Settings > Dock.
 fn dock_win_number_enabled() -> bool {
     let Some(app) = KEYBOARD_HOOK_APP_HANDLE.get() else { return true };
-    crate::utils::get_setting_str(app, "nectar-dock-win-number-enabled")
+    crate::utils::get_setting_str(app, "kiro-dock-win-number-enabled")
         .map(|v| v != "false")
         .unwrap_or(true)
 }
 
 fn legacy_mode() -> bool {
     let Some(app) = KEYBOARD_HOOK_APP_HANDLE.get() else { return false };
-    crate::utils::get_setting_str(app, "nectar-legacy-mode").is_some_and(|v| v == "true")
+    crate::utils::get_setting_str(app, "kiro-legacy-mode").is_some_and(|v| v == "true")
 }
 
 /// Win state straight from the OS. The tracked flag goes stale if a keyup never arrives.
@@ -180,13 +180,13 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: windows::Win32::
         }
 
         if (vk_code == VK_VOLUME_MUTE || vk_code == VK_VOLUME_UP || vk_code == VK_VOLUME_DOWN)
-            && hook_overlay_enabled("nectar-volume-overlay-enabled")
+            && hook_overlay_enabled("kiro-volume-overlay-enabled")
         {
             if is_down { handle_volume_key_event(vk_code); }
             return windows::Win32::Foundation::LRESULT(1);
         }
         if (vk_code.0 == 0x216 || vk_code.0 == 0x217)
-            && hook_overlay_enabled("nectar-brightness-overlay-enabled")
+            && hook_overlay_enabled("kiro-brightness-overlay-enabled")
         {
             if is_down { handle_brightness_key_event(vk_code); }
             return windows::Win32::Foundation::LRESULT(1);
@@ -602,8 +602,8 @@ fn microphone_blocked() -> bool {
 }
 
 fn audio_visualization_wanted(app: &AppHandle) -> bool {
-    let setting = crate::utils::get_setting_str(app, "nectar-media-visualizer-enabled")
-        .or_else(|| crate::utils::get_setting_str(app, "nectar-visualizer-enabled"));
+    let setting = crate::utils::get_setting_str(app, "kiro-media-visualizer-enabled")
+        .or_else(|| crate::utils::get_setting_str(app, "kiro-visualizer-enabled"));
     ANY_MEDIA_PLAYING.load(Ordering::Relaxed)
         && setting.as_deref() != Some("false")
         && !AUDIO_CAPTURE_REFUSED.load(Ordering::Relaxed)
@@ -960,22 +960,22 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     // Only the volume commands need the audio endpoint, the rest must work with no output device.
                     {
                         match cmd {
-                            SystemCommand::VolumeMute => { if let Some(aev) = audio_endpoint_volume.as_ref() { if let Ok(muted) = aev.GetMute() { let _ = aev.SetMute(!muted.as_bool(), std::ptr::null()); hide_osd("nectar-volume-overlay-enabled"); } } }
+                            SystemCommand::VolumeMute => { if let Some(aev) = audio_endpoint_volume.as_ref() { if let Ok(muted) = aev.GetMute() { let _ = aev.SetMute(!muted.as_bool(), std::ptr::null()); hide_osd("kiro-volume-overlay-enabled"); } } }
                             SystemCommand::VolumeUp => {
                                 if let Some(aev) = audio_endpoint_volume.as_ref() {
                                     if let (Ok(vol), Ok(muted)) = (aev.GetMasterVolumeLevelScalar(), aev.GetMute()) {
                                         let _ = aev.SetMasterVolumeLevelScalar((vol + 0.05).min(1.0), std::ptr::null());
                                         if muted.as_bool() { let _ = aev.SetMute(false, std::ptr::null()); }
-                                        hide_osd("nectar-volume-overlay-enabled");
+                                        hide_osd("kiro-volume-overlay-enabled");
                                     }
                                 }
                             }
-                            SystemCommand::VolumeDown => { if let Some(aev) = audio_endpoint_volume.as_ref() { if let Ok(vol) = aev.GetMasterVolumeLevelScalar() { let _ = aev.SetMasterVolumeLevelScalar((vol - 0.05).max(0.0), std::ptr::null()); hide_osd("nectar-volume-overlay-enabled"); } } }
+                            SystemCommand::VolumeDown => { if let Some(aev) = audio_endpoint_volume.as_ref() { if let Ok(vol) = aev.GetMasterVolumeLevelScalar() { let _ = aev.SetMasterVolumeLevelScalar((vol - 0.05).max(0.0), std::ptr::null()); hide_osd("kiro-volume-overlay-enabled"); } } }
                             SystemCommand::SetVolume(volume) => {
                                 if let Some(aev) = audio_endpoint_volume.as_ref() {
                                     let _ = aev.SetMasterVolumeLevelScalar(volume.clamp(0.0, 1.0), std::ptr::null());
                                     if volume > 0.0 { let _ = aev.SetMute(false, std::ptr::null()); }
-                                    hide_osd("nectar-volume-overlay-enabled");
+                                    hide_osd("kiro-volume-overlay-enabled");
                                 }
                             }
                             SystemCommand::MediaPlayPause => { if let Some(ref mgr) = manager { if let Ok(session) = media_control_session(mgr) { let _ = session.TryTogglePlayPauseAsync(); } } }
@@ -999,7 +999,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                                 LAST_BRIGHTNESS_CHANGE.store(get_now_ms(), Ordering::Relaxed);
                                 let _ = handle_system.emit("brightness-change", BrightnessChangeEvent { brightness: new_val });
                                 if let Some(tx) = BRIGHTNESS_SENDER.get() { let _ = tx.send(new_val); }
-                                hide_osd("nectar-brightness-overlay-enabled");
+                                hide_osd("kiro-brightness-overlay-enabled");
                             }
                             SystemCommand::BrightnessDown => {
                                 let current = CURRENT_BRIGHTNESS.load(Ordering::Relaxed);
@@ -1008,7 +1008,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                                 LAST_BRIGHTNESS_CHANGE.store(get_now_ms(), Ordering::Relaxed);
                                 let _ = handle_system.emit("brightness-change", BrightnessChangeEvent { brightness: new_val });
                                 if let Some(tx) = BRIGHTNESS_SENDER.get() { let _ = tx.send(new_val); }
-                                hide_osd("nectar-brightness-overlay-enabled");
+                                hide_osd("kiro-brightness-overlay-enabled");
                             }
                         }
                     }
@@ -1020,7 +1020,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                             last_volume = vol; last_muted = is_muted;
                             crate::state::CURRENT_VOLUME.store((vol * 100.0) as u32, Ordering::Relaxed);
                             let _ = handle_system.emit("volume-change", VolumeChangeEvent { volume: vol, is_muted });
-                            hide_osd("nectar-volume-overlay-enabled");
+                            hide_osd("kiro-volume-overlay-enabled");
                         }
                     }
                 }
@@ -1242,7 +1242,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     let len = windows::Win32::UI::WindowsAndMessaging::GetClassNameA(hwnd, &mut class_name);
                     let class_str = std::str::from_utf8(&class_name[..len as usize]).unwrap_or("");
                     
-                    let is_nectar = process_id == my_process_id || class_str.contains("Kiro");
+                    let is_kiro = process_id == my_process_id || class_str.contains("Kiro");
                     let is_visible = IsWindowVisible(hwnd).as_bool();
                     let is_iconic = IsIconic(hwnd).as_bool();
                     
@@ -1252,7 +1252,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     let mut rect = RECT::default();
                     let has_valid_rect = GetWindowRect(hwnd, &mut rect).is_ok() && (rect.right - rect.left) > 0 && (rect.bottom - rect.top) > 0;
                     
-                    if is_nectar || !is_visible || is_iconic || is_cloaked || !has_valid_rect {
+                    if is_kiro || !is_visible || is_iconic || is_cloaked || !has_valid_rect {
                         hwnd = windows::Win32::UI::WindowsAndMessaging::GetWindow(hwnd, windows::Win32::UI::WindowsAndMessaging::GW_HWNDNEXT).unwrap_or_default();
                         check_count += 1;
                     } else {
@@ -2177,7 +2177,7 @@ static MOUSE_DIRTY: AtomicBool = AtomicBool::new(false);
 static MOUSE_WORKER: OnceLock<std::thread::Thread> = OnceLock::new();
 
 /// Hover intent for the top edge: touching the band starts a dwell clock, and the edge only arms
-/// (peek, claim input) after resting there for nectar-notch-edge-delay ms (0 = instant).
+/// (peek, claim input) after resting there for kiro-notch-edge-delay ms (0 = instant).
 /// Stops a pass-through to a maximized window's title bar from triggering it.
 const TOP_EDGE_DWELL_MS: i64 = 200;
 const TOP_EDGE_POLL_MS: u64 = 40;
@@ -2197,7 +2197,7 @@ static MH_NOTCH_EDGE_DELAY_MS: AtomicI64 = AtomicI64::new(TOP_EDGE_DWELL_MS);
 static MH_VOLUME_RIGHT: AtomicBool = AtomicBool::new(false);
 static MH_BRIGHTNESS_RIGHT: AtomicBool = AtomicBool::new(true);
 static MH_PRIMARY_SCALE_MILLI: AtomicI64 = AtomicI64::new(1000);
-static MH_NECTAR_SCALE_MILLI: AtomicI64 = AtomicI64::new(1000);
+static MH_KIRO_SCALE_MILLI: AtomicI64 = AtomicI64::new(1000);
 // Smart/peek notches can be suppressed by a fullscreen window, a fixed one cannot.
 static MH_NOTCH_FIXED: AtomicBool = AtomicBool::new(true);
 
@@ -2209,30 +2209,30 @@ static MH_NOTCH_BOTTOM_RIGHT: AtomicBool = AtomicBool::new(false);
 pub const NOTCH_BR_WINDOW_W: f64 = 720.0;
 
 pub fn notch_bottom_right(app: &AppHandle) -> bool {
-    crate::utils::get_setting_str(app, "nectar-notch-position").as_deref() == Some("bottom-right")
+    crate::utils::get_setting_str(app, "kiro-notch-position").as_deref() == Some("bottom-right")
 }
 
 fn refresh_mouse_caches(app: &AppHandle) {
     if let Ok(Some(m)) = app.primary_monitor() {
         MH_PRIMARY_SCALE_MILLI.store((m.scale_factor() * 1000.0).round() as i64, Ordering::Relaxed);
     }
-    MH_NECTAR_SCALE_MILLI.store(
-        (crate::utils::get_nectar_scale(app) * 1000.0).round() as i64,
+    MH_KIRO_SCALE_MILLI.store(
+        (crate::utils::get_kiro_scale(app) * 1000.0).round() as i64,
         Ordering::Relaxed,
     );
-    if let Some(v) = crate::utils::get_setting_str(app, "nectar-edge-delay") {
+    if let Some(v) = crate::utils::get_setting_str(app, "kiro-edge-delay") {
         MH_EDGE_DELAY_MS.store(v.parse::<i64>().unwrap_or(300).clamp(0, 3000), Ordering::Relaxed);
     }
-    if let Some(v) = crate::utils::get_setting_str(app, "nectar-notch-edge-delay") {
+    if let Some(v) = crate::utils::get_setting_str(app, "kiro-notch-edge-delay") {
         MH_NOTCH_EDGE_DELAY_MS
             .store(v.parse::<i64>().unwrap_or(TOP_EDGE_DWELL_MS).clamp(0, 2000), Ordering::Relaxed);
     }
     MH_VOLUME_RIGHT.store(
-        crate::utils::get_setting_str(app, "nectar-volume-side").as_deref() == Some("right"),
+        crate::utils::get_setting_str(app, "kiro-volume-side").as_deref() == Some("right"),
         Ordering::Relaxed,
     );
     MH_BRIGHTNESS_RIGHT.store(
-        crate::utils::get_setting_str(app, "nectar-brightness-side").as_deref() == Some("right"),
+        crate::utils::get_setting_str(app, "kiro-brightness-side").as_deref() == Some("right"),
         Ordering::Relaxed,
     );
     MH_NOTCH_FIXED.store(
@@ -2262,7 +2262,7 @@ fn top_edge_armed(app_handle: &AppHandle, label: &str, in_band: bool, now: i64) 
     let dwell_ms = if label == "main" {
         MH_NOTCH_EDGE_DELAY_MS.load(Ordering::Relaxed)
     } else {
-        crate::utils::get_setting_str(app_handle, "nectar-notch-edge-delay")
+        crate::utils::get_setting_str(app_handle, "kiro-notch-edge-delay")
             .and_then(|v| v.parse::<i64>().ok())
             .unwrap_or(TOP_EDGE_DWELL_MS)
             .clamp(0, 2000)
@@ -2395,7 +2395,7 @@ fn setup_volume_mixer_watchdog(app_handle: AppHandle) {
             .is_some_and(|m| {
                 let pos = m.position();
                 let size = m.size();
-                let on_right = crate::utils::get_setting_str(&app_handle, "nectar-volume-side").as_deref() == Some("right");
+                let on_right = crate::utils::get_setting_str(&app_handle, "kiro-volume-side").as_deref() == Some("right");
                 let in_band = if on_right { pt.x >= pos.x + size.width as i32 - 8 && pt.x <= pos.x + size.width as i32 } else { pt.x >= pos.x && pt.x <= pos.x + 8 };
                 in_band && pt.y >= pos.y && pt.y <= pos.y + size.height as i32
             });
@@ -2444,7 +2444,7 @@ fn in_show_desktop_corner(x: i32, y: i32) -> bool {
             .and_then(|cache| cache.lock().ok())
             .and_then(|guard| guard.get(key).and_then(|v| v.as_str().map(|s| s.to_string())))
     };
-    if setting("nectar-dock-show-desktop-corner").as_deref() != Some("true") || setting("nectar-dock-enabled").as_deref() == Some("false") {
+    if setting("kiro-dock-show-desktop-corner").as_deref() != Some("true") || setting("kiro-dock-enabled").as_deref() == Some("false") {
         return false;
     }
     let (Some((mx, my)), Some((mw, mh))) = (
@@ -2680,7 +2680,7 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                         let in_top_band = if notch_br {
                             // Bottom-right notch: the reveal band is the bottom
                             // strip of the right-hand area the window covers.
-                            let br_w = ((NOTCH_BR_WINDOW_W * MH_NECTAR_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0) * scale) as i32;
+                            let br_w = ((NOTCH_BR_WINDOW_W * MH_KIRO_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0) * scale) as i32;
                             cursor.y >= notch_mon_y + notch_mon_h - (8.0 * scale) as i32
                                 && cursor.x >= notch_mon_x + notch_mon_w - br_w - (20.0 * scale) as i32
                                 && cursor.x <= notch_mon_x + notch_mon_w
@@ -2797,8 +2797,8 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                 cursor.x >= rx && cursor.x <= rx + rw && cursor.y >= ry && cursor.y <= ry + rh
             });
 
-            // The overlay zooms by nectar-scale, so the cards are bigger than 42x196 off the default scale.
-            let overlay_nectar_scale = MH_NECTAR_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0;
+            // The overlay zooms by kiro-scale, so the cards are bigger than 42x196 off the default scale.
+            let overlay_kiro_scale = MH_KIRO_SCALE_MILLI.load(Ordering::Relaxed) as f64 / 1000.0;
 
             let edge_dwell = MH_EDGE_DELAY_MS.load(Ordering::Relaxed);
             let volume_right = MH_VOLUME_RIGHT.load(Ordering::Relaxed);
@@ -2817,7 +2817,7 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                     && !in_mixer
                     && MH_LAST_LEFT_EDGE_HOVER.load(Ordering::Relaxed) != 0
                     && {
-                        let sc = primary_scale * overlay_nectar_scale;
+                        let sc = primary_scale * overlay_kiro_scale;
                         let nw = (42.0 * sc) as i32;
                         let nh = (196.0 * sc) as i32;
                         let nx = if volume_right { mon_x + mon_w - nw } else { mon_x };
@@ -2877,7 +2877,7 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                         MH_LAST_OV_IGNORE.store(1, Ordering::Relaxed);
                     }
                 } else {
-                    let sc = primary_scale * overlay_nectar_scale;
+                    let sc = primary_scale * overlay_kiro_scale;
                     let nw = (42.0 * sc) as i32;
                     let nh = (196.0 * sc) as i32;
                     let ny = mon_y + (mon_h / 2) - (nh / 2);
@@ -3332,8 +3332,8 @@ pub fn register_appbar(window: tauri::WebviewWindow) {
         let m_pos = monitor.position();
         let hwnd = window.hwnd().unwrap();
         let scale = monitor.scale_factor();
-        let nectar_scale = crate::utils::get_nectar_scale(window.app_handle());
-        let ph = ((420.0 * nectar_scale) * scale) as i32;
+        let kiro_scale = crate::utils::get_kiro_scale(window.app_handle());
+        let ph = ((420.0 * kiro_scale) * scale) as i32;
 
         unsafe {
             use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, GetWindowRect, SWP_NOZORDER, SWP_NOACTIVATE, GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOOLWINDOW, WS_EX_NOACTIVATE as WS_EX_NA, SWP_FRAMECHANGED};
@@ -3352,7 +3352,7 @@ pub fn register_appbar(window: tauri::WebviewWindow) {
                 // so it never covers the dock in the middle of the screen, and it
                 // is anchored to the monitor's bottom edge so the pill can grow
                 // upwards when it expands.
-                let w = ((NOTCH_BR_WINDOW_W * nectar_scale) * scale) as i32;
+                let w = ((NOTCH_BR_WINDOW_W * kiro_scale) * scale) as i32;
                 let h = ((ph as f64) * 1.0) as i32;
                 (
                     m_pos.x + m_size.width as i32 - w,
@@ -3415,7 +3415,7 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
         let m_pos = monitor.position();
         let hwnd = window.hwnd().unwrap();
         let scale = monitor.scale_factor();
-        let nectar_scale = crate::utils::get_nectar_scale(window.app_handle());
+        let kiro_scale = crate::utils::get_kiro_scale(window.app_handle());
         
         // ph = full physical window height. outer_size() can return 0 before the
         // window has rendered. Never guess a value — bail and let the retry wrapper handle it.
@@ -3431,7 +3431,7 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
             return;
         }
 
-        let pr = ((56.0 * nectar_scale) * scale) as i32;
+        let pr = ((56.0 * kiro_scale) * scale) as i32;
 
         
         unsafe {
@@ -3813,11 +3813,11 @@ pub fn create_monitor_window(app: &AppHandle, kind: crate::types::WindowKind, la
 
         match kind {
             crate::types::WindowKind::Dock => {
-                let mode = crate::utils::get_setting_str(&app, "nectar-dock-mode").unwrap_or_else(|| "smart".to_string());
+                let mode = crate::utils::get_setting_str(&app, "kiro-dock-mode").unwrap_or_else(|| "smart".to_string());
                 crate::commands::init_dock_window(&app, window, &mode).await;
             }
             crate::types::WindowKind::Notch => {
-                let mode = crate::utils::get_setting_str(&app, "nectar-notch-mode").unwrap_or_else(|| "fixed".to_string());
+                let mode = crate::utils::get_setting_str(&app, "kiro-notch-mode").unwrap_or_else(|| "fixed".to_string());
                 crate::commands::init_notch_window(&app, window, &mode).await;
             }
         }
@@ -3839,7 +3839,7 @@ fn reposition_all_windows(app_handle: &AppHandle) {
             // Only reposition the dock if it's enabled in settings.
             // Without this guard, power events (plug/unplug, wake) would re-show
             // a dock that the user had previously disabled.
-            let dock_enabled = get_setting_str(app_handle, "nectar-dock-enabled")
+            let dock_enabled = get_setting_str(app_handle, "kiro-dock-enabled")
                 .unwrap_or_else(|| "true".to_string());
             if dock_enabled == "true" {
                 if crate::state::get_flag(crate::state::dock_appbar_registered(), &label) {
@@ -4147,7 +4147,7 @@ fn recover_from_webview_failure(handle: &AppHandle) {
             // straight away left the new webviews without their images.
             SHUTTING_DOWN.store(true, Ordering::Relaxed);
             tokio::time::sleep(Duration::from_millis(1500)).await;
-            crate::commands::relaunch_nectar(&handle);
+            crate::commands::relaunch_kiro(&handle);
         }
     });
 }

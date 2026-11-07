@@ -10,14 +10,14 @@ const DELAYS = ["0", "150", "300", "600", "1000"];
 export function EdgeDelay() {
   const t = useT();
   const [value, setValue] = useState(() => {
-    const saved = localStorage.getItem("nectar-edge-delay");
+    const saved = localStorage.getItem("kiro-edge-delay");
     return saved && DELAYS.includes(saved) ? saved : "300";
   });
 
   const change = (next: string) => {
     setValue(next);
-    localStorage.setItem("nectar-edge-delay", next);
-    invoke("save_setting", { key: "nectar-edge-delay", value: next }).catch(() => { });
+    localStorage.setItem("kiro-edge-delay", next);
+    invoke("save_setting", { key: "kiro-edge-delay", value: next }).catch(() => { });
   };
 
   return (

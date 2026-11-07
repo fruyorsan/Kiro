@@ -1,10 +1,11 @@
 //! Defaults written on first launch.
 //!
-//! A fresh install should behave like a taskbar replacement out of the box:
-//! the dock stays on the desktop, the quick-settings panel opens with the
-//! notch, and the memory/performance saving is already on. Only keys that are
+//! A fresh install should already look and behave like the maintainer's own
+//! Kiro: notch in the bottom-right corner, dock in smart mode, 24-hour clock,
+//! frosted theme, the quick-settings panel on the notch. Only keys that are
 //! missing are written, so a user who later changes a setting keeps the value
-//! they chose.
+//! they chose. Machine-specific state (monitor ids, weather cache, saved power
+//! overlay, ...) is deliberately not part of this list.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -14,22 +15,38 @@ use tauri::Manager;
 
 fn defaults() -> Vec<(&'static str, Value)> {
     vec![
-        // Dock: never hide just because the desktop is focused.
-        ("nectar-dock-desktop-persist", json!(true)),
-        // A fresh install gets a locked taskbar, like the Windows one. Anyone
-        // who wants the auto-hiding behaviour picks it in Settings > Dock.
-        ("nectar-dock-mode", json!("smart")),
-        // Smart mode hides the dock when a window covers it and brings it back
-        // on the desktop. The desktop persist switch below keeps it parked there.
-        ("nectar-dock-adaptive", json!(false)),
-        // Quick settings (Wi-Fi / Bluetooth / volume / brightness) is the
-        // panel the notch opens with.
-        ("nectar-panel-control-center-enabled", json!(true)),
-        ("nectar-panel-order", json!(r#"["command-center","status","music","calendar","shelf"]"#)),
-        // Keep memory and CPU use low without any setup.
-        ("nectar-ram-saver", json!(true)),
-        ("nectar-auto-perf", json!(true)),
-        ("nectar-notch-position", json!("top")),
+        // Notch: bottom-right corner, 24-hour clock, quick settings on open.
+        ("kiro-notch-position", json!("bottom-right")),
+        ("kiro-time-format-24h", json!("true")),
+        ("kiro-notch-edge-delay", json!("200")),
+        ("kiro-notch-scroll-volume", json!("false")),
+        ("kiro-panel-control-center-enabled", json!("true")),
+        ("kiro-panel-shelf-enabled", json!("true")),
+        ("kiro-panel-order", json!(r#"["command-center","status","music","calendar","shelf"]"#)),
+        ("kiro-status-widgets", json!(r#"{"left":["weather","cpu"],"right":["battery","ram"]}"#)),
+        ("kiro-shelf-persist", json!("false")),
+        // Dock: locked, smart mode, stays on the desktop.
+        ("kiro-dock-mode", json!("smart")),
+        ("kiro-dock-desktop-persist", json!("true")),
+        ("kiro-dock-adaptive", json!("false")),
+        ("kiro-dock-icon-only", json!("false")),
+        ("kiro-dock-calendar-enabled", json!("false")),
+        ("kiro-dock-taskview-enabled", json!("false")),
+        ("kiro-dock-show-desktop-corner", json!("true")),
+        // Performance: memory saving and the automatic game/fullscreen mode.
+        ("kiro-ram-saver", json!("true")),
+        ("kiro-ram-ultra", json!("false")),
+        ("kiro-auto-perf", json!("true")),
+        // Appearance: frosted dark, blue accent, same numbers as the maintainer.
+        ("kiro-theme-mode", json!("dark")),
+        ("kiro-theme-color", json!("#007aff")),
+        ("kiro-theme-style", json!("frosted")),
+        ("kiro-theme-opacity", json!("0.6")),
+        ("kiro-theme-saturation", json!("0.5")),
+        ("kiro-theme-brightness", json!("0.15")),
+        ("kiro-glass-wallpaper", json!("false")),
+        // Media panel layout.
+        ("kiro-media-layout", json!("classic")),
     ]
 }
 

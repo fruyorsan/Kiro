@@ -37,5 +37,5 @@ pub fn extract<F: FnMut(f32, &str)>(dest: &Path, mut on_progress: F) -> Result<(
 }
 
 pub fn app_exe_path(install_dir: &Path) -> PathBuf {
-    install_dir.join("nectar.exe")
+    install_dir.join("kiro.exe")
 }

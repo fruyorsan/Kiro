@@ -7,6 +7,7 @@ import './Dock.css';
 import './surfaces.css';
 import { SurfaceShape } from "./components/SurfaceShape";
 import { initTheme } from './theme';
+import { hydrateStorageFromSettings } from './migrate';
 import { useSettingsSync } from './hooks/useSettingsSync';
 import { useT } from './i18n';
 import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon } from './icons';
@@ -90,11 +91,11 @@ const isIdentifier = (p: string) => !p.includes('/') && !p.includes('\\');
 
 // Kiro's own windows (and the pinned launcher) use the bundled mascot instead
 // of the icon extracted from the exe, so a stale Windows icon cache can never
-// bring the old Nectar/letter mark back into the dock.
-const isNectarWindow = (app: { name: string; path: string }) => {
+// bring the old Kiro/letter mark back into the dock.
+const isKiroWindow = (app: { name: string; path: string }) => {
   const path = app.path.toLowerCase();
   const name = app.name.toLowerCase();
-  return path.includes('kiro.exe') || path.includes('nectar.exe') || name === 'kiro' || name === 'nectar';
+  return path.includes('kiro.exe') || path.includes('kiro.exe') || name === 'kiro' || name === 'kiro';
 };
 
 function parseDrives(val: string | null): string[] {
@@ -122,16 +123,16 @@ function hasOpaqueCorners(img: HTMLImageElement): boolean {
   }
 }
 
-function DockAppIcon({ src, alt, nectar }: { src: string | undefined; alt: string; nectar: boolean }) {
+function DockAppIcon({ src, alt, kiro }: { src: string | undefined; alt: string; kiro: boolean }) {
   const [solid, setSolid] = useState(() => (src ? solidIconCache.get(src) ?? false : false));
   return (
     <img
       src={src}
       alt={alt}
-      className={nectar ? 'nectar-icon-img' : solid ? 'solid-icon' : ''}
+      className={kiro ? 'kiro-icon-img' : solid ? 'solid-icon' : ''}
       draggable={false}
       onLoad={(e) => {
-        if (nectar || !src) return;
+        if (kiro || !src) return;
         if (!solidIconCache.has(src)) solidIconCache.set(src, hasOpaqueCorners(e.currentTarget));
         setSolid(solidIconCache.get(src) ?? false);
       }}
@@ -267,7 +268,7 @@ function WindowDots({ count }: { count: number }) {
 // empty strip. Twelve-hour format follows the same user setting as the notch.
 function DockClock() {
   const [now, setNow] = useState(() => new Date());
-  const [use24h, setUse24h] = useState(() => localStorage.getItem("nectar-time-format-24h") === "true");
+  const [use24h, setUse24h] = useState(() => localStorage.getItem("kiro-time-format-24h") !== "false");
 
   useEffect(() => {
     // Align the first tick with the next second so the minute flips on time.
@@ -280,7 +281,7 @@ function DockClock() {
   }, []);
 
   useEffect(() => {
-    const onStorage = () => setUse24h(localStorage.getItem("nectar-time-format-24h") === "true");
+    const onStorage = () => setUse24h(localStorage.getItem("kiro-time-format-24h") !== "false");
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
@@ -310,33 +311,33 @@ const Dock = memo(function Dock() {
   const iconsRef = useRef<Record<string, string>>({});
   const [, setIconsTick] = useState(0); 
   const [dockMode, setDockMode] = useState(() => {
-    const raw = localStorage.getItem("nectar-dock-mode") || "smart";
+    const raw = localStorage.getItem("kiro-dock-mode") || "smart";
     if (raw === "auto-hide") return "smart";
     return raw;
   });
-  const [dockPreviewEnabled, setDockPreviewEnabled] = useState(() => localStorage.getItem("nectar-dock-preview-enabled") !== "false");
-  const [previewDelay, setPreviewDelay] = useState(() => { const v = localStorage.getItem("nectar-dock-preview-delay"); return v === null ? 300 : Number(v) || 0; });
-  const [hideDelay, setHideDelay] = useState(() => Number(localStorage.getItem("nectar-dock-hide-delay")) || 800);
-  const [dockAttentionEnabled, setDockAttentionEnabled] = useState(() => localStorage.getItem("nectar-dock-attention-enabled") !== "false");
+  const [dockPreviewEnabled, setDockPreviewEnabled] = useState(() => localStorage.getItem("kiro-dock-preview-enabled") !== "false");
+  const [previewDelay, setPreviewDelay] = useState(() => { const v = localStorage.getItem("kiro-dock-preview-delay"); return v === null ? 300 : Number(v) || 0; });
+  const [hideDelay, setHideDelay] = useState(() => Number(localStorage.getItem("kiro-dock-hide-delay")) || 800);
+  const [dockAttentionEnabled, setDockAttentionEnabled] = useState(() => localStorage.getItem("kiro-dock-attention-enabled") !== "false");
   const [attentionWindows, setAttentionWindows] = useState<Set<number>>(() => new Set());
-  const [dockSearchEnabled, setDockSearchEnabled] = useState(() => localStorage.getItem("nectar-dock-search-enabled") !== "false");
+  const [dockSearchEnabled, setDockSearchEnabled] = useState(() => localStorage.getItem("kiro-dock-search-enabled") !== "false");
   // Kiro's own launcher instead of handing the click to Windows Search.
-  const [dockSearchNative, setDockSearchNative] = useState(() => localStorage.getItem("nectar-dock-search-native") !== "false");
-  const [dockCalendarEnabled, setDockCalendarEnabled] = useState(() => localStorage.getItem("nectar-dock-calendar-enabled") !== "false");
-  const [legacyMode, setLegacyMode] = useState(() => localStorage.getItem("nectar-legacy-mode") === "true");
-  const [dockTray, setDockTray] = useState(() => localStorage.getItem("nectar-dock-tray-enabled") !== "false");
-  const [dockTaskView, setDockTaskView] = useState(() => localStorage.getItem("nectar-dock-taskview-enabled") === "true");
-  const [dockShowDesktop, setDockShowDesktop] = useState(() => localStorage.getItem("nectar-dock-show-desktop-corner") === "true");
-  const [dockRecycle, setDockRecycle] = useState(() => localStorage.getItem("nectar-dock-recycle-enabled") === "true");
-  const [dockDrives, setDockDrives] = useState<string[]>(() => parseDrives(localStorage.getItem("nectar-dock-drives")));
-  const [dockIconOnly, setDockIconOnly] = useState(() => localStorage.getItem("nectar-dock-icon-only") === "true");
-  const [dockAdaptive, setDockAdaptive] = useState(() => localStorage.getItem("nectar-dock-adaptive") === "true");
+  const [dockSearchNative, setDockSearchNative] = useState(() => localStorage.getItem("kiro-dock-search-native") !== "false");
+  const [dockCalendarEnabled, setDockCalendarEnabled] = useState(() => localStorage.getItem("kiro-dock-calendar-enabled") !== "false");
+  const [legacyMode, setLegacyMode] = useState(() => localStorage.getItem("kiro-legacy-mode") === "true");
+  const [dockTray, setDockTray] = useState(() => localStorage.getItem("kiro-dock-tray-enabled") !== "false");
+  const [dockTaskView, setDockTaskView] = useState(() => localStorage.getItem("kiro-dock-taskview-enabled") === "true");
+  const [dockShowDesktop, setDockShowDesktop] = useState(() => localStorage.getItem("kiro-dock-show-desktop-corner") === "true");
+  const [dockRecycle, setDockRecycle] = useState(() => localStorage.getItem("kiro-dock-recycle-enabled") === "true");
+  const [dockDrives, setDockDrives] = useState<string[]>(() => parseDrives(localStorage.getItem("kiro-dock-drives")));
+  const [dockIconOnly, setDockIconOnly] = useState(() => localStorage.getItem("kiro-dock-icon-only") === "true");
+  const [dockAdaptive, setDockAdaptive] = useState(() => localStorage.getItem("kiro-dock-adaptive") === "true");
   // Keep the dock visible on the desktop. On by default: a taskbar replacement
   // should not disappear just because you closed every window.
-  const [dockDesktopPersist, setDockDesktopPersist] = useState(() => localStorage.getItem("nectar-dock-desktop-persist") !== "false");
-  const [notchAtBottom, setNotchAtBottom] = useState(() => (localStorage.getItem("nectar-notch-position") || "top").startsWith("bottom"));
-  const [startIcon, setStartIcon] = useState(() => localStorage.getItem("nectar-start-icon") || "default");
-  const [dockMixedReorder, setDockMixedReorder] = useState(() => localStorage.getItem("nectar-dock-mixed-reorder") === "true");
+  const [dockDesktopPersist, setDockDesktopPersist] = useState(() => localStorage.getItem("kiro-dock-desktop-persist") !== "false");
+  const [notchAtBottom, setNotchAtBottom] = useState(() => (localStorage.getItem("kiro-notch-position") || "bottom-right").startsWith("bottom"));
+  const [startIcon, setStartIcon] = useState(() => localStorage.getItem("kiro-start-icon") || "default");
+  const [dockMixedReorder, setDockMixedReorder] = useState(() => localStorage.getItem("kiro-dock-mixed-reorder") === "true");
   const [mixedOrder, setMixedOrder] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<{ id: string, previews: { hwnd: number, title: string, image: string }[] } | null>(null);
   const [isDockHovered, setIsDockHovered] = useState(false);
@@ -364,7 +365,7 @@ const Dock = memo(function Dock() {
   const toastTimerRef = useRef<any>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const [popupBottom, setPopupBottom] = useState(56);
-  const [scale, setScale] = useState(() => parseFloat(localStorage.getItem("nectar-scale") || "1.0"));
+  const [scale, setScale] = useState(() => parseFloat(localStorage.getItem("kiro-scale") || "1.0"));
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const pinnedItemsRef = useRef<AppInfo[]>([]);
   const handleAppClickRef = useRef<(app: AppInfo) => void>(() => {});
@@ -499,6 +500,7 @@ const Dock = memo(function Dock() {
   useEffect(() => {
     const init = async () => {
       const settings: any = await invoke('load_settings').catch(() => ({}));
+      hydrateStorageFromSettings(settings);
       const getVal = (key: string, fallback: string | null = null) => {
         const val = settings[key];
         if (val !== undefined && val !== null) return String(val);
@@ -509,52 +511,52 @@ const Dock = memo(function Dock() {
 
       refreshDockMode();
 
-      setHideDelay(Number(getVal("nectar-dock-hide-delay", "800")) || 800);
-      setPreviewDelay(Number(getVal("nectar-dock-preview-delay", "300")) || 0);
+      setHideDelay(Number(getVal("kiro-dock-hide-delay", "800")) || 800);
+      setPreviewDelay(Number(getVal("kiro-dock-preview-delay", "300")) || 0);
 
-      const preview = getVal("nectar-dock-preview-enabled", "true");
+      const preview = getVal("kiro-dock-preview-enabled", "true");
       setDockPreviewEnabled(preview === "true");
-      setDockAttentionEnabled(getVal("nectar-dock-attention-enabled", "true") !== "false");
+      setDockAttentionEnabled(getVal("kiro-dock-attention-enabled", "true") !== "false");
 
-      const searchEnabled = getVal("nectar-dock-search-enabled", "true");
+      const searchEnabled = getVal("kiro-dock-search-enabled", "true");
       setDockSearchEnabled(searchEnabled === "true");
-      setDockSearchNative(getVal("nectar-dock-search-native", "true") !== "false");
+      setDockSearchNative(getVal("kiro-dock-search-native", "true") !== "false");
 
       // Warm the launcher's app list while the user is still doing something
       // else, so the first magnifier click is instant.
       setTimeout(() => { loadInstalledApps().ready.catch(() => {}); }, 2500);
 
-      const calendarEnabled = getVal("nectar-dock-calendar-enabled", "true");
+      const calendarEnabled = getVal("kiro-dock-calendar-enabled", "true");
       setDockCalendarEnabled(calendarEnabled === "true");
 
-      setLegacyMode(getVal("nectar-legacy-mode", "false") === "true");
-      setDockTray(getVal("nectar-dock-tray-enabled", "true") !== "false");
-      setDockTaskView(getVal("nectar-dock-taskview-enabled", "false") === "true");
-      setDockShowDesktop(getVal("nectar-dock-show-desktop-corner", "false") === "true");
+      setLegacyMode(getVal("kiro-legacy-mode", "false") === "true");
+      setDockTray(getVal("kiro-dock-tray-enabled", "true") !== "false");
+      setDockTaskView(getVal("kiro-dock-taskview-enabled", "false") === "true");
+      setDockShowDesktop(getVal("kiro-dock-show-desktop-corner", "false") === "true");
       // Keep the dock parked on the desktop unless the user explicitly turned
       // this off, including when the value comes from an older settings file.
-      setDockDesktopPersist(getVal("nectar-dock-desktop-persist", "true") !== "false");
-      setDockRecycle(getVal("nectar-dock-recycle-enabled", "false") === "true");
-      setDockDrives(parseDrives(getVal("nectar-dock-drives", "[]")));
+      setDockDesktopPersist(getVal("kiro-dock-desktop-persist", "true") !== "false");
+      setDockRecycle(getVal("kiro-dock-recycle-enabled", "false") === "true");
+      setDockDrives(parseDrives(getVal("kiro-dock-drives", "[]")));
 
-      const iconOnly = getVal("nectar-dock-icon-only", "false");
+      const iconOnly = getVal("kiro-dock-icon-only", "false");
       setDockIconOnly(iconOnly === "true");
 
-      const adaptive = getVal("nectar-dock-adaptive", "false");
+      const adaptive = getVal("kiro-dock-adaptive", "false");
       setDockAdaptive(adaptive === "true");
 
-      const startIconVal = getVal("nectar-start-icon", "default") || "default";
+      const startIconVal = getVal("kiro-start-icon", "default") || "default";
       setStartIcon(startIconVal);
 
-      const mixedReorder = getVal("nectar-dock-mixed-reorder", "false");
+      const mixedReorder = getVal("kiro-dock-mixed-reorder", "false");
       setDockMixedReorder(mixedReorder === "true");
 
-      const scaleVal = getVal("nectar-scale");
+      const scaleVal = getVal("kiro-scale");
       if (scaleVal !== null) setScale(parseFloat(scaleVal));
 
       // With the notch parked at the bottom it already shows date + time, so the
       // dock must not draw a second clock right next to it.
-      setNotchAtBottom((getVal("nectar-notch-position", "top") || "top").startsWith("bottom"));
+      setNotchAtBottom((getVal("kiro-notch-position", "bottom-right") || "bottom-right").startsWith("bottom"));
 
       const pinned = await invoke<AppInfo[]>('load_pinned_apps');
       setPinnedApps(pinned.map(a => ({ ...a, is_pinned: true })));
@@ -609,30 +611,30 @@ const Dock = memo(function Dock() {
 
   useSettingsSync(
     {
-      "nectar-dock-mode": refreshDockMode,
-      "nectar-dock-mode-by-monitor": refreshDockMode,
-      "nectar-dock-monitor-mode": refreshDockMode,
-      "nectar-dock-monitor-id": refreshDockMode,
-      "nectar-dock-hide-delay": (v) => setHideDelay(Number(v) || 800),
-      "nectar-dock-preview-delay": (v) => setPreviewDelay(Number(v) || 0),
-      "nectar-dock-preview-enabled": setDockPreviewEnabled,
-      "nectar-dock-attention-enabled": (v) => setDockAttentionEnabled(v !== false && v !== "false"),
-      "nectar-dock-search-enabled": setDockSearchEnabled,
-      "nectar-dock-search-native": (v) => setDockSearchNative(v !== false && v !== "false"),
-      "nectar-dock-calendar-enabled": setDockCalendarEnabled,
-      "nectar-legacy-mode": setLegacyMode,
-      "nectar-dock-tray-enabled": (v) => setDockTray(v !== false && v !== "false"),
-      "nectar-dock-taskview-enabled": setDockTaskView,
-      "nectar-dock-show-desktop-corner": setDockShowDesktop,
-      "nectar-dock-recycle-enabled": setDockRecycle,
-      "nectar-dock-drives": (v) => setDockDrives(parseDrives(v)),
-      "nectar-dock-icon-only": setDockIconOnly,
-      "nectar-dock-adaptive": setDockAdaptive,
-      "nectar-dock-desktop-persist": (v) => setDockDesktopPersist(v !== false && v !== "false"),
-      "nectar-start-icon": setStartIcon,
-      "nectar-dock-mixed-reorder": setDockMixedReorder,
-      "nectar-scale": setScale,
-      "nectar-notch-position": (v) => setNotchAtBottom(String(v).startsWith("bottom")),
+      "kiro-dock-mode": refreshDockMode,
+      "kiro-dock-mode-by-monitor": refreshDockMode,
+      "kiro-dock-monitor-mode": refreshDockMode,
+      "kiro-dock-monitor-id": refreshDockMode,
+      "kiro-dock-hide-delay": (v) => setHideDelay(Number(v) || 800),
+      "kiro-dock-preview-delay": (v) => setPreviewDelay(Number(v) || 0),
+      "kiro-dock-preview-enabled": setDockPreviewEnabled,
+      "kiro-dock-attention-enabled": (v) => setDockAttentionEnabled(v !== false && v !== "false"),
+      "kiro-dock-search-enabled": setDockSearchEnabled,
+      "kiro-dock-search-native": (v) => setDockSearchNative(v !== false && v !== "false"),
+      "kiro-dock-calendar-enabled": setDockCalendarEnabled,
+      "kiro-legacy-mode": setLegacyMode,
+      "kiro-dock-tray-enabled": (v) => setDockTray(v !== false && v !== "false"),
+      "kiro-dock-taskview-enabled": setDockTaskView,
+      "kiro-dock-show-desktop-corner": setDockShowDesktop,
+      "kiro-dock-recycle-enabled": setDockRecycle,
+      "kiro-dock-drives": (v) => setDockDrives(parseDrives(v)),
+      "kiro-dock-icon-only": setDockIconOnly,
+      "kiro-dock-adaptive": setDockAdaptive,
+      "kiro-dock-desktop-persist": (v) => setDockDesktopPersist(v !== false && v !== "false"),
+      "kiro-start-icon": setStartIcon,
+      "kiro-dock-mixed-reorder": setDockMixedReorder,
+      "kiro-scale": setScale,
+      "kiro-notch-position": (v) => setNotchAtBottom(String(v).startsWith("bottom")),
     }
   );
 
@@ -1336,7 +1338,7 @@ const Dock = memo(function Dock() {
                       handleAppClick(startItem);
                     }}
                   >
-                    <img src={resolveStartIcon(startIcon)} alt="Start" className={startIcon === "default" ? "nectar-icon-img" : "nectar-icon-img start-img"} style={startIcon.startsWith("custom:") ? { borderRadius: "8px" } : undefined} draggable={false} />
+                    <img src={resolveStartIcon(startIcon)} alt="Start" className={startIcon === "default" ? "kiro-icon-img" : "kiro-icon-img start-img"} style={startIcon.startsWith("custom:") ? { borderRadius: "8px" } : undefined} draggable={false} />
                   </motion.div>
                 </motion.div>
               )}
@@ -1522,10 +1524,10 @@ const Dock = memo(function Dock() {
                     const allowPathFallback = !isHost || !app.is_running;
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                     
-                    const isNectarOrSettings = isNectarWindow(app);
+                    const isKiroOrSettings = isKiroWindow(app);
                     
-                    return (icon || isNectarOrSettings) ? (
-                      <DockAppIcon src={isNectarOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                    return (icon || isKiroOrSettings) ? (
+                      <DockAppIcon src={isKiroOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
                     ) : (
                       <div className="fallback-icon">{app.name[0]}</div>
                     );
@@ -1625,9 +1627,9 @@ const Dock = memo(function Dock() {
                         // Running host items skip the shared path fallback, or the browser's icon leaks onto its PWAs.
                     const allowPathFallback = !isHost || !app.is_running;
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
-                          const isNectarOrSettings = isNectarWindow(app);
-                          return (icon || isNectarOrSettings) ? (
-                            <DockAppIcon src={isNectarOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                          const isKiroOrSettings = isKiroWindow(app);
+                          return (icon || isKiroOrSettings) ? (
+                            <DockAppIcon src={isKiroOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -1725,9 +1727,9 @@ const Dock = memo(function Dock() {
                           // Running host items skip the shared path fallback, or the browser's icon leaks onto its PWAs.
                     const allowPathFallback = !isHost || !app.is_running;
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
-                          const isNectarOrSettings = isNectarWindow(app);
-                          return (icon || isNectarOrSettings) ? (
-                            <DockAppIcon src={isNectarOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                          const isKiroOrSettings = isKiroWindow(app);
+                          return (icon || isKiroOrSettings) ? (
+                            <DockAppIcon src={isKiroOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -1823,25 +1825,25 @@ const Dock = memo(function Dock() {
                 {t("dockmenu.addApp")}
               </div>
               <div
-                className={`menu-item has-submenu${activeSubmenu === 'nectar' ? ' open' : ''}`}
-                onMouseEnter={() => setActiveSubmenu('nectar')}
+                className={`menu-item has-submenu${activeSubmenu === 'kiro' ? ' open' : ''}`}
+                onMouseEnter={() => setActiveSubmenu('kiro')}
                 onMouseLeave={() => setActiveSubmenu(null)}
-                onClick={() => setActiveSubmenu('nectar')}
+                onClick={() => setActiveSubmenu('kiro')}
               >
                 {t("dockmenu.options")}
                 <span className="submenu-arrow">{submenuOpensLeft ? "\u25c2" : "\u25b8"}</span>
                 <div
                   ref={submenuRef}
-                  className={`submenu${activeSubmenu === 'nectar' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
+                  className={`submenu${activeSubmenu === 'kiro' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
-                  <div className="menu-item" onClick={() => invoke('restart_nectar')}>{t("general.restart")}</div>
+                  <div className="menu-item" onClick={() => invoke('restart_kiro')}>{t("general.restart")}</div>
                   <div className="menu-item" onClick={() => { handleClearIconCache(); closeMenu(); }}>{t("dockmenu.clearIconCache")}</div>
                   <div className="menu-divider" />
-                  <div className="menu-item quit" onClick={() => invoke('quit_nectar')}>{t("general.quit")}</div>
+                  <div className="menu-item quit" onClick={() => invoke('quit_kiro')}>{t("general.quit")}</div>
                 </div>
               </div>
               {contextMenu.app.is_running && (
@@ -1867,25 +1869,25 @@ const Dock = memo(function Dock() {
                 {t("dockmenu.addApp")}
               </div>
               <div
-                className={`menu-item has-submenu${activeSubmenu === 'nectar' ? ' open' : ''}`}
-                onMouseEnter={() => setActiveSubmenu('nectar')}
+                className={`menu-item has-submenu${activeSubmenu === 'kiro' ? ' open' : ''}`}
+                onMouseEnter={() => setActiveSubmenu('kiro')}
                 onMouseLeave={() => setActiveSubmenu(null)}
-                onClick={() => setActiveSubmenu('nectar')}
+                onClick={() => setActiveSubmenu('kiro')}
               >
                 {t("dockmenu.options")}
                 <span className="submenu-arrow">{submenuOpensLeft ? "\u25c2" : "\u25b8"}</span>
                 <div
                   ref={submenuRef}
-                  className={`submenu${activeSubmenu === 'nectar' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
+                  className={`submenu${activeSubmenu === 'kiro' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
-                  <div className="menu-item" onClick={() => invoke('restart_nectar')}>{t("general.restart")}</div>
+                  <div className="menu-item" onClick={() => invoke('restart_kiro')}>{t("general.restart")}</div>
                   <div className="menu-item" onClick={() => { handleClearIconCache(); closeMenu(); }}>{t("dockmenu.clearIconCache")}</div>
                   <div className="menu-divider" />
-                  <div className="menu-item quit" onClick={() => invoke('quit_nectar')}>{t("general.quit")}</div>
+                  <div className="menu-item quit" onClick={() => invoke('quit_kiro')}>{t("general.quit")}</div>
                 </div>
               </div>
             </>

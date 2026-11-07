@@ -126,7 +126,7 @@ export function CompactMediaPlayer({
   const t = useT();
 
   const scrollVolume = (e: React.WheelEvent) => {
-    if (localStorage.getItem("nectar-notch-scroll-volume") !== "true") return;
+    if (localStorage.getItem("kiro-notch-scroll-volume") !== "true") return;
     e.stopPropagation();
     const change = e.deltaY < 0 ? 0.02 : -0.02;
     onVolumeChange(Math.min(1, Math.max(0, Math.round((volume + change) * 100) / 100)));
