@@ -2,41 +2,17 @@
 
 ## Kiro
 
-**Kiro is a fork of [Nectar](https://github.com/kua8/Nectar) by [kua8](https://github.com/kua8).**
-Same look, same features, plus the fixes and the automatic performance mode listed below.
-The original project and its concept belong to Nectar, which itself began as a fork of
-[Bloom](https://github.com/SehajveerSingh2005/bloom) by Sehajveer Singh.
-Licensed under GPL-3.0-only, like the original.
+**A notch and a dock for Windows.** Physics-animated, reactive, and built to replace your taskbar.
 
-**What is different in this fork**
-
-- Smoother dock/notch reveals: the memory saver no longer trims the renderers every
-  two seconds while you are about to hover an edge.
-- The side edge (volume/brightness) card now opens when you simply hold the cursor
-  at the edge, instead of only while moving.
-- Faster dock opening animation and a cheaper per-mouse-move path.
-- New **Automatic Performance Mode**: when a fullscreen game or app is in front,
-  Kiro stops capturing previews/icons, slows its background polling, disables blur
-  and animation work, and stops trimming memory. Everything returns on exit.
-- Separate identity (`com.fruyorsan.kiro`), so Kiro and Nectar can be installed
-  side by side and Kiro never updates into the upstream release. Existing Nectar
-  settings are copied over on first launch.
-
-<br />
-
-<img src="docs/logo.png" width="128" alt="Nectar logo" />
-
-<br />
+<img src="docs/logo.png" width="128" alt="Kiro logo" />
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/wordmark-dark.png" />
-  <img src="docs/wordmark-light.png" height="44" alt="Nectar" />
+  <img src="docs/wordmark-light.png" height="44" alt="Kiro" />
 </picture>
 
-<p><strong>A notch and a dock for Windows.<br />Physics-animated, reactive, and built to replace your taskbar.</strong></p>
-
 [![Latest release](https://shieldcn.dev/badge/release-v1.8.2.svg?logo=lu:Tag)](https://github.com/fruyorsan/Kiro/releases/latest)
-[![Downloads](https://badges.kua8.lol/downloads.svg)](https://github.com/fruyorsan/Kiro/releases)
+[![Downloads](https://img.shields.io/github/downloads/fruyorsan/Kiro/total.svg)](https://github.com/fruyorsan/Kiro/releases)
 [![License](https://shieldcn.dev/github/license/fruyorsan/Kiro.svg?logo=lu:Scale)](LICENSE)
 [![Platform](https://shieldcn.dev/badge/platform-Windows.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)
 
@@ -44,25 +20,13 @@ Licensed under GPL-3.0-only, like the original.
 
 <br />
 
-<img src="docs/screenshots/desktop.webp" width="860" alt="Nectar's notch and dock on a Windows desktop" />
-
-<br /><br />
-
-<a href="https://nectar.kua8.lol/trailer/">
-  <img src="docs/trailer-preview.svg" width="860" alt="Watch Nectar in action — 40-second trailer" />
-</a>
-
-[**▶ Watch Nectar in action**](https://nectar.kua8.lol/trailer/) · 40 seconds
+<img src="docs/screenshots/desktop.webp" width="860" alt="Kiro's notch and dock on a Windows desktop" />
 
 </div>
 
 <br />
 
-> **Disclaimer:** I'm a solo dev and I really DID NOT expect this sudden traction for Nectar. I really appreciate the recent support, and I'm trying my best to release fixes as quickly as possible to keep you all happy. But fixing one issue often causes another one. So moving forward I'll do weekly releases with stable builds, plus a pre-release for smaller fixes, and a toggle to decide which version of Nectar you run. This gives me time to search through all the bugs, find the most critical ones, and also have a private life. Thank you for understanding.
-
-> **Antivirus warnings:** We've been getting a lot of reports of Windows, Avast and Kaspersky marking Nectar's exe as a trojan or malware. This happens because Nectar isn't code-signed, and code signing certificates are pretty pricey. We're going to try to enroll in Kaspersky's [Allowlist program](https://www.kaspersky.com/partners/allowlist-program), which can take a while depending on how fast they are. Like I've said before, Nectar is open source: anyone can go through the code line by line and compile it themselves. I make no money from this project and there is no telemetry or tracking in it. There's a saying, "if it's free, you're the product", and that isn't the case here. I purely enjoy making small projects on the side.
->
-> If you'd like to help, I'd appreciate any donations through the Buy Me a Coffee link at the bottom of this README or in the side panel. They go towards the signing certificate. If 15 people sent a dollar a month, it would help a lot.
+> **Antivirus warnings:** Windows, Avast and Kaspersky may flag Kiro because the executable is not code-signed yet. Kiro is open source, has no telemetry or tracking, and you can read every line or build it yourself from this repository.
 
 ## Features
 
@@ -74,12 +38,13 @@ Licensed under GPL-3.0-only, like the original.
 | **Out of your way** | Fixed, Smart or Peek modes, and both stay hidden over fullscreen games. |
 | **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent color. English and Turkish. Every option lives in a plain `settings.json`. |
 | **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. |
+| **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, and stops trimming memory. Everything returns on exit. |
 
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/island.png" height="130" alt="The Nectar notch" /></td>
-    <td align="center"><img src="docs/screenshots/dock.png" height="130" alt="The Nectar dock" /></td>
+    <td align="center"><img src="docs/screenshots/island.png" height="130" alt="The Kiro notch" /></td>
+    <td align="center"><img src="docs/screenshots/dock.png" height="130" alt="The Kiro dock" /></td>
   </tr>
   <tr>
     <td align="center"><sub>The notch</sub></td>
@@ -90,11 +55,11 @@ Licensed under GPL-3.0-only, like the original.
 
 ## Install
 
-1. Download the installer from the [latest release](https://github.com/fruyorsan/Kiro/releases/latest).
+1. Download `Kiro-Setup-<version>.exe` from the [latest release](https://github.com/fruyorsan/Kiro/releases/latest).
 2. Choose **Just me** or **All users**. An all-users install asks for administrator permission once.
-3. Nectar starts with a short splash, then the notch and dock appear together.
+3. Kiro starts with a short splash, then the notch and dock appear together.
 
-Nectar updates itself: a green dot on the notch means an update is ready, and **Auto Update** in **Settings › About** installs it for you. Turn on **Get pre-releases** there to receive early builds before the weekly release. **Uninstall** from Windows Settings › Apps or from **Settings › About**, either puts your taskbar back.
+Kiro updates itself: a green dot on the notch means an update is ready, and **Auto Update** in **Settings › About** installs it for you. Turn on **Get pre-releases** there to receive early builds before the weekly release. **Uninstall** from Windows Settings › Apps or from **Settings › About** puts your taskbar back.
 
 <details>
 <summary>Verify your download</summary>
@@ -104,7 +69,7 @@ Nectar updates itself: a green dot on the notch means an update is ready, and **
 Only download Kiro from the [releases page](https://github.com/fruyorsan/Kiro/releases) of this repository. Each release has a `SHA256SUMS.txt`. Compare the output of this command with the matching line:
 
 ```powershell
-Get-FileHash .\Nectar-Setup-<version>.exe -Algorithm SHA256
+Get-FileHash .\Kiro-Setup-<version>.exe -Algorithm SHA256
 ```
 
 </details>
@@ -140,7 +105,7 @@ In Smart and Peek both stay hidden, and click-through, while a fullscreen app is
 
 <br />
 
-Nectar hides the dock and notch over a fullscreen window that covers the whole monitor, in Smart and Peek. Fixed mode stays visible by design. If something still appears, open an issue with the game and its display mode (fullscreen, borderless or windowed).
+Kiro hides the dock and notch over a fullscreen window that covers the whole monitor, in Smart and Peek. Fixed mode stays visible by design. If something still appears, open an issue with the game and its display mode (fullscreen, borderless or windowed).
 
 </details>
 
@@ -149,12 +114,12 @@ Nectar hides the dock and notch over a fullscreen window that covers the whole m
 
 <br />
 
-Start Nectar again, it restores the taskbar on launch even after a crash. Uninstalling from Windows Settings › Apps or from **Settings › About** brings it back too.
+Start Kiro again; it restores the taskbar on launch even after a crash. Uninstalling from Windows Settings › Apps or from **Settings › About** brings it back too.
 
 </details>
 
 <details>
-<summary><b>Nectar uses a lot of memory</b></summary>
+<summary><b>Kiro uses a lot of memory</b></summary>
 
 <br />
 
@@ -186,7 +151,7 @@ You need [Rust](https://rustup.rs/) and [Bun](https://bun.sh/) on Windows.
 
 ```bash
 git clone https://github.com/fruyorsan/Kiro.git
-cd Nectar
+cd Kiro
 bun install
 bun run tauri dev
 ```
@@ -213,16 +178,10 @@ See the [open issues](https://github.com/fruyorsan/Kiro/issues) for requests and
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 
-## Support
-
-Nectar is free and open source. If it makes your desktop nicer, you can support its development.
-
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/kua8)
-
 ## License
 
-Nectar is open source under the [GPLv3](LICENSE).
+Kiro is open source under the [GPLv3](LICENSE).
 
 ## Credits
 
-Nectar began as a fork of [Bloom](https://github.com/SehajveerSingh2005/bloom) by Sehajveer Singh, and the original concept and the codebase it grew from are theirs. Nectar has since been rebuilt and is maintained independently, with its own features, fixes and direction. Thanks to everyone listed on the [contributors page](https://github.com/kua8/Nectar/graphs/contributors).
+Kiro began as a fork of [Nectar](https://github.com/kua8/Nectar) by [kua8](https://github.com/kua8), which itself began as a fork of [Bloom](https://github.com/SehajveerSingh2005/bloom) by Sehajveer Singh. The original concept and the code it grew from are theirs. Kiro is now maintained independently under the Kiro name.

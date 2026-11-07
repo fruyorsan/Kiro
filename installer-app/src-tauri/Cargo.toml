@@ -1,8 +1,8 @@
 [package]
 name = "kiro-installer"
-version = "1.8.0"
+version = "1.8.2"
 description = "Kiro installer"
-authors = ["kua8"]
+authors = ["fruyorsan"]
 edition = "2021"
 license = "GPL-3.0-only"
 

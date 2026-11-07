@@ -1,12 +1,12 @@
-//! One-time migration of user data from the official Nectar build.
+//! One-time migration of user data from a previous install.
 //!
-//! Kiro is a fork of Nectar and uses its own config folder
-//! (`%APPDATA%\com.fruyorsan.kiro`). On first launch we copy the user's
-//! existing Nectar data over so settings, pinned apps, custom icons and the
-//! agent API config survive the rename. Nothing is ever written back to the
-//! Nectar folder, so the original app keeps working unchanged.
+//! Kiro uses its own config folder (`%APPDATA%\com.fruyorsan.kiro`). On first
+//! launch we copy data from the earlier app id over so settings, pinned apps,
+//! custom icons and the agent API config survive the rename. Nothing is ever
+//! written back to the old folder, so the previous install keeps working
+//! unchanged.
 //!
-//! The rebrand also renamed every settings key from `nectar-*` to `kiro-*`.
+//! The rename also changed every settings key from `nectar-*` to `kiro-*`.
 //! `rename_settings_keys` rewrites an existing `settings.json` in place so a
 //! user who already ran Kiro keeps the values they chose.
 
@@ -96,10 +96,10 @@ pub fn rename_settings_keys(dir: &Path) {
     }
 }
 
-/// Copy Nectar's config folder into Kiro's folder once, then normalise the
-/// settings keys. Safe to call on every start: a marker file makes the copy a
-/// no-op after the first successful run, and existing Kiro files are never
-/// overwritten.
+/// Copy the previous install's config folder into Kiro's folder once, then
+/// normalise the settings keys. Safe to call on every start: a marker file
+/// makes the copy a no-op after the first successful run, and existing Kiro
+/// files are never overwritten.
 pub fn run() {
     let Some(appdata) = std::env::var_os("APPDATA") else {
         return;
@@ -111,7 +111,7 @@ pub fn run() {
     if old_dir.is_dir() && !new_dir.join(MARKER).exists() {
         let _ = std::fs::create_dir_all(&new_dir);
         copy_missing(&old_dir, &new_dir);
-        let _ = std::fs::write(new_dir.join(MARKER), "kiro: data migrated from Nectar\n");
+        let _ = std::fs::write(new_dir.join(MARKER), "kiro: data migrated from previous install\n");
     }
 
     rename_settings_keys(&new_dir);

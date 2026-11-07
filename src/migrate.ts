@@ -1,9 +1,9 @@
 /**
  * One-time client-side migration of the settings localStorage keys.
  *
- * Kiro used to be called Nectar and every key was stored as `nectar-*`. The
- * rebrand renamed the keys to `kiro-*`, so an existing install would otherwise
- * start with all settings reset to their defaults. Copy every legacy value to
+ * A previous install stored every key as `nectar-*`. The rename changed the
+ * keys to `kiro-*`, so an existing install would otherwise start with all
+ * settings reset to their defaults. Copy every legacy value to
  * its new name (never overwriting a value already written under the new name)
  * and drop the old one.
  *

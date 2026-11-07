@@ -858,6 +858,9 @@ const Dock = memo(function Dock() {
     e.preventDefault();
     setHoveredApp(null);
     setPreviewData(null);
+    setActiveSubmenu(null);
+    setShowAddPopup(false);
+    setShowSearch(false);
     setContextMenuHeight(0);
     setContextMenuWidth(0);
     const dockRect = dockRef.current?.getBoundingClientRect();
@@ -882,8 +885,10 @@ const Dock = memo(function Dock() {
 
   useLayoutEffect(() => {
     if (contextMenu && menuRef.current) {
-      const measured = menuRef.current.offsetHeight;
-      if (measured > 0 && measured !== contextMenuHeight) {
+      // getBoundingClientRect, not offsetHeight: the menu is scaled with the
+      // dock (`zoom: scale`), and the position below is in screen pixels.
+      const measured = menuRef.current.getBoundingClientRect().height;
+      if (measured > 0 && Math.abs(measured - contextMenuHeight) > 0.5) {
         setContextMenuHeight(measured);
       }
       const measuredWidth = menuRef.current.getBoundingClientRect().width;
@@ -947,8 +952,15 @@ const Dock = memo(function Dock() {
 
   // The submenu flies out to the right; flip it when the menu is already close
   // to the right edge so it never gets cut off by the screen.
+  const menuWidth = contextMenuWidth || 160 * scale;
+  const menuLeft = contextMenu
+    ? Math.min(
+        Math.max(8, contextMenu.x - menuWidth / 2),
+        Math.max(8, window.innerWidth - menuWidth - 8),
+      )
+    : 0;
   const submenuOpensLeft = contextMenu
-    ? contextMenu.x + (contextMenuWidth || 160 * scale) / 2 + 214 > window.innerWidth - 8
+    ? menuLeft + menuWidth + 214 > window.innerWidth - 8
     : false;
 
   const dockItems = useMemo(() => {
@@ -1762,10 +1774,7 @@ const Dock = memo(function Dock() {
         <div
           style={{
             position: 'fixed',
-            left: Math.min(
-              Math.max(8, contextMenu.x - (contextMenuWidth || 160 * scale) / 2),
-              Math.max(8, window.innerWidth - (contextMenuWidth || 160 * scale) - 8),
-            ),
+            left: menuLeft,
             top: Math.max(8, contextMenu.y - 10 - (contextMenuHeight || (contextMenu.app ? 200 : 100) * scale)),
             zIndex: 9999,
           }}

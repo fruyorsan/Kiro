@@ -652,15 +652,21 @@ body {
 
 .submenu {
   position: absolute;
-  left: calc(100% - 2px);
-  top: -6px;
-  bottom: auto;
+  /* The parent item is inset by the menu's 6px padding, so 100% alone lands
+     inside the menu box. Add that padding back plus a small gap. */
+  left: calc(100% + 8px);
+  /* Grow upwards from the item. The dock menu always opens just above the
+     dock, so anchoring the top would push the fly-out off the screen. */
+  top: auto;
+  bottom: -6px;
   background: var(--kiro-bg-expanded, rgba(40, 40, 40, 0.98));
   backdrop-filter: blur(25px);
   border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
   border-radius: 12px;
   padding: 6px;
   min-width: 168px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   display: none;
   flex-direction: column;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
@@ -674,7 +680,7 @@ body {
 /* Near the right edge the fly-out flips to the menu's left side. */
 .submenu.left {
   left: auto;
-  right: calc(100% - 2px);
+  right: calc(100% + 8px);
 }
 
 /* Bridge the gap so the pointer can cross into the fly-out without dropping hover. */

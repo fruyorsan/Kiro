@@ -2,7 +2,7 @@
 name = "kiro"
 version = "1.8.2"
 description = ""
-authors = ["fruyorsan", "kua8"]
+authors = ["fruyorsan"]
 edition = "2021"
 license = "GPL-3.0-only"
 
