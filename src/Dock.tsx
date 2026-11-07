@@ -406,13 +406,11 @@ const Dock = memo(function Dock() {
       (dockMode === 'peek' && interactionState === 'none' && (!dockDesktopPersist || isOverlapped))
     ));
 
-  // Fixed mode is a taskbar: the pill fills the strip the appbar reserves, so
-  // there is no dead, unclickable space to the left and right of a small
-  // floating island. The old behaviour only stretched while a window was
-  // maximized, which is what made the pinned dock look detached from the
-  // screen edge. Width is pre-scale, so the viewport is divided by the scale.
+  // Adaptive mode (fixed dock): stretch to a full-width taskbar while a window
+  // is maximized. It stays off by default so the dock keeps its compact pill.
   const isAdaptive = dockAdaptive && dockMode === 'fixed' && isExpanded && !isHidden;
-  const adaptiveWidth = viewportWidth / (scale || 1);
+  // Nearly full width, 24px margin per side. Width is pre-scale, so (viewport - 48*scale) / scale.
+  const adaptiveWidth = (viewportWidth - 48 * scale) / scale;
 
   useEffect(() => {
     let cleared = false;
@@ -527,7 +525,7 @@ const Dock = memo(function Dock() {
       const iconOnly = getVal("nectar-dock-icon-only", "false");
       setDockIconOnly(iconOnly === "true");
 
-      const adaptive = getVal("nectar-dock-adaptive", "true");
+      const adaptive = getVal("nectar-dock-adaptive", "false");
       setDockAdaptive(adaptive === "true");
 
       const startIconVal = getVal("nectar-start-icon", "default") || "default";
