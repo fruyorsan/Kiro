@@ -49,7 +49,11 @@ if (Test-Path $uninstaller) {
     Write-Host "==> Removing the old install in $InstallDir" -ForegroundColor Cyan
     $old = Start-Process -FilePath $uninstaller -ArgumentList "--auto-uninstall" -PassThru
     $old.WaitForExit(120000) | Out-Null
-    Wait-For { -not (Test-Path (Join-Path $InstallDir "kiro.exe")) } 30 "the old install to be removed"
+    # The file cleanup runs in a detached PowerShell that waits for the
+    # uninstaller to exit. If it is still sitting on a dialog, end it so the
+    # cleanup can finish instead of blocking the install.
+    if (-not $old.HasExited) { Stop-Process -Id $old.Id -Force -ErrorAction SilentlyContinue }
+    Wait-For { -not (Test-Path (Join-Path $InstallDir "kiro.exe")) } 60 "the old install to be removed"
 }
 
 Write-Host "==> Installing the fresh build into $InstallDir" -ForegroundColor Cyan

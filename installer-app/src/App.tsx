@@ -271,6 +271,13 @@ export default function App() {
     try {
       await startUninstall();
       setScreen("uninstall-done");
+      if (state?.autoUninstall) {
+        // The file cleanup runs in a detached PowerShell that waits for this
+        // process to exit before it can delete uninstall.exe. A silent
+        // uninstall must therefore close itself instead of sitting on the
+        // "done" screen.
+        window.setTimeout(() => closeWindow(), 300);
+      }
     } catch (err) {
       setErrorMsg(String(err));
       setScreen("error");

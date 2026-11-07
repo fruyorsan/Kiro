@@ -1,4 +1,4 @@
-import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap } from "lucide-react";
+import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap, Gamepad2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -45,6 +45,8 @@ interface GeneralTabProps {
   toggleRamSaver: () => void;
   autoPerf: boolean;
   toggleAutoPerf: () => void;
+  gameBoost: boolean;
+  toggleGameBoost: () => void;
   ramUltra: boolean;
   toggleRamUltra: () => void;
   lowBatteryThreshold: number;
@@ -67,6 +69,8 @@ export function GeneralTab({
   toggleRamSaver,
   autoPerf,
   toggleAutoPerf,
+  gameBoost,
+  toggleGameBoost,
   ramUltra,
   toggleRamUltra,
   lowBatteryThreshold,
@@ -142,6 +146,17 @@ export function GeneralTab({
               <span className="slider"></span>
             </label>
           </div>
+        </SettingRow>
+
+        <SettingRow
+          icon={Gamepad2}
+          label={t("general.gameBoost")}
+          desc={t("general.gameBoost.desc")}
+        >
+          <label className="toggle-switch">
+            <input type="checkbox" checked={gameBoost} onChange={toggleGameBoost} />
+            <span className="slider"></span>
+          </label>
         </SettingRow>
 
         <SettingRow

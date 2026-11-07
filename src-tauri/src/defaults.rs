@@ -37,6 +37,7 @@ fn defaults() -> Vec<(&'static str, Value)> {
         ("kiro-ram-saver", json!("true")),
         ("kiro-ram-ultra", json!("false")),
         ("kiro-auto-perf", json!("true")),
+        ("kiro-game-boost", json!("true")),
         // Updates install themselves on the next launch.
         ("kiro-auto-update", json!("true")),
         ("kiro-update-channel", json!("stable")),

@@ -124,6 +124,8 @@ function SettingsApp() {
               handleThresholdChange={settings.handleThresholdChange}
               autoPerf={settings.autoPerf}
               toggleAutoPerf={settings.toggleAutoPerf}
+              gameBoost={settings.gameBoost}
+              toggleGameBoost={settings.toggleGameBoost}
               restartKiro={settings.restartKiro}
               quitKiro={settings.quitKiro}
             />

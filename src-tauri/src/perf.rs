@@ -62,6 +62,51 @@ fn deactivate(app: &AppHandle) {
     }
 }
 
+/// Put our own process on the efficiency track while a game runs: EcoQoS lets
+/// Windows schedule us on low-power cores and keeps our pages at the front of
+/// the trim queue, so the game keeps the performance cores and its working
+/// set. Both settings are per-process and fully reversible.
+#[cfg(target_os = "windows")]
+unsafe fn set_power_throttling(on: bool) {
+    use windows::Win32::System::Threading::{
+        GetCurrentProcess, ProcessMemoryPriority, ProcessPowerThrottling,
+        SetProcessInformation, MEMORY_PRIORITY_INFORMATION, MEMORY_PRIORITY_LOW,
+        MEMORY_PRIORITY_NORMAL, PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+        PROCESS_POWER_THROTTLING_EXECUTION_SPEED, PROCESS_POWER_THROTTLING_STATE,
+    };
+    let process = GetCurrentProcess();
+
+    let throttling = PROCESS_POWER_THROTTLING_STATE {
+        Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+        ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+        StateMask: if on {
+            PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+        } else {
+            0
+        },
+    };
+    let _ = SetProcessInformation(
+        process,
+        ProcessPowerThrottling,
+        &throttling as *const _ as *const std::ffi::c_void,
+        std::mem::size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
+    );
+
+    let memory = MEMORY_PRIORITY_INFORMATION {
+        MemoryPriority: if on {
+            MEMORY_PRIORITY_LOW
+        } else {
+            MEMORY_PRIORITY_NORMAL
+        },
+    };
+    let _ = SetProcessInformation(
+        process,
+        ProcessMemoryPriority,
+        &memory as *const _ as *const std::ffi::c_void,
+        std::mem::size_of::<MEMORY_PRIORITY_INFORMATION>() as u32,
+    );
+}
+
 /// Give the foreground game every advantage we can without touching it:
 /// raise the system timer resolution to 1 ms (smoother frame pacing, what
 /// FPS-booster utilities do), drop our own process to below-normal priority
@@ -74,6 +119,7 @@ fn engage_boost() {
             windows::Win32::System::Threading::GetCurrentProcess(),
             windows::Win32::System::Threading::BELOW_NORMAL_PRIORITY_CLASS,
         );
+        set_power_throttling(true);
     }
     // Our own pages are the only ones we are allowed to reclaim; this frees
     // whatever the dock/notch renderers held while the game starts.
@@ -88,6 +134,7 @@ fn release_boost() {
             windows::Win32::System::Threading::GetCurrentProcess(),
             windows::Win32::System::Threading::NORMAL_PRIORITY_CLASS,
         );
+        set_power_throttling(false);
     }
 }
 

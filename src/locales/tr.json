@@ -20,6 +20,8 @@
   "general.notchPosition.bottomRight": "Sağ alt",
   "general.autoPerf": "Otomatik Performans Modu",
   "general.autoPerf.desc": "Tam ekran bir oyun veya uygulama öne geldiğinde Kiro önizleme yakalamayı durdurur, arka plan kontrollerini yavaşlatır, bulanıklık efektlerini kapatır, kendi RAM'ini boşaltır ve sistem zamanlayıcısını 1 ms'ye çekerek daha akıcı kare sağlar. Çıkınca her şey normale döner. Oyun FPS'ini artıran şey budur",
+  "general.gameBoost": "Tam Ekran Oyun Desteği",
+  "general.gameBoost.desc": "Tam ekran bir oyun öndeyken dock ve çentiği işletim sistemi düzeyinde gizler. Her zaman üstte duran saydam pencereler oyunun doğrudan ekrana çizme yolunu elinden alır; gizlendiklerinde gerçek bir FPS artışı olur. Yalnızca oyunun bulunduğu monitör etkilenir, çıkınca her şey geri gelir",
   "general.ramUltra": "Maksimum Bellek Tasarrufu",
   "general.ramUltra.desc": "GPU hızlandırmasını kapatarak yaklaşık 140 MB daha az bellek ayırır. Bulanıklık ve animasyonlar yavaşlar; yeniden başlatma gerekir",
   "general.lowBattery": "Düşük Pil Uyarısı",

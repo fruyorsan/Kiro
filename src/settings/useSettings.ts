@@ -96,6 +96,9 @@ export function useSettings() {
   const [autoPerf, setAutoPerf] = useState(
     () => localStorage.getItem("kiro-auto-perf") !== "false"
   );
+  const [gameBoost, setGameBoost] = useState(
+    () => localStorage.getItem("kiro-game-boost") !== "false"
+  );
   const [ramUltra, setRamUltra] = useState(
     () => localStorage.getItem("kiro-ram-ultra") === "true"
   );
@@ -278,6 +281,7 @@ export function useSettings() {
       apply(getVal("kiro-show-update-indicator"), setShowUpdateIndicator, readBool);
       apply(getVal("kiro-ram-saver"), setRamSaver, (v) => v !== "false");
       apply(getVal("kiro-auto-perf"), setAutoPerf, (v) => v !== "false");
+      apply(getVal("kiro-game-boost"), setGameBoost, (v) => v !== "false");
       apply(getVal("kiro-ram-ultra"), setRamUltra, readBool);
       apply(getVal("kiro-auto-update"), setAutoUpdate, readBool);
       apply(getVal("kiro-update-channel"), setPrereleaseChannel, (v) => v === "prerelease");
@@ -448,6 +452,7 @@ export function useSettings() {
     "kiro-ram-saver": (v) => setRamSaver(v !== false && v !== "false"),
     "kiro-ram-ultra": (v) => setRamUltra(v === true || v === "true"),
     "kiro-auto-perf": (v) => setAutoPerf(v !== false && v !== "false"),
+    "kiro-game-boost": (v) => setGameBoost(v !== false && v !== "false"),
     "kiro-low-battery-threshold": setLowBatteryThreshold,
     "kiro-scale": setScale,
     "kiro-temp-unit": (v) => setTempUnitFahrenheit(v === "fahrenheit"),
@@ -754,6 +759,12 @@ export function useSettings() {
     const next = !autoPerf;
     setAutoPerf(next);
     saveSetting("kiro-auto-perf", String(next));
+  };
+
+  const toggleGameBoost = () => {
+    const next = !gameBoost;
+    setGameBoost(next);
+    saveSetting("kiro-game-boost", String(next));
   };
 
   const toggleRamUltra = () => {
@@ -1225,6 +1236,8 @@ export function useSettings() {
     toggleRamUltra,
     autoPerf,
     toggleAutoPerf,
+    gameBoost,
+    toggleGameBoost,
     scale,
     handleScaleChange,
     cornersEnabled,

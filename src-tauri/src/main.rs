@@ -31,6 +31,7 @@ mod wallpaper;
 mod migrate;
 mod defaults;
 mod perf;
+mod game_boost;
 
 use tauri::Manager;
 use windows::Win32::System::Console::SetConsoleCtrlHandler;

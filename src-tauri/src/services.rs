@@ -1464,6 +1464,11 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                 // mode (priority drop, renderer trims, blur off) out of it.
                 let perf_fullscreen = current_is_fs && !is_video_window(hwnd);
                 crate::perf::update(&handle_visibility, perf_fullscreen, &fg_title);
+                // Native-hide the dock/notch on the game's monitor so DWM can
+                // hand the swapchain back to independent flip. Uses the same
+                // "is this really a game" decision as perf mode.
+                let game_monitor = fg_info.map(|(screen, _, _)| (screen.left, screen.top));
+                crate::game_boost::update(&handle_visibility, perf_fullscreen, game_monitor);
                 let fullscreen_on_dock = current_is_fs && fg_on("dock");
                 CURRENT_FOREGROUND_FULLSCREEN_ON_DOCK.store(fullscreen_on_dock, Ordering::Relaxed);
                 if Some(fullscreen_on_dock) != last_dock_fullscreen || last_emit.elapsed() >= Duration::from_secs(3) {

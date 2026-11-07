@@ -38,7 +38,7 @@
 | **Out of your way** | Fixed, Smart or Peek modes, and both stay hidden over fullscreen games. |
 | **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent color. English and Turkish. Every option lives in a plain `settings.json`. |
 | **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. |
-| **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, and stops trimming memory. Everything returns on exit. |
+| **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, stops trimming memory, and hides its always-on-top windows at the OS level so the game keeps direct-to-screen flip. Everything returns on exit. |
 
 <div align="center">
 <table>
@@ -105,7 +105,7 @@ In Smart and Peek both stay hidden, and click-through, while a fullscreen app is
 
 <br />
 
-Kiro hides the dock and notch over a fullscreen window that covers the whole monitor, in Smart and Peek. Fixed mode stays visible by design. If something still appears, open an issue with the game and its display mode (fullscreen, borderless or windowed).
+Kiro hides the dock and notch whenever a fullscreen game covers the whole monitor, in every dock mode. It does this natively (`ShowWindow`), not just by moving them off-screen, because a visible topmost window forces Windows to composite the game instead of letting it flip straight to the display. Only the monitor with the game is affected and everything comes back when you exit. Turn **Fullscreen Game Boost** off in Settings › General if you want the dock to stay visible. If something still appears, open an issue with the game and its display mode (fullscreen, borderless or windowed).
 
 </details>
 
