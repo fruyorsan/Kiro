@@ -884,7 +884,7 @@ const Dock = memo(function Dock() {
       setContextMenuHeight(0);
       setContextMenuWidth(0);
     }
-  }, [contextMenu, contextMenuHeight, contextMenuWidth]);
+  }, [contextMenu, contextMenuHeight, contextMenuWidth, activeSubmenu]);
 
   useEffect(() => {
     let open = false;
@@ -1092,6 +1092,8 @@ const Dock = memo(function Dock() {
     const handleBlur = () => {
       closeMenu();
       closePopup();
+      // Never leave the keyboard borrowed by an always-on-top surface.
+      invoke('set_window_keyboard_focus', { enabled: false }).catch(() => {});
     };
     window.addEventListener('blur', handleBlur);
     return () => window.removeEventListener('blur', handleBlur);
@@ -1784,14 +1786,15 @@ const Dock = memo(function Dock() {
               <div className="menu-item" onClick={() => { setShowAddPopup(true); closeMenu(); }}>
                 {t("dockmenu.addApp")}
               </div>
-              <div 
-                className="menu-item has-submenu"
-                onMouseEnter={() => setActiveSubmenu('nectar')}
-                onMouseLeave={() => setActiveSubmenu(null)}
+              <div
+                className={`menu-item has-submenu${activeSubmenu === 'nectar' ? ' open' : ''}`}
+                onClick={() => setActiveSubmenu(activeSubmenu === 'nectar' ? null : 'nectar')}
               >
                 {t("dockmenu.options")}
-                <span className="submenu-arrow">▶</span>
-                <div className="submenu">
+                <span className="submenu-arrow">{activeSubmenu === 'nectar' ? "\u25be" : "\u25b8"}</span>
+              </div>
+              {activeSubmenu === 'nectar' && (
+                <div className="submenu-panel">
                   <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
@@ -1800,7 +1803,7 @@ const Dock = memo(function Dock() {
                   <div className="menu-divider" />
                   <div className="menu-item quit" onClick={() => invoke('quit_nectar')}>{t("general.quit")}</div>
                 </div>
-              </div>
+              )}
               {contextMenu.app.is_running && (
                 <>
                   <div className="menu-divider" />
@@ -1823,14 +1826,15 @@ const Dock = memo(function Dock() {
               <div className="menu-item" onClick={() => { setShowAddPopup(true); closeMenu(); }}>
                 {t("dockmenu.addApp")}
               </div>
-              <div 
-                className="menu-item has-submenu"
-                onMouseEnter={() => setActiveSubmenu('nectar')}
-                onMouseLeave={() => setActiveSubmenu(null)}
+              <div
+                className={`menu-item has-submenu${activeSubmenu === 'nectar' ? ' open' : ''}`}
+                onClick={() => setActiveSubmenu(activeSubmenu === 'nectar' ? null : 'nectar')}
               >
                 {t("dockmenu.options")}
-                <span className="submenu-arrow">▶</span>
-                <div className="submenu">
+                <span className="submenu-arrow">{activeSubmenu === 'nectar' ? "\u25be" : "\u25b8"}</span>
+              </div>
+              {activeSubmenu === 'nectar' && (
+                <div className="submenu-panel">
                   <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
@@ -1839,7 +1843,7 @@ const Dock = memo(function Dock() {
                   <div className="menu-divider" />
                   <div className="menu-item quit" onClick={() => invoke('quit_nectar')}>{t("general.quit")}</div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>

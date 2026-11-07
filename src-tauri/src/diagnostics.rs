@@ -29,9 +29,10 @@ pub fn init() {
     let _ = LOG_DIR.set(dir);
     install_panic_hook();
     log(&format!(
-        "---- Kiro {} starting (pid {}) ----",
+        "---- Kiro {} starting (pid {}, windows build {}) ----",
         env!("CARGO_PKG_VERSION"),
-        std::process::id()
+        std::process::id(),
+        crate::utils::windows_build()
     ));
 }
 
@@ -102,14 +103,17 @@ fn reg_value(key: &str, name: &str) -> Option<String> {
 
 fn windows_version() -> String {
     const KEY: &str = r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion";
-    let name = reg_value(KEY, "ProductName").unwrap_or_default();
+    // ProductName still reports "Windows 10" on Windows 11, so trust the build
+    // number (via ntdll) for the family and use the registry for the details.
+    let family = if crate::utils::is_windows_11() { "Windows 11" } else { "Windows 10" };
+    let edition = reg_value(KEY, "EditionID").unwrap_or_default();
     let display = reg_value(KEY, "DisplayVersion").unwrap_or_default();
-    let build = reg_value(KEY, "CurrentBuildNumber").unwrap_or_default();
+    let build = crate::utils::windows_build();
     let ubr = reg_value(KEY, "UBR")
         .and_then(|v| u32::from_str_radix(v.trim_start_matches("0x"), 16).ok())
-        .map(|v| v.to_string())
+        .map(|v| format!(".{v}"))
         .unwrap_or_default();
-    format!("{name} {display} (build {build}.{ubr})")
+    format!("{family} {edition} {display} (build {build}{ubr})")
 }
 
 fn gpu_names() -> String {

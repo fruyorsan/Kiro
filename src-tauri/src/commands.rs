@@ -19,10 +19,16 @@ pub async fn set_menu_open(open: bool, rect: Option<IntRect>) {
     }
 }
 
+/// The window the user was typing in before Kiro borrowed the keyboard for an
+/// inline input (launcher, timer field, ...). Handed back when the input closes
+/// so focus never gets parked on an always-on-top Kiro surface.
+static PREV_FOREGROUND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
 #[tauri::command]
 pub fn set_window_keyboard_focus(window: Window, enabled: bool) {
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongPtrW, SetForegroundWindow, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
+        GetForegroundWindow, GetWindowLongPtrW, GetWindowThreadProcessId, IsWindow,
+        SetForegroundWindow, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
     };
     if let Ok(mut label) = crate::state::KEYBOARD_FOCUS_LABEL.lock() {
         if enabled {
@@ -36,10 +42,30 @@ pub fn set_window_keyboard_focus(window: Window, enabled: bool) {
         let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as usize;
         let noactivate = WS_EX_NOACTIVATE.0 as usize;
         if enabled {
+            // Remember the app the user is coming from, but never remember one
+            // of our own windows: that would restore focus onto the dock.
+            let fg = GetForegroundWindow();
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(fg, Some(&mut pid));
+            if !fg.0.is_null() && pid != std::process::id() {
+                PREV_FOREGROUND.store(fg.0 as isize, Ordering::Relaxed);
+            }
             SetWindowLongPtrW(hwnd, GWL_EXSTYLE, (ex & !noactivate) as isize);
             let _ = SetForegroundWindow(hwnd);
         } else {
             SetWindowLongPtrW(hwnd, GWL_EXSTYLE, (ex | noactivate) as isize);
+            // Give the keyboard back. Without this the dock keeps activation
+            // and every keystroke goes to an invisible always-on-top window.
+            let prev = PREV_FOREGROUND.swap(0, Ordering::Relaxed);
+            if prev != 0 {
+                let current = GetForegroundWindow();
+                if current.0.is_null() || current == hwnd {
+                    let target = HWND(prev as *mut _);
+                    if IsWindow(Some(target)).as_bool() {
+                        let _ = SetForegroundWindow(target);
+                    }
+                }
+            }
         }
     }
 }
@@ -494,7 +520,10 @@ fn is_start_menu_open() -> bool {
             if ok.is_ok() {
                 let path = String::from_utf16_lossy(&buf[..len as usize]);
                 let file = path.rsplit('\\').next().unwrap_or("").to_lowercase();
-                return file == "startmenuexperiencehost.exe" || file == "searchhost.exe";
+                return file == "startmenuexperiencehost.exe"
+                    || file == "searchhost.exe"
+                    || file == "searchapp.exe"
+                    || file == "searchui.exe";
             }
         }
         false
@@ -2142,12 +2171,87 @@ pub async fn get_installed_apps() -> Vec<AppInfo> {
     if let Ok(cache_lock) = cache.lock() { cache_lock.clone() } else { Vec::new() }
 }
 
+/// Hides the system volume/brightness OSD, because Kiro draws its own.
+///
+/// Win10 hosts the OSD in a `NativeHWNDHost` top-level; Win11 draws it in a
+/// small XAML island instead. Only small shell-owned popups are touched, so
+/// taskbar flyouts (quick settings, notification centre) keep working on both.
 #[tauri::command]
 pub fn hide_native_osd() {
+    use windows::core::BOOL;
+    use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM};
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetClassNameW, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible,
+        ShowWindow, SW_HIDE,
+    };
+
+    unsafe extern "system" fn hide_osd(hwnd: HWND, _: LPARAM) -> BOOL {
+        if !IsWindowVisible(hwnd).as_bool() {
+            return BOOL(1);
+        }
+
+        let mut class_buf = [0u16; 128];
+        let class_len = GetClassNameW(hwnd, &mut class_buf);
+        if class_len <= 0 {
+            return BOOL(1);
+        }
+        let class = String::from_utf16_lossy(&class_buf[..class_len as usize]);
+        if !matches!(
+            class.as_str(),
+            "NativeHWNDHost"
+                | "XamlExplorerHostIslandWindow"
+                | "Xaml_WindowedPopupClass"
+                | "Windows.UI.Core.CoreWindow"
+                | "Windows.UI.Composition.DesktopWindowContentBridge"
+        ) {
+            return BOOL(1);
+        }
+
+        // The OSD is a small banner (~300x150). Anything bigger is a flyout.
+        let mut rect = windows::Win32::Foundation::RECT::default();
+        if GetWindowRect(hwnd, &mut rect).is_err() {
+            return BOOL(1);
+        }
+        let (w, h) = (rect.right - rect.left, rect.bottom - rect.top);
+        if w <= 0 || h <= 0 || w > 560 || h > 320 {
+            return BOOL(1);
+        }
+
+        // Only the shells that actually draw the OSD.
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        if pid == 0 {
+            return BOOL(1);
+        }
+        let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return BOOL(1) };
+        let mut exe_buf = [0u16; 260];
+        let mut exe_len = exe_buf.len() as u32;
+        let ok = QueryFullProcessImageNameW(
+            process,
+            PROCESS_NAME_WIN32,
+            windows::core::PWSTR(exe_buf.as_mut_ptr()),
+            &mut exe_len,
+        );
+        let _ = CloseHandle(process);
+        if ok.is_err() {
+            return BOOL(1);
+        }
+        let exe = String::from_utf16_lossy(&exe_buf[..exe_len as usize])
+            .rsplit('\\')
+            .next()
+            .unwrap_or("")
+            .to_lowercase();
+        if matches!(exe.as_str(), "explorer.exe" | "shellexperiencehost.exe") {
+            let _ = ShowWindow(hwnd, SW_HIDE);
+        }
+        BOOL(1)
+    }
+
     unsafe {
-        use windows::Win32::UI::WindowsAndMessaging::{FindWindowA, ShowWindow, SW_HIDE};
-        let class1 = windows::core::PCSTR(c"NativeHWNDHost".as_ptr() as *const u8);
-        if let Ok(hwnd) = FindWindowA(class1, windows::core::PCSTR::null()) { let _ = ShowWindow(hwnd, SW_HIDE); }
+        let _ = EnumWindows(Some(hide_osd), LPARAM(0));
     }
 }
 

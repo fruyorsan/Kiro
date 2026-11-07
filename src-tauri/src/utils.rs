@@ -160,6 +160,45 @@ pub fn secondary_taskbars() -> Vec<windows::Win32::Foundation::HWND> {
     taskbars
 }
 
+/// Real Windows build number, e.g. 19045 (10 22H2) or 22631 (11 23H2).
+///
+/// `GetVersionEx` reports 6.2 unless the process carries a compatibility
+/// manifest, so ask ntdll directly. Cached: this never changes at runtime.
+pub fn windows_build() -> u32 {
+    static BUILD: OnceLock<u32> = OnceLock::new();
+    *BUILD.get_or_init(|| unsafe {
+        #[repr(C)]
+        struct OsVersionInfoW {
+            size: u32,
+            major: u32,
+            minor: u32,
+            build: u32,
+            platform: u32,
+            csd: [u16; 128],
+        }
+        use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
+
+        let Ok(ntdll) = GetModuleHandleA(windows::core::PCSTR(c"ntdll.dll".as_ptr() as *const u8)) else { return 0 };
+        let Some(proc) = GetProcAddress(ntdll, windows::core::PCSTR(c"RtlGetVersion".as_ptr() as *const u8)) else { return 0 };
+        let rtl_get_version: unsafe extern "system" fn(*mut OsVersionInfoW) -> i32 =
+            std::mem::transmute(proc);
+        let mut info = OsVersionInfoW {
+            size: std::mem::size_of::<OsVersionInfoW>() as u32,
+            major: 0,
+            minor: 0,
+            build: 0,
+            platform: 0,
+            csd: [0; 128],
+        };
+        if rtl_get_version(&mut info) == 0 { info.build } else { 0 }
+    })
+}
+
+/// Windows 11 is NT 10.0 build 22000 and up. Win10 tops out at 19045.
+pub fn is_windows_11() -> bool {
+    windows_build() >= 22000
+}
+
 pub fn set_taskbar_visibility(visible: bool, always_on_top: bool) {
     if visible {
         crate::state::NATIVE_TASKBAR_HIDDEN.store(false, std::sync::atomic::Ordering::SeqCst);

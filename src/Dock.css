@@ -1186,3 +1186,26 @@ body {
   color: var(--nectar-text-muted, rgba(255, 255, 255, 0.35));
   flex-shrink: 0;
 }
+
+/* Options used to be a fly-out submenu: moving the pointer into it left the
+   parent row for a frame and the whole menu vanished. It is an inline,
+   click-to-expand panel now, so nothing can be lost mid-hover. */
+.submenu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.submenu-panel .menu-item {
+  padding: 7px 10px 7px 16px;
+  font-size: 12.5px;
+  border-radius: 7px;
+}
+
+.menu-item.has-submenu.open {
+  background: rgba(255, 255, 255, 0.09);
+}

@@ -20,7 +20,7 @@ import { MediaSourceButton, type MediaSession } from "./components/MediaSourceBu
 import { ConnectionsView } from "./components/ConnectionsView";
 import { NotchTour } from "./components/NotchTour";
 import { useStopwatch } from "./hooks/useStopwatch";
-import { t as translate, useT } from "./i18n";
+import { t as translate, useT, dateLocale } from "./i18n";
 import { NotchShelf, useShelf } from "./components/NotchShelf";
 import { parseCcLayout, parsePanelOrder, resolveCcLayout, type CcKind } from "./panelOrder";
 import { NotchProgressBorder } from "./components/NotchProgressBorder";
@@ -727,6 +727,13 @@ function App() {
   const [panelControlCenter, setPanelControlCenter] = useState(() => localStorage.getItem("nectar-panel-control-center-enabled") !== "false");
   const [panelShelf, setPanelShelf] = useState(() => localStorage.getItem("nectar-panel-shelf-enabled") !== "false");
   const [panelOrder, setPanelOrder] = useState(() => parsePanelOrder(localStorage.getItem("nectar-panel-order")));
+  // Date shown in the bottom-right pill. Minute precision is enough; the notch
+  // re-renders often enough that a plain interval is cheaper than polling.
+  const [todayDate, setTodayDate] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setTodayDate(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
   const [ccLayout, setCcLayout] = useState(() => parseCcLayout(localStorage.getItem("nectar-cc-layout")));
   const ccResolved = resolveCcLayout(ccLayout);
   const ccStyle = (kind: CcKind, id: string) => {
@@ -2380,6 +2387,15 @@ function App() {
                                   )}
                                 </AnimatePresence>
                               </div>
+                              {notchBottomRight && isHovered && !isCompactTimerVisible && !isTimerFinished && (
+                                <div
+                                  className="time-date"
+                                  onClick={toggleCalendarMode}
+                                  data-tooltip={t("tabs.notch")}
+                                >
+                                  {todayDate.toLocaleDateString(dateLocale(), { day: "numeric", month: "short" })}
+                                </div>
+                              )}
                               {showDualClock && (
                                 <div className="time-secondary" onClick={toggleCalendarMode} data-tooltip={dualClockTooltip}>
                                   <span className="time-secondary-label">{dualClockLabel}</span>

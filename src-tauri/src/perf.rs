@@ -109,7 +109,6 @@ pub fn update(app: &AppHandle, fullscreen: bool, window_title: &str) {
     // our renderers are the least likely to be touched. Give it a moment and
     // trim once more so anything the load pulled back in is released before
     // the GPU gets busy.
-    let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(15));
         if ACTIVE.load(Ordering::Relaxed) {
