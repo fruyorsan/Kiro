@@ -1126,6 +1126,30 @@ body {
   flex-shrink: 0;
 }
 
+/* Always-visible way out. The panel can overlap other windows, so relying on
+   Escape/outside-click alone left users stuck when the surface underneath kept
+   focus. */
+.search-launcher-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.5));
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.search-launcher-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+}
+
 /* Right side of a result row: "running", "shortcut", "" ... */
 .search-row-hint {
   margin-left: auto;

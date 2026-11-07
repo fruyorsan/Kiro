@@ -847,6 +847,7 @@ const Dock = memo(function Dock() {
   const menuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
 
 
@@ -923,11 +924,24 @@ const Dock = memo(function Dock() {
         height: Math.round(r.height) 
       };
       open = true;
+    } else if (showSearch && searchRef.current) {
+      // Without this the launcher is rendered over a click-through area: the
+      // native mouse hook only makes the dock bar and this rect interactive, so
+      // clicks inside the panel used to fall through to the window behind it and
+      // the panel could not be closed (nor could a result be picked).
+      const r = searchRef.current.getBoundingClientRect();
+      rect = {
+        x: Math.round(r.x),
+        y: Math.round(r.y),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+      };
+      open = true;
     }
 
     invoke('set_menu_open', { open, rect }).catch(() => {});
 
-  }, [contextMenu, showAddPopup, pinnedApps, activeApps, activeSubmenu, scale]);
+  }, [contextMenu, showAddPopup, showSearch, pinnedApps, activeApps, activeSubmenu, scale]);
 
   // The submenu flies out to the right; flip it when the menu is already close
   // to the right edge so it never gets cut off by the screen.
@@ -1113,6 +1127,7 @@ const Dock = memo(function Dock() {
     const handleBlur = () => {
       closeMenu();
       closePopup();
+      setShowSearch(false);
       // Never leave the keyboard borrowed by an always-on-top surface.
       invoke('set_window_keyboard_focus', { enabled: false }).catch(() => {});
     };
@@ -1904,6 +1919,7 @@ const Dock = memo(function Dock() {
       <AnimatePresence>
         {showSearch && (
           <DockSearch
+            containerRef={searchRef}
             scale={scale}
             bottom={popupBottom}
             pinned={pinnedApps}

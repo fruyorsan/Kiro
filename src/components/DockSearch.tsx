@@ -258,16 +258,18 @@ interface Props {
   running: SearchApp[];
   onClose: () => void;
   onLaunch: (app: SearchApp) => void;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export function DockSearch({ scale, bottom, pinned, running, onClose, onLaunch }: Props) {
+export function DockSearch({ scale, bottom, pinned, running, onClose, onLaunch, containerRef: externalRef }: Props) {
   const t = useT();
   const [query, setQuery] = useState("");
   const [apps, setApps] = useState<SearchApp[]>(() => loadInstalledApps().cached);
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const ownRef = useRef<HTMLDivElement>(null);
+  const containerRef = externalRef ?? ownRef;
   const listRef = useRef<HTMLDivElement>(null);
 
   // One backend call for the whole session, shared through the module cache.
@@ -505,6 +507,17 @@ export function DockSearch({ scale, bottom, pinned, running, onClose, onLaunch }
             onChange={(e) => setQuery(e.target.value)}
           />
           <span className="search-launcher-key">esc</span>
+          <button
+            className="search-launcher-close"
+            aria-label={t("window.close")}
+            title={t("window.close")}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <line x1="5" y1="5" x2="19" y2="19" />
+              <line x1="19" y1="5" x2="5" y2="19" />
+            </svg>
+          </button>
         </div>
 
         <div className="popup-apps-scroll" ref={listRef}>
