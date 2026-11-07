@@ -1444,8 +1444,26 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     let _ = handle_visibility.emit_to("dock", "dock-shell-surface", shell_on_dock);
                     last_dock_shell_surface = Some(shell_on_dock);
                 }
+                // A single odd tick (video controls, our own window taking focus,
+                // a fullscreen transition mid-flight) must not make the notch and
+                // dock pop in and out. Treat fullscreen as sticky for a moment.
+                {
+                    static LAST_FS_TRUE: Mutex<Option<Instant>> = Mutex::new(None);
+                    if current_is_fs {
+                        if let Ok(mut last) = LAST_FS_TRUE.lock() {
+                            *last = Some(Instant::now());
+                        }
+                    } else if let Ok(last) = LAST_FS_TRUE.lock() {
+                        if last.is_some_and(|t| t.elapsed() < Duration::from_millis(800)) {
+                            current_is_fs = true;
+                        }
+                    }
+                }
                 CURRENT_FOREGROUND_FULLSCREEN.store(current_is_fs, Ordering::Relaxed);
-                crate::perf::update(&handle_visibility, current_is_fs, &fg_title);
+                // Video playback is not a game: keep the automatic performance
+                // mode (priority drop, renderer trims, blur off) out of it.
+                let perf_fullscreen = current_is_fs && !is_video_window(hwnd);
+                crate::perf::update(&handle_visibility, perf_fullscreen, &fg_title);
                 let fullscreen_on_dock = current_is_fs && fg_on("dock");
                 CURRENT_FOREGROUND_FULLSCREEN_ON_DOCK.store(fullscreen_on_dock, Ordering::Relaxed);
                 if Some(fullscreen_on_dock) != last_dock_fullscreen || last_emit.elapsed() >= Duration::from_secs(3) {
@@ -1998,8 +2016,129 @@ fn capture_tool_exe_matches(hwnd: HWND) -> bool {
     EXES.contains(&file)
 }
 
-fn apply_capture_ui_state(app: &AppHandle, active: bool) {
-    if SHUTTING_DOWN.load(Ordering::Relaxed) {
+/// Executable name of the window's process, lowercase; empty when unknown.
+fn window_exe_name(hwnd: HWND) -> String {
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
+
+    let mut pid = 0u32;
+    unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)); }
+    if pid == 0 {
+        return String::new();
+    }
+    let Ok(handle) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else {
+        return String::new();
+    };
+    let mut buf = [0u16; 520];
+    let mut len = buf.len() as u32;
+    let res = unsafe {
+        QueryFullProcessImageNameW(
+            handle,
+            PROCESS_NAME_WIN32,
+            windows::core::PWSTR(buf.as_mut_ptr()),
+            &mut len,
+        )
+    };
+    let _ = unsafe { CloseHandle(handle) };
+    if res.is_err() {
+        return String::new();
+    }
+    let path = String::from_utf16_lossy(&buf[..len as usize]);
+    path.rsplit(['\\', '/']).next().unwrap_or("").to_ascii_lowercase()
+}
+
+/// Fullscreen video is not a game. The automatic performance mode is meant for
+/// apps that render as fast as they can; lowering our priority and trimming the
+/// renderers while a movie plays only makes the notch stutter. Browsers count as
+/// video only while Windows reports media playing, so a browser game still gets
+/// the boost. Video players are always excluded.
+fn is_video_window(hwnd: HWND) -> bool {
+    // Called from the foreground tick; cache so a long movie costs one lookup.
+    static CACHE: Mutex<Option<(isize, bool, Instant)>> = Mutex::new(None);
+    let key = hwnd.0 as isize;
+    if let Ok(guard) = CACHE.lock() {
+        if let Some((cached, value, at)) = *guard {
+            if cached == key && at.elapsed() < Duration::from_secs(2) {
+                return value;
+            }
+        }
+    }
+    let value = video_exe_matches(hwnd);
+    if let Ok(mut guard) = CACHE.lock() {
+        *guard = Some((key, value, Instant::now()));
+    }
+    value
+}
+
+fn video_exe_matches(hwnd: HWND) -> bool {
+    const PLAYERS: [&str; 22] = [
+        "vlc.exe",
+        "mpv.exe",
+        "mpc-hc.exe",
+        "mpc-hc64.exe",
+        "mpc-be.exe",
+        "mpc-be64.exe",
+        "potplayer.exe",
+        "potplayer64.exe",
+        "potplayermini.exe",
+        "potplayermini64.exe",
+        "wmplayer.exe",
+        "video.ui.exe",
+        "microsoft.media.player.exe",
+        "music.ui.exe",
+        "smplayer.exe",
+        "kmplayer.exe",
+        "gomplayer.exe",
+        "plex.exe",
+        "plexmediaplayer.exe",
+        "netflix.exe",
+        "spotify.exe",
+        "foobar2000.exe",
+    ];
+    const BROWSERS: [&str; 12] = [
+        "chrome.exe",
+        "msedge.exe",
+        "firefox.exe",
+        "brave.exe",
+        "opera.exe",
+        "opera_gx.exe",
+        "vivaldi.exe",
+        "librewolf.exe",
+        "waterfox.exe",
+        "thorium.exe",
+        "yandex.exe",
+        "arc.exe",
+    ];
+
+    let exe = window_exe_name(hwnd);
+    if exe.is_empty() {
+        return false;
+    }
+    if PLAYERS.contains(&exe.as_str()) {
+        return true;
+    }
+    if !BROWSERS.contains(&exe.as_str()) {
+        return false;
+    }
+    if crate::state::ANY_MEDIA_PLAYING.load(Ordering::Relaxed) {
+        return true;
+    }
+    // Media sessions are not always exposed (ads, some DRM players), so a
+    // browser showing a known video site counts as video too.
+    const SITES: [&str; 6] = ["youtube", "netflix", "twitch", "prime video", "disney+", "hulu"];
+    let title = window_title(hwnd).to_lowercase();
+    SITES.iter().any(|site| title.contains(site))
+}
+
+fn window_title(hwnd: HWND) -> String {
+    let mut text = [0u16; 512];
+    let len = unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowTextW(hwnd, &mut text) };
+    String::from_utf16_lossy(&text[..len as usize])
+}
+
+fn apply_capture_ui_state(app: &AppHandle, active: bool) {    if SHUTTING_DOWN.load(Ordering::Relaxed) {
         return;
     }
     for (label, win) in app.webview_windows() {
@@ -2846,7 +2985,8 @@ fn hit_test_extra_dock_windows(app_handle: &AppHandle, cursor: windows::Win32::F
                              cursor.x >= mon_x && cursor.x <= (mon_x + mon_w);
 
         let mut is_hovered = false;
-        if at_bottom_edge || in_dock_hover {
+        // A fullscreen app owns this monitor: never reveal a dock over it.
+        if !fg_fs && (at_bottom_edge || in_dock_hover) {
             is_hovered = true;
             crate::state::set_i64(crate::state::dock_extra_expiry_ms(), &label, now + 500);
         }

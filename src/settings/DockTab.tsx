@@ -76,7 +76,7 @@ function ShortcutField({ value, placeholder, onCommit }: { value: string; placeh
 }
 
 const START_ICON_PRESETS = [
-  { key: "default", src: "/kiro.svg", label: "Kiro" },
+  { key: "default", src: "/kiro.png", label: "Kiro" },
   { key: "windows", src: "/windows.svg", label: "Windows" },
 ];
 

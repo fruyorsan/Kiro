@@ -652,37 +652,49 @@ body {
 
 .submenu {
   position: absolute;
-  left: 100%;
-  bottom: -6px;
+  left: calc(100% - 2px);
+  top: -6px;
+  bottom: auto;
   background: var(--nectar-bg-expanded, rgba(40, 40, 40, 0.98));
   backdrop-filter: blur(25px);
   border: 1px solid var(--nectar-border, rgba(255, 255, 255, 0.1));
   border-radius: 12px;
   padding: 6px;
-  min-width: 140px;
+  min-width: 168px;
   display: none;
   flex-direction: column;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  z-index: 10000;
+  z-index: 10001;
 }
 
-/* Bridge the gap to prevent losing hover */
+.submenu.open {
+  display: flex;
+}
+
+/* Near the right edge the fly-out flips to the menu's left side. */
+.submenu.left {
+  left: auto;
+  right: calc(100% - 2px);
+}
+
+/* Bridge the gap so the pointer can cross into the fly-out without dropping hover. */
 .submenu::before {
   content: "";
   position: absolute;
   left: -20px;
   top: -20px;
   bottom: -20px;
-  width: 40px;
+  width: 24px;
   z-index: -1;
+}
+
+.submenu.left::before {
+  left: auto;
+  right: -20px;
 }
 
 .menu-item.has-submenu:hover {
   background: var(--nectar-border, rgba(255, 255, 255, 0.12));
-}
-
-.menu-item.has-submenu:hover .submenu {
-  display: flex;
 }
 
 .menu-item.has-submenu .submenu .menu-item:hover {
@@ -1185,25 +1197,6 @@ body {
   letter-spacing: 0.03em;
   color: var(--nectar-text-muted, rgba(255, 255, 255, 0.35));
   flex-shrink: 0;
-}
-
-/* Options used to be a fly-out submenu: moving the pointer into it left the
-   parent row for a frame and the whole menu vanished. It is an inline,
-   click-to-expand panel now, so nothing can be lost mid-hover. */
-.submenu-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 2px 0 4px;
-  padding: 4px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.submenu-panel .menu-item {
-  padding: 7px 10px 7px 16px;
-  font-size: 12.5px;
-  border-radius: 7px;
 }
 
 .menu-item.has-submenu.open {

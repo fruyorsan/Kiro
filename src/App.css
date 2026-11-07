@@ -46,6 +46,12 @@ img {
     transition-delay: 0.3s;
 }
 
+/* The bottom-right pill sits on the screen edge, so its tooltips open upwards. */
+.notch-bottom-right [data-tooltip]::after {
+    top: auto;
+    bottom: calc(100% + 8px);
+}
+
 /* Never start native image drags from the notch/player UI */
 img {
     -webkit-user-drag: none;
@@ -287,6 +293,7 @@ img {
     display: flex;
     justify-content: center;
     align-items: center;
+    cursor: pointer;
     perspective: 1000px;
     cursor: pointer;
     z-index: 10;
@@ -349,6 +356,7 @@ img {
     align-items: center;
     gap: 10px;
     overflow: hidden;
+    cursor: pointer;
 }
 
 .passive-feature {

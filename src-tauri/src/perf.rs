@@ -1,8 +1,7 @@
 //! Automatic performance mode.
 //!
-//! When a fullscreen app (a game, a video player, a fullscreen call) owns the
-//! screen, the dock/notch are hidden anyway, so there is no reason to keep
-//! spending CPU and GPU on them. In this mode Kiro:
+//! When a fullscreen game owns the screen, the dock/notch are hidden anyway, so
+//! there is no reason to keep spending CPU and GPU on them. In this mode Kiro:
 //!
 //! * stops capturing window thumbnails and icons,
 //! * slows the foreground and mouse polling loops down,
@@ -10,7 +9,9 @@
 //!   for disk I/O),
 //! * tells the frontend to drop blur and animations (`perf-mode` event).
 //!
-//! Everything is restored automatically when the fullscreen app goes away.
+//! Fullscreen video is deliberately excluded (see `services::is_video_window`):
+//! a movie does not need the boost, and flipping the mode on YouTube made the
+//! notch stutter. Everything is restored automatically when the game goes away.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -26,8 +27,14 @@ pub const SETTING: &str = "nectar-auto-perf";
 /// and must not make the UI flicker.
 const HOLD: Duration = Duration::from_millis(1500);
 
+/// Once the fullscreen app disappears, wait this long before giving the boost
+/// back. Focus blips (video controls, notifications, our own windows) would
+/// otherwise toggle the mode and re-trim the renderers several times a minute.
+const RELEASE_HOLD: Duration = Duration::from_secs(3);
+
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 static SINCE: Mutex<Option<Instant>> = Mutex::new(None);
+static MISSING_SINCE: Mutex<Option<Instant>> = Mutex::new(None);
 
 /// True while the automatic performance mode is engaged.
 pub fn active() -> bool {
@@ -44,6 +51,9 @@ fn enabled(app: &AppHandle) -> bool {
 fn deactivate(app: &AppHandle) {
     if let Ok(mut since) = SINCE.lock() {
         *since = None;
+    }
+    if let Ok(mut missing) = MISSING_SINCE.lock() {
+        *missing = None;
     }
     if ACTIVE.swap(false, Ordering::Relaxed) {
         release_boost();
@@ -84,11 +94,36 @@ fn release_boost() {
 /// Re-evaluate the mode. Called from the foreground watcher on every tick, so
 /// it reacts within one polling interval of a game starting or closing.
 pub fn update(app: &AppHandle, fullscreen: bool, window_title: &str) {
-    if !fullscreen || !enabled(app) {
+    if !enabled(app) {
         deactivate(app);
         return;
     }
 
+    if !fullscreen {
+        if !ACTIVE.load(Ordering::Relaxed) {
+            if let Ok(mut since) = SINCE.lock() {
+                *since = None;
+            }
+            return;
+        }
+        // Give the fullscreen app a grace period: a one-tick focus blip must not
+        // release the boost and restart it a second later.
+        let release = match MISSING_SINCE.lock() {
+            Ok(mut missing) => {
+                let start = *missing.get_or_insert_with(Instant::now);
+                start.elapsed() >= RELEASE_HOLD
+            }
+            Err(_) => true,
+        };
+        if release {
+            deactivate(app);
+        }
+        return;
+    }
+
+    if let Ok(mut missing) = MISSING_SINCE.lock() {
+        *missing = None;
+    }
     let Ok(mut since) = SINCE.lock() else {
         return;
     };

@@ -66,7 +66,7 @@ function SettingsApp() {
     <div className="settings-container" style={{ zoom: settings.scale }}>
       <div className="title-bar" data-tauri-drag-region>
         <div className="title-brand" data-tauri-drag-region>
-          <img className="title-mark" src="/kiro.svg" alt="" aria-hidden draggable={false} />
+          <img className="title-mark" src="/kiro.png" alt="" aria-hidden draggable={false} />
           <span className="title-text" data-tauri-drag-region>
             Kiro
           </span>

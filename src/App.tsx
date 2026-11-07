@@ -571,7 +571,10 @@ function App() {
     ? (notchMode === 'smart' && isOverlapped && interactionState === 'none')
     : ((notchMode === 'smart' && isOverlapped && interactionState === 'none') ||
        (notchMode === 'peek' && interactionState === 'none' && !eventPeek));
-  const isHidden = ((notchMode === 'smart' || notchMode === 'peek') && isFullscreen) ||
+  // The bottom-right layout is a floating pill: it sits over the corner where
+  // fullscreen video players put their controls, so it gets out of the way
+  // whenever an app owns the whole screen, whatever the notch mode.
+  const isHidden = ((notchMode === 'smart' || notchMode === 'peek' || notchBottomRight) && isFullscreen) ||
     (!startupAnimating && nectarMode !== 'tour' && !(agentActivity && isNotchWindow) && notchIdleHidden);
 
   useEffect(() => {
@@ -1702,6 +1705,40 @@ function App() {
     });
   };
 
+  const toggleControlCenter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isTimerFinished) {
+      resetTimer();
+      return;
+    }
+    if (nectarMode === 'tour') return;
+    const modes = availableNotchModes();
+    if (!modes.includes('command-center')) {
+      cycleNotchMode(e);
+      return;
+    }
+    // Click opens the control center, clicking the clock again closes it and
+    // falls back to whatever the notch was showing before.
+    if (nectarMode === 'command-center') {
+      const home = settingsMusicModeEnabled && mediaInfo.has_media && isPlaying ? 'music' : 'status';
+      setNectarMode(modes.includes(home) ? home : modes[0]);
+    } else {
+      setNectarMode('command-center');
+    }
+  };
+
+  // Status widgets (weather, battery, CPU, ...) are a shortcut to the status
+  // panel; the panel order setting only controls scroll order.
+  const openStatusPanel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isTimerFinished) {
+      resetTimer();
+      return;
+    }
+    if (nectarMode === 'tour') return;
+    if (availableNotchModes().includes('status')) setNectarMode('status');
+  };
+
   const cycleNotchMode = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isTimerFinished) {
@@ -2342,6 +2379,8 @@ function App() {
                                 <motion.div
                                   key="left-widgets"
                                   className="passive-features-group"
+                                  onClick={openStatusPanel}
+                                  {...(settingsLegacyMode ? { "data-tooltip": t("notch.widgetsTooltip") } : {})}
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
                                   exit={{ opacity: 0 }}
@@ -2356,7 +2395,8 @@ function App() {
                             <div className="time-center">
                               <div
                                 className="time-flip-container"
-                                onClick={cycleNotchMode}
+                                onClick={toggleControlCenter}
+                                data-tooltip={t("notch.clockTooltip")}
                                 style={dualClockSize ? { minWidth: dualClockSize.main } : undefined}
                               >
                                 <AnimatePresence initial={false}>
@@ -2391,7 +2431,7 @@ function App() {
                                 <div
                                   className="time-date"
                                   onClick={toggleCalendarMode}
-                                  data-tooltip={t("tabs.notch")}
+                                  data-tooltip={t("notch.dateTooltip")}
                                 >
                                   {todayDate.toLocaleDateString(dateLocale(), { day: "numeric", month: "short" })}
                                 </div>
@@ -2483,6 +2523,8 @@ function App() {
                                 <motion.div
                                   key="right-widgets"
                                   className="passive-features-group"
+                                  onClick={openStatusPanel}
+                                  {...(settingsLegacyMode ? { "data-tooltip": t("notch.widgetsTooltip") } : {})}
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
                                   exit={{ opacity: 0 }}

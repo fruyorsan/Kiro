@@ -54,9 +54,18 @@ fn flyout_owns_focus() -> bool {
 }
 
 fn find_overflow_window() -> Option<HWND> {
-    find_window(c"TopLevelWindowForOverflowXamlIsland")
-        .or_else(|_| find_window(c"NotifyIconOverflowWindow"))
-        .ok()
+    // Win11 hosts the tray overflow in a XAML island, Win10 in the classic
+    // NotifyIconOverflowWindow. Try the native one first, keep the other as a
+    // fallback for builds that changed the shell again.
+    if crate::utils::is_windows_11() {
+        find_window(c"TopLevelWindowForOverflowXamlIsland")
+            .or_else(|_| find_window(c"NotifyIconOverflowWindow"))
+            .ok()
+    } else {
+        find_window(c"NotifyIconOverflowWindow")
+            .or_else(|_| find_window(c"TopLevelWindowForOverflowXamlIsland"))
+            .ok()
+    }
 }
 
 fn invoke_element(el: &IUIAutomationElement) -> bool {

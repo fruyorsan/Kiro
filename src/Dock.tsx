@@ -137,7 +137,7 @@ function DockAppIcon({ src, alt, nectar }: { src: string | undefined; alt: strin
 function resolveStartIcon(startIcon: string): string {
   if (startIcon === "windows") return "/windows.svg";
   if (startIcon.startsWith("custom:")) return startIcon.slice("custom:".length);
-  return "/kiro.svg";
+  return "/kiro.png";
 }
 
 // Stable module-level constants so object references never change between renders,
@@ -839,6 +839,7 @@ const Dock = memo(function Dock() {
   };
 
   const menuRef = useRef<HTMLDivElement>(null);
+  const submenuRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
 
@@ -892,11 +893,19 @@ const Dock = memo(function Dock() {
 
     if (contextMenu && menuRef.current) {
       const r = menuRef.current.getBoundingClientRect();
-      rect = { 
-        x: Math.round(r.x), 
-        y: Math.round(r.y), 
-        width: Math.round(r.width + (activeSubmenu ? 160 : 0)), 
-        height: Math.round(r.height) 
+      // The fly-out submenu sits outside the menu box, and the native mouse
+      // hook routes clicks by this rect. Report the union of both so hovering
+      // and clicking the submenu keeps working instead of falling through.
+      const sub = activeSubmenu ? submenuRef.current?.getBoundingClientRect() : null;
+      const left = sub ? Math.min(r.x, sub.x) : r.x;
+      const top = sub ? Math.min(r.y, sub.y) : r.y;
+      const right = sub ? Math.max(r.right, sub.right) : r.right;
+      const bottom = sub ? Math.max(r.bottom, sub.bottom) : r.bottom;
+      rect = {
+        x: Math.round(left),
+        y: Math.round(top),
+        width: Math.round(right - left),
+        height: Math.round(bottom - top),
       };
       open = true;
     } else if (showAddPopup && popupRef.current) {
@@ -913,6 +922,12 @@ const Dock = memo(function Dock() {
     invoke('set_menu_open', { open, rect }).catch(() => {});
 
   }, [contextMenu, showAddPopup, pinnedApps, activeApps, activeSubmenu, scale]);
+
+  // The submenu flies out to the right; flip it when the menu is already close
+  // to the right edge so it never gets cut off by the screen.
+  const submenuOpensLeft = contextMenu
+    ? contextMenu.x + (contextMenuWidth || 160 * scale) / 2 + 214 > window.innerWidth - 8
+    : false;
 
   const dockItems = useMemo(() => {
     const runningMap = new Map();
@@ -1489,7 +1504,7 @@ const Dock = memo(function Dock() {
                     const isNectarOrSettings = isNectarWindow(app);
                     
                     return (icon || isNectarOrSettings) ? (
-                      <DockAppIcon src={isNectarOrSettings ? "/kiro.svg" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                      <DockAppIcon src={isNectarOrSettings ? "/kiro.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                     ) : (
                       <div className="fallback-icon">{app.name[0]}</div>
                     );
@@ -1591,7 +1606,7 @@ const Dock = memo(function Dock() {
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                           const isNectarOrSettings = isNectarWindow(app);
                           return (icon || isNectarOrSettings) ? (
-                            <DockAppIcon src={isNectarOrSettings ? "/kiro.svg" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                            <DockAppIcon src={isNectarOrSettings ? "/kiro.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -1691,7 +1706,7 @@ const Dock = memo(function Dock() {
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                           const isNectarOrSettings = isNectarWindow(app);
                           return (icon || isNectarOrSettings) ? (
-                            <DockAppIcon src={isNectarOrSettings ? "/kiro.svg" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
+                            <DockAppIcon src={isNectarOrSettings ? "/kiro.png" : (icon ?? undefined)} alt={app.name} nectar={isNectarOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -1788,13 +1803,17 @@ const Dock = memo(function Dock() {
               </div>
               <div
                 className={`menu-item has-submenu${activeSubmenu === 'nectar' ? ' open' : ''}`}
-                onClick={() => setActiveSubmenu(activeSubmenu === 'nectar' ? null : 'nectar')}
+                onMouseEnter={() => setActiveSubmenu('nectar')}
+                onMouseLeave={() => setActiveSubmenu(null)}
+                onClick={() => setActiveSubmenu('nectar')}
               >
                 {t("dockmenu.options")}
-                <span className="submenu-arrow">{activeSubmenu === 'nectar' ? "\u25be" : "\u25b8"}</span>
-              </div>
-              {activeSubmenu === 'nectar' && (
-                <div className="submenu-panel">
+                <span className="submenu-arrow">{submenuOpensLeft ? "\u25c2" : "\u25b8"}</span>
+                <div
+                  ref={submenuRef}
+                  className={`submenu${activeSubmenu === 'nectar' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
@@ -1803,7 +1822,7 @@ const Dock = memo(function Dock() {
                   <div className="menu-divider" />
                   <div className="menu-item quit" onClick={() => invoke('quit_nectar')}>{t("general.quit")}</div>
                 </div>
-              )}
+              </div>
               {contextMenu.app.is_running && (
                 <>
                   <div className="menu-divider" />
@@ -1828,13 +1847,17 @@ const Dock = memo(function Dock() {
               </div>
               <div
                 className={`menu-item has-submenu${activeSubmenu === 'nectar' ? ' open' : ''}`}
-                onClick={() => setActiveSubmenu(activeSubmenu === 'nectar' ? null : 'nectar')}
+                onMouseEnter={() => setActiveSubmenu('nectar')}
+                onMouseLeave={() => setActiveSubmenu(null)}
+                onClick={() => setActiveSubmenu('nectar')}
               >
                 {t("dockmenu.options")}
-                <span className="submenu-arrow">{activeSubmenu === 'nectar' ? "\u25be" : "\u25b8"}</span>
-              </div>
-              {activeSubmenu === 'nectar' && (
-                <div className="submenu-panel">
+                <span className="submenu-arrow">{submenuOpensLeft ? "\u25c2" : "\u25b8"}</span>
+                <div
+                  ref={submenuRef}
+                  className={`submenu${activeSubmenu === 'nectar' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
                   <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
@@ -1843,7 +1866,7 @@ const Dock = memo(function Dock() {
                   <div className="menu-divider" />
                   <div className="menu-item quit" onClick={() => invoke('quit_nectar')}>{t("general.quit")}</div>
                 </div>
-              )}
+              </div>
             </>
           )}
         </div>
