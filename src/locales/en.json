@@ -624,5 +624,13 @@
   "notch.agentSound.custom": "Your own sound",
   "notch.agentSound.play": "Play",
   "notch.agentSound.choose": "Choose file",
-  "notch.agentSound.reset": "Reset"
+  "notch.agentSound.reset": "Reset",
+  "dock.search.placeholder": "Search apps, or type a calculation…",
+  "dock.search.copy": "click to copy",
+  "dock.search.navigate": "navigate",
+  "dock.search.open": "open",
+  "dock.searchNative": "Kiro search",
+  "dock.searchNative.desc": "Instant search inside the dock. Off hands the magnifier back to your launcher (Windows Search, PowerToys, …)",
+  "general.autoPerf.on": "Active now",
+  "general.autoPerf.auto": "Automatic"
 }

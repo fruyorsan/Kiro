@@ -57,8 +57,8 @@ function SettingsApp() {
 
   useEffect(() => {
     invoke("resize_settings_window", {
-      width: 760 * settings.scale,
-      height: 620 * settings.scale,
+      width: 860 * settings.scale,
+      height: 660 * settings.scale,
     }).catch(console.error);
   }, [settings.scale]);
 
@@ -68,38 +68,35 @@ function SettingsApp() {
         <div className="title-brand" data-tauri-drag-region>
           <img className="title-mark" src="/kiro.svg" alt="" aria-hidden draggable={false} />
           <span className="title-text" data-tauri-drag-region>
-            {t("settings.title")}
+            Kiro
+          </span>
+          <span className="title-divider" aria-hidden />
+          <span className="title-section" data-tauri-drag-region>
+            {t(`tabs.${activeTab === "calendar-sync" ? "notch" : activeTab}`)}
           </span>
         </div>
         <WindowControls />
       </div>
 
       <div className="settings-body">
-        <div className="settings-sidebar">
-          <div className="sidebar-brand">
-            <img className="sidebar-logo" src="/kiro.svg" alt="" aria-hidden draggable={false} />
-            <div className="sidebar-brand-text">
-              <span className="sidebar-brand-name">Kiro</span>
-              <span className="sidebar-brand-version">{t("settings.version")} {__KIRO_VERSION__}</span>
-            </div>
-          </div>
-
-          <div className="sidebar-tabs">
+        <div className="settings-tabbar">
+          <div className="tabbar-tabs" role="tablist">
             {TABS.map(({ id, labelKey, icon: Icon }) => (
               <button
                 key={id}
-                className={`sidebar-tab ${activeTab === id || (id === "notch" && activeTab === "calendar-sync") ? "active" : ""}`}
+                role="tab"
+                aria-selected={activeTab === id}
+                className={`top-tab ${activeTab === id || (id === "notch" && activeTab === "calendar-sync") ? "active" : ""}`}
                 onClick={() => setActiveTab(id)}
               >
-                <div className="sidebar-tab-icon">
-                  <Icon size={15} strokeWidth={1.6} />
-                </div>
+                <Icon size={14} strokeWidth={1.7} />
                 <span>{t(labelKey)}</span>
               </button>
             ))}
           </div>
-
-          <div className="sidebar-footer">Kiro · GPL-3.0</div>
+          <span className="tabbar-version">
+            {t("settings.version")} {__KIRO_VERSION__}
+          </span>
         </div>
 
         <div className="settings-content">
@@ -247,6 +244,8 @@ function SettingsApp() {
               toggleDockAttention={settings.toggleDockAttention}
               dockSearchEnabled={settings.dockSearchEnabled}
               toggleDockSearch={settings.toggleDockSearch}
+              dockSearchNative={settings.dockSearchNative}
+              toggleDockSearchNative={settings.toggleDockSearchNative}
               dockSearchProvider={settings.dockSearchProvider}
               handleDockSearchProviderChange={settings.handleDockSearchProviderChange}
               dockSearchShortcut={settings.dockSearchShortcut}

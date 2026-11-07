@@ -622,5 +622,13 @@
   "notch.agentSound.custom": "Kendi sesin",
   "notch.agentSound.play": "Çal",
   "notch.agentSound.choose": "Dosya seç",
-  "notch.agentSound.reset": "Sıfırla"
+  "notch.agentSound.reset": "Sıfırla",
+  "dock.search.placeholder": "Uygulama ara ya da bir hesap yaz…",
+  "dock.search.copy": "kopyalamak için tıkla",
+  "dock.search.navigate": "gezin",
+  "dock.search.open": "aç",
+  "dock.searchNative": "Kiro araması",
+  "dock.searchNative.desc": "Dock içinde anlık arama. Kapatırsan büyüteç, seçtiğin başlatıcıya (Windows Arama, PowerToys, …) geri döner",
+  "general.autoPerf.on": "Şu an etkin",
+  "general.autoPerf.auto": "Otomatik"
 }

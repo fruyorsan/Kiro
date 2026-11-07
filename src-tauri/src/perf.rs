@@ -104,6 +104,18 @@ pub fn update(app: &AppHandle, fullscreen: bool, window_title: &str) {
         "auto perf mode: on (fullscreen app in foreground: {window_title})"
     ));
     let _ = app.emit("perf-mode", true);
+
+    // The first trim happens while the game is still loading level data, when
+    // our renderers are the least likely to be touched. Give it a moment and
+    // trim once more so anything the load pulled back in is released before
+    // the GPU gets busy.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(15));
+        if ACTIVE.load(Ordering::Relaxed) {
+            crate::memory_saver::trim_tree();
+        }
+    });
 }
 
 /// Current state, for the frontend to sync right after a window is created.

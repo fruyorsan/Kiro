@@ -222,9 +222,11 @@ pub fn start_reclaim_worker(app: tauri::AppHandle) {
                 }
 
                 // A fullscreen game owns the screen: paging our renderers out now
-                // would only fight it for disk I/O when the user comes back.
+                // would only fight it for disk I/O when the user comes back, so
+                // check far less often instead of waking every second.
                 if crate::perf::active() {
                     mark_interaction();
+                    std::thread::sleep(Duration::from_millis(2_000));
                     continue;
                 }
 

@@ -113,6 +113,11 @@ export function useSettings() {
   const [dockPreviewEnabled, setDockPreviewEnabled] = useState(true);
   const [dockAttentionEnabled, setDockAttentionEnabled] = useState(true);
   const [dockSearchEnabled, setDockSearchEnabled] = useState(true);
+  // Kiro's own launcher is the default; the provider rows below only apply
+  // when it is switched off.
+  const [dockSearchNative, setDockSearchNative] = useState(
+    () => localStorage.getItem("nectar-dock-search-native") !== "false"
+  );
   const [dockSearchProvider, setDockSearchProvider] = useState(
     () => localStorage.getItem("nectar-dock-search-provider") || "windows"
   );
@@ -280,6 +285,7 @@ export function useSettings() {
       apply(getVal("nectar-dock-preview-enabled"), setDockPreviewEnabled, readBool);
       apply(getVal("nectar-dock-attention-enabled"), setDockAttentionEnabled, (v) => v !== "false");
       apply(getVal("nectar-dock-search-enabled"), setDockSearchEnabled, readBool);
+      apply(getVal("nectar-dock-search-native"), setDockSearchNative, (v) => v !== "false");
       apply(getVal("nectar-dock-search-provider"), setDockSearchProvider, (v) => v);
       apply(getVal("nectar-dock-search-shortcut"), setDockSearchShortcut, (v) => v);
       apply(getVal("nectar-dock-calendar-enabled"), setDockCalendarEnabled, readBool);
@@ -794,6 +800,12 @@ export function useSettings() {
     saveSetting("nectar-dock-search-enabled", String(next));
   };
 
+  const toggleDockSearchNative = () => {
+    const next = !dockSearchNative;
+    setDockSearchNative(next);
+    saveSetting("nectar-dock-search-native", String(next));
+  };
+
   const toggleDockTray = () => {
     const next = !dockTray;
     setDockTray(next);
@@ -1304,6 +1316,8 @@ export function useSettings() {
     toggleDockAttention,
     dockSearchEnabled,
     toggleDockSearch,
+    dockSearchNative,
+    toggleDockSearchNative,
     dockSearchProvider,
     handleDockSearchProviderChange,
     dockSearchShortcut,

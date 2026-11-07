@@ -112,6 +112,8 @@ interface DockTabProps {
   toggleDockAttention: () => void;
   dockSearchEnabled: boolean;
   toggleDockSearch: () => void;
+  dockSearchNative: boolean;
+  toggleDockSearchNative: () => void;
   dockSearchProvider: string;
   handleDockSearchProviderChange: (provider: string) => void;
   dockSearchShortcut: string;
@@ -162,6 +164,8 @@ export function DockTab({
   toggleDockAttention,
   dockSearchEnabled,
   toggleDockSearch,
+  dockSearchNative,
+  toggleDockSearchNative,
   dockSearchProvider,
   handleDockSearchProviderChange,
   dockSearchShortcut,
@@ -334,7 +338,16 @@ export function DockTab({
               </label>
             </SettingRow>
 
-            {!legacyMode && dockSearchEnabled && (
+            {dockSearchEnabled && (
+              <SettingRow icon={Sparkles} label={t("dock.searchNative")} desc={t("dock.searchNative.desc")}>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={dockSearchNative} onChange={toggleDockSearchNative} />
+                  <span className="slider"></span>
+                </label>
+              </SettingRow>
+            )}
+
+            {!legacyMode && dockSearchEnabled && !dockSearchNative && (
               <SettingRow
                 icon={TextSearch}
                 label={t("dock.searchWith")}
@@ -348,7 +361,7 @@ export function DockTab({
               </SettingRow>
             )}
 
-            {!legacyMode && dockSearchEnabled && (dockSearchProvider === "raycast" || dockSearchProvider === "shortcut") && (
+            {!legacyMode && dockSearchEnabled && !dockSearchNative && (dockSearchProvider === "raycast" || dockSearchProvider === "shortcut") && (
               <SettingRow
                 icon={Keyboard}
                 label={t("dock.searchShortcut")}

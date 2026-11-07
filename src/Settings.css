@@ -1897,3 +1897,186 @@ input:checked + .slider:before {
 .agent-sound-btn:active {
   transform: scale(0.97);
 }
+
+/* ------------------------------------------------------------------ */
+/* Kiro settings layout: top tab strip instead of a sidebar.           */
+/* ------------------------------------------------------------------ */
+
+.title-divider {
+  width: 1px;
+  height: 12px;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.light-mode .title-divider {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.title-section {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.settings-body {
+  flex-direction: column;
+}
+
+.settings-tabbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.light-mode .settings-tabbar {
+  border-bottom-color: rgba(0, 0, 0, 0.07);
+  background: rgba(0, 0, 0, 0.012);
+}
+
+.tabbar-tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabbar-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.top-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.top-tab:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text-color);
+}
+
+.light-mode .top-tab:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.top-tab.active {
+  color: #fff;
+  background: color-mix(in srgb, var(--nectar-highlight, #7b7cff) 82%, transparent);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--nectar-highlight, #7b7cff) 35%, transparent);
+}
+
+.light-mode .top-tab.active {
+  color: #fff;
+  background: color-mix(in srgb, var(--nectar-highlight, #6a6cf0) 88%, transparent);
+}
+
+.top-tab svg {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.tabbar-version {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+/* Content sits directly under the strip; the page head is its own block. */
+.settings-content {
+  padding: 0 24px 24px;
+}
+
+.settings-page-head {
+  padding: 16px 0 10px;
+  background: linear-gradient(180deg, rgba(21, 21, 28, 0.97) 0%, rgba(21, 21, 28, 0.9) 72%, rgba(21, 21, 28, 0) 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.light-mode .settings-page-head {
+  background: linear-gradient(180deg, rgba(244, 244, 248, 0.97) 0%, rgba(244, 244, 248, 0.9) 72%, rgba(244, 244, 248, 0) 100%);
+}
+
+.settings-page-head h1 {
+  font-size: 19px;
+  letter-spacing: -0.022em;
+}
+
+.settings-page-head p {
+  font-size: 11.5px;
+  max-width: 620px;
+}
+
+/* Rows read a little wider now that the sidebar is gone. */
+.setting-group {
+  border-radius: 15px;
+}
+
+/* Performance badge in General. */
+.perf-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.perf-state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.perf-state-pill.is-active {
+  color: #8ef0b4;
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.32);
+}
+
+.perf-state-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.perf-state-pill.is-active .perf-state-dot {
+  opacity: 1;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.8);
+}
+
+.light-mode .perf-state-pill {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}

@@ -930,10 +930,18 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                 if manager.is_none() { manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().and_then(|op| op.get()).ok(); }
 
                 let mut pending: Option<SystemCommand> = None;
+                // While a fullscreen app owns the screen nobody is looking at the
+                // notch, and a game changes the default device rarely at most, so
+                // back the idle poll off instead of waking five times a second.
+                let idle_wait = if crate::perf::active() {
+                    std::time::Duration::from_millis(1000)
+                } else {
+                    IDLE_POLL
+                };
                 let wait = if active_until.elapsed() < std::time::Duration::from_secs(2) {
                     ACTIVE_POLL
                 } else {
-                    IDLE_POLL
+                    idle_wait
                 };
                 match rx.recv_timeout(wait) {
                     Ok(cmd) => {
@@ -1161,7 +1169,6 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
         let wmi_con = match WMIConnection::with_namespace_path("root\\WMI", com_lib) { Ok(con) => con, Err(_) => return };
         let first = wmi_con.query::<WmiMonitorBrightness>();
         let supported = first.as_ref().map(|r| !r.is_empty()).unwrap_or(false);
-        let poll = if supported { 1500 } else { 30_000 };
         let mut last_brightness = match first.ok().and_then(|res| res.first().map(|b| b.current_brightness as u32)) { Some(v) => v, None => 50 };
         CURRENT_BRIGHTNESS.store(last_brightness, Ordering::Relaxed);
         loop {
@@ -1172,6 +1179,14 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                     if brightness != last_brightness { last_brightness = brightness; CURRENT_BRIGHTNESS.store(brightness, Ordering::Relaxed); let _ = handle_brightness.emit("brightness-change", BrightnessChangeEvent { brightness }); }
                 }
             }
+            // A WMI query is not free. With a fullscreen app in front the
+            // brightness is almost always being driven by the game itself and
+            // our overlay is hidden, so query far less often.
+            let poll = if supported {
+                if crate::perf::active() { 6000 } else { 1500 }
+            } else {
+                30_000
+            };
             std::thread::sleep(std::time::Duration::from_millis(poll));
         }
     });
@@ -2976,6 +2991,10 @@ fn hit_test_extra_notch_windows(app_handle: &AppHandle, cursor: windows::Win32::
 
 pub fn trigger_app_scan() {
     if IS_SCANNING.load(Ordering::Relaxed) { return; }
+    // A fullscreen game owns the screen: enumerating every Start Menu entry is
+    // a burst of disk and COM work nobody asked for right now. The scan runs on
+    // the next request after the game exits.
+    if crate::perf::active() { return; }
     IS_SCANNING.store(true, Ordering::Relaxed);
     
     std::thread::spawn(|| {

@@ -1089,3 +1089,100 @@ body {
 .preview-fallback-glyph {
   opacity: 0.5;
 }
+
+/* Kiro launcher: the magnifier's own search panel. Same shell as the add-app
+   popup so the two feel like one surface, but taller and with an inline
+   keyboard hint instead of the pin column. */
+.search-launcher {
+  width: 420px;
+  height: 460px;
+}
+
+.search-launcher .popup-search-input {
+  font-size: 14.5px;
+}
+
+.search-launcher-key {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.35));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  padding: 2px 5px;
+  flex-shrink: 0;
+}
+
+/* Right side of a result row: "running", "shortcut", "" ... */
+.search-row-hint {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.35));
+  text-transform: lowercase;
+  flex-shrink: 0;
+}
+
+.popup-app-row.selected .search-row-hint {
+  color: var(--nectar-text, rgba(255, 255, 255, 0.7));
+}
+
+/* Calculator result pinned above the app list. */
+.search-math-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin: 2px 0 4px;
+  border-radius: 10px;
+  cursor: pointer;
+  background: linear-gradient(90deg, rgba(123, 124, 255, 0.16), rgba(123, 124, 255, 0.03));
+}
+
+.search-math-row.selected {
+  background: color-mix(in srgb, var(--nectar-accent, #7b7cff) 30%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nectar-accent, #7b7cff) 55%, transparent);
+}
+
+.search-math-eq {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.search-math-value {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--nectar-text, #fff);
+}
+
+.search-math-hint {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.search-action-row .search-action-icon {
+  background: transparent;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.search-action-row.selected .search-action-icon {
+  color: var(--nectar-text, #fff);
+}
+
+.search-launcher-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 14px 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  color: var(--nectar-text-muted, rgba(255, 255, 255, 0.35));
+  flex-shrink: 0;
+}

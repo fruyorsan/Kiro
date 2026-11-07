@@ -12,6 +12,7 @@ import { useT } from './i18n';
 import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon } from './icons';
 import { setVisibleInterval } from "./hooks/visibleInterval";
 import { appAttention } from "./attention";
+import { DockSearch, loadInstalledApps } from "./components/DockSearch";
 
 interface AppInfo {
   name: string;
@@ -313,6 +314,8 @@ const Dock = memo(function Dock() {
   const [dockAttentionEnabled, setDockAttentionEnabled] = useState(() => localStorage.getItem("nectar-dock-attention-enabled") !== "false");
   const [attentionWindows, setAttentionWindows] = useState<Set<number>>(() => new Set());
   const [dockSearchEnabled, setDockSearchEnabled] = useState(() => localStorage.getItem("nectar-dock-search-enabled") !== "false");
+  // Kiro's own launcher instead of handing the click to Windows Search.
+  const [dockSearchNative, setDockSearchNative] = useState(() => localStorage.getItem("nectar-dock-search-native") !== "false");
   const [dockCalendarEnabled, setDockCalendarEnabled] = useState(() => localStorage.getItem("nectar-dock-calendar-enabled") !== "false");
   const [legacyMode, setLegacyMode] = useState(() => localStorage.getItem("nectar-legacy-mode") === "true");
   const [dockTray, setDockTray] = useState(() => localStorage.getItem("nectar-dock-tray-enabled") !== "false");
@@ -336,6 +339,7 @@ const Dock = memo(function Dock() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isShellSurfaceFocused, setIsShellSurfaceFocused] = useState(false);
   const [showAddPopup, setShowAddPopup] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, app: AppInfo | null } | null>(null);
   const [contextMenuHeight, setContextMenuHeight] = useState(0);
   const [contextMenuWidth, setContextMenuWidth] = useState(0);
@@ -370,15 +374,15 @@ const Dock = memo(function Dock() {
   // Measure the dock pill when the popup opens. The card tucks ~14px behind it,
   // so the seam stays fused even if the measurement is slightly off.
   useEffect(() => {
-    if (showAddPopup) {
+    if (showAddPopup || showSearch) {
       const h = dockRef.current?.getBoundingClientRect().height ?? 0;
       if (h > 0) setPopupBottom(h / (scale || 1) - 14);
     }
-  }, [showAddPopup, scale]);
+  }, [showAddPopup, showSearch, scale]);
 
   const isCurrentlyHovered = isDockHovered || isEdgeHovered;
   const [interactionState, setInteractionState] = useState<'active' | 'grace' | 'none'>('none');
-  const isAnyInteraction = isCurrentlyHovered || !!contextMenu || showAddPopup;
+  const isAnyInteraction = isCurrentlyHovered || !!contextMenu || showAddPopup || showSearch;
   
   const previewTimerRef = useRef<any>(null);
   const isPreviewHoveredRef = useRef(false);
@@ -508,6 +512,11 @@ const Dock = memo(function Dock() {
 
       const searchEnabled = getVal("nectar-dock-search-enabled", "true");
       setDockSearchEnabled(searchEnabled === "true");
+      setDockSearchNative(getVal("nectar-dock-search-native", "true") !== "false");
+
+      // Warm the launcher's app list while the user is still doing something
+      // else, so the first magnifier click is instant.
+      setTimeout(() => { loadInstalledApps().ready.catch(() => {}); }, 2500);
 
       const calendarEnabled = getVal("nectar-dock-calendar-enabled", "true");
       setDockCalendarEnabled(calendarEnabled === "true");
@@ -603,6 +612,7 @@ const Dock = memo(function Dock() {
       "nectar-dock-preview-enabled": setDockPreviewEnabled,
       "nectar-dock-attention-enabled": (v) => setDockAttentionEnabled(v !== false && v !== "false"),
       "nectar-dock-search-enabled": setDockSearchEnabled,
+      "nectar-dock-search-native": (v) => setDockSearchNative(v !== false && v !== "false"),
       "nectar-dock-calendar-enabled": setDockCalendarEnabled,
       "nectar-legacy-mode": setLegacyMode,
       "nectar-dock-tray-enabled": (v) => setDockTray(v !== false && v !== "false"),
@@ -1316,6 +1326,12 @@ const Dock = memo(function Dock() {
                     onPointerCancel={() => setPressedApp(null)}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (dockSearchNative) {
+                        // Instant in-dock launcher. Windows Search stays available
+                        // as an option in Settings > Dock > Search.
+                        setShowSearch((open) => !open);
+                        return;
+                      }
                       invoke('open_app', { appName: 'search' }).catch((err) => console.error('Failed to open search:', err));
                     }}
                   >
@@ -1848,6 +1864,19 @@ const Dock = memo(function Dock() {
             runningApps={activeApps}
             pinned={pinnedApps}
             bottom={popupBottom}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSearch && (
+          <DockSearch
+            scale={scale}
+            bottom={popupBottom}
+            pinned={pinnedApps}
+            running={activeApps}
+            onClose={() => setShowSearch(false)}
+            onLaunch={handleAppClick}
           />
         )}
       </AnimatePresence>

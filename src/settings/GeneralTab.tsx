@@ -1,8 +1,36 @@
 import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap, PanelTop } from "lucide-react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { SettingRow } from "./SettingRow";
 import { SettingSection } from "./SettingSection";
 import { Dropdown } from "./Dropdown";
 import { LANGUAGES, getLanguagePreference, setLanguagePreference, useT } from "../i18n";
+
+/**
+ * Live "auto performance is running" pill. The mode engages on its own when a
+ * fullscreen app takes over, so the settings page is the only place where the
+ * user can see that it works.
+ */
+function PerfStateBadge() {
+  const t = useT();
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    invoke<boolean>("get_perf_mode").then((on) => setActive(!!on)).catch(() => {});
+    const unlisten = listen<boolean>("perf-mode", (event) => setActive(!!event.payload));
+    return () => {
+      unlisten.then((off) => off()).catch(() => {});
+    };
+  }, []);
+
+  return (
+    <span className={`perf-state-pill${active ? " is-active" : ""}`}>
+      <span className="perf-state-dot" />
+      {active ? t("general.autoPerf.on") : t("general.autoPerf.auto")}
+    </span>
+  );
+}
 
 interface GeneralTabProps {
   autostart: boolean;
@@ -111,10 +139,13 @@ export function GeneralTab({
           label={t("general.autoPerf")}
           desc={t("general.autoPerf.desc")}
         >
-          <label className="toggle-switch">
-            <input type="checkbox" checked={autoPerf} onChange={toggleAutoPerf} />
-            <span className="slider"></span>
-          </label>
+          <div className="perf-row-controls">
+            <PerfStateBadge />
+            <label className="toggle-switch">
+              <input type="checkbox" checked={autoPerf} onChange={toggleAutoPerf} />
+              <span className="slider"></span>
+            </label>
+          </div>
         </SettingRow>
 
         <SettingRow

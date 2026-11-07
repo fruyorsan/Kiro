@@ -23,10 +23,10 @@ const SETTINGS_SPEC: Spec = Spec {
     label: SETTINGS,
     url: "settings.html",
     title: "Settings",
-    width: 760.0,
-    height: 620.0,
-    min_width: 620.0,
-    min_height: 480.0,
+    width: 860.0,
+    height: 660.0,
+    min_width: 700.0,
+    min_height: 520.0,
 };
 
 const CALENDAR_SPEC: Spec = Spec {
