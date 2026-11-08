@@ -2985,6 +2985,7 @@ img {
   flex-direction: column;
   gap: 7px;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
 }
 
@@ -3144,6 +3145,7 @@ img {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
   font-size: 12.5px;
   line-height: 1.55;
@@ -3209,7 +3211,16 @@ img {
 }
 
 .ai-answer {
+  /* .kiro sets white-space: nowrap for the pill; without resetting it here the
+     answer never wraps, gets clipped on the right and adds a horizontal
+     scrollbar. Long URLs still have to break somewhere. */
+  white-space: normal;
   word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.ai-md {
+  white-space: normal;
 }
 
 /* Rendered markdown inside an answer. Models emit **bold**, lists and code, so

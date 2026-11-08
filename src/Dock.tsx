@@ -275,7 +275,9 @@ function DockClock() {
     let interval: ReturnType<typeof setInterval> | undefined;
     const timeout = setTimeout(() => {
       setNow(new Date());
-      interval = setInterval(() => setNow(new Date()), 1000);
+      // Re-rendering the whole dock once a second in a hidden window during a
+      // game is wasted work; the shared helper skips those ticks.
+      interval = setVisibleInterval(() => setNow(new Date()), 1000);
     }, 1000 - (Date.now() % 1000));
     return () => { clearTimeout(timeout); if (interval) clearInterval(interval); };
   }, []);

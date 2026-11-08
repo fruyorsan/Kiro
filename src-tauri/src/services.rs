@@ -608,6 +608,9 @@ fn audio_visualization_wanted(app: &AppHandle) -> bool {
         && setting.as_deref() != Some("false")
         && !AUDIO_CAPTURE_REFUSED.load(Ordering::Relaxed)
         && !microphone_blocked()
+        // A fullscreen game owns the machine and the notch is hidden: loopback
+        // capture + a 512-point FFT every 32 ms is pure frame-time loss there.
+        && !crate::perf::active()
 }
 
 pub fn setup_audio_visualization(app_handle: AppHandle) {
@@ -700,6 +703,13 @@ pub fn setup_audio_visualization(app_handle: AppHandle) {
                             return Ok(());
                         }
                         std::thread::sleep(std::time::Duration::from_millis(if idle { 200 } else { 32 }));
+
+                        // Performance mode engaged (a game went fullscreen): close
+                        // the capture stream now instead of holding it open for
+                        // the whole match.
+                        if crate::perf::active() {
+                            return Ok(());
+                        }
 
                         if last_device_check.elapsed().as_secs() >= 2 {
                             last_device_check = std::time::Instant::now();
@@ -1024,7 +1034,10 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                         }
                     }
                 }
-                if last_processed_media.elapsed().as_millis() >= 2000 || MEDIA_REFRESH.swap(false, Ordering::Relaxed) {
+                // A game is in front and the notch is hidden: SMTC property reads
+                // (and artwork decoding) can wait, so poll far less often.
+                let media_poll_ms = if crate::perf::active() { 10_000 } else { 2_000 };
+                if last_processed_media.elapsed().as_millis() >= media_poll_ms || MEDIA_REFRESH.swap(false, Ordering::Relaxed) {
                     last_processed_media = std::time::Instant::now();
                     let mut best_info: Option<MediaInfo> = None;
                     if let Some(ref mgr) = manager {

@@ -298,6 +298,9 @@ export const Visualizer = memo(function Visualizer({ isPlaying, bars = 5, height
     let latest: number[] | null = null;
     let frame = 0;
     const unlisten = listen<{ frequencies: number[] }>("audio-visualization", (event) => {
+      // The renderer is hidden during a game; repainting bars nobody can see
+      // only costs frames.
+      if (document.documentElement.classList.contains("perf-lite")) return;
       // If we receive fewer frequencies than bars, repeat or interpolate
       // If more, slice
       let data = event.payload.frequencies;
@@ -621,6 +624,7 @@ function App() {
   const [aiKeyVisible, setAiKeyVisible] = useState(false);
   const [aiSaving, setAiSaving] = useState(false);
   const aiInputRef = useRef<HTMLInputElement>(null);
+  const aiBodyRef = useRef<HTMLDivElement>(null);
   const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem("kiro-dock-enabled") !== "false");
   const [isNotchHovered, setIsNotchHovered] = useState(false);
   const [agentActivity, setAgentActivity] = useState<AgentActivity | null>(null);
@@ -804,6 +808,12 @@ function App() {
     },
     [aiSetup, openAiSetup]
   );
+
+  // A new answer has to start at the top: the container keeps its scroll offset
+  // between questions, which cut the first line off under the header.
+  useEffect(() => {
+    if (aiBodyRef.current) aiBodyRef.current.scrollTop = 0;
+  }, [aiAnswer, aiBusy]);
 
   // The notch window is normally click-through and does not take the keyboard;
   // borrow it only while the AI input is on screen.
@@ -2959,7 +2969,7 @@ function App() {
                           </form>
                         ) : (
                           <>
-                            <div className="ai-body">
+                            <div className="ai-body" ref={aiBodyRef}>
                               {aiBusy ? (
                                 <div className="ai-thinking">{t("ai.thinking")}</div>
                               ) : aiError ? (
