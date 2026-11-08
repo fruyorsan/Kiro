@@ -149,7 +149,7 @@ pub async fn init_dock(app: AppHandle, mode: String) {
 pub async fn init_dock_window(app: &AppHandle, dock_win: tauri::WebviewWindow, mode: &str) {
     let label = dock_win.label().to_string();
 
-    // 1. Always show first — idempotent, required before any positioning
+    // 1. Always show first â€” idempotent, required before any positioning
     if !dock_win.is_visible().unwrap_or(false) {
         let _ = dock_win.set_position(tauri::PhysicalPosition::new(-32000, -32000));
     }
@@ -176,7 +176,7 @@ pub async fn init_dock_window(app: &AppHandle, dock_win: tauri::WebviewWindow, m
                 if hwnd_val != 0 {
                     if let Some((m_size, m_pos)) = monitor_info {
                         if ph <= 10 {
-                            // outer_size() not ready yet — retry next tick
+                            // outer_size() not ready yet â€” retry next tick
                             if attempt < 19 {
                                 tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                             }
@@ -853,6 +853,102 @@ fn launch_path(path: &str, args: Option<&str>) {
     }
 }
 
+/// Some apps draw their main window from a helper process that lives inside the
+/// app's own install folder: Steam uses `steamwebhelper.exe`, Epic uses
+/// `EpicWebHelper.exe`. The window still carries the app's display name, so the
+/// dock listed the app twice - once for the pinned launcher and once for the
+/// helper. Rewriting the helper to the real exe lets the normal grouping (and
+/// the pinned matching in the frontend) collapse them into a single item.
+fn app_root_exe(path: &str) -> Option<String> {
+    use std::path::Path;
+
+    const HELPERS: &[(&str, &str)] = &[
+        ("steamwebhelper.exe", "steam.exe"),
+        ("epicwebhelper.exe", "epicgameslauncher.exe"),
+        ("epicwebhelper-win64-shipping.exe", "epicgameslauncher.exe"),
+    ];
+
+    let stem = Path::new(path).file_name()?.to_str()?.to_lowercase();
+    let target = HELPERS.iter().find(|(helper, _)| *helper == stem)?.1;
+    let mut dir = Path::new(path).parent();
+    // Helper windows sit a few folders deep (Steam: bin\cef\cef.win64\), so
+    // walk up until the launcher exe shows up.
+    for _ in 0..4 {
+        let current = dir?;
+        let candidate = current.join(target);
+        if candidate.is_file() {
+            return Some(candidate.to_string_lossy().into_owned());
+        }
+        dir = current.parent();
+    }
+    None
+}
+
+/// Two windows from the same install tree that show the same display name are
+/// one app (a launcher plus its helper), so keep a single dock item. Browsers
+/// and packaged apps are skipped on purpose: every PWA shares chrome.exe and
+/// only the AUMID tells two of them apart.
+fn merge_install_family(apps: Vec<AppInfo>) -> Vec<AppInfo> {
+    use std::path::Path;
+
+    let is_file_path = |p: &str| p.contains('\\') || p.contains('/');
+    let is_host = |p: &str| {
+        let p = p.to_lowercase();
+        p.contains("msedge.exe")
+            || p.contains("chrome.exe")
+            || p.contains("brave.exe")
+            || p.contains("applicationframehost.exe")
+    };
+    let dir_of = |p: &str| {
+        Path::new(p)
+            .parent()
+            .map(|d| d.to_string_lossy().to_lowercase().replace('/', "\\"))
+            .unwrap_or_default()
+    };
+
+    let mut out: Vec<AppInfo> = Vec::new();
+    'apps: for app in apps {
+        if is_file_path(&app.path) && !is_host(&app.path) {
+            let dir = dir_of(&app.path);
+            for kept in out.iter_mut() {
+                if !kept.name.eq_ignore_ascii_case(&app.name)
+                    || !is_file_path(&kept.path)
+                    || is_host(&kept.path)
+                {
+                    continue;
+                }
+                let kept_dir = dir_of(&kept.path);
+                let same_tree = dir == kept_dir
+                    || dir.starts_with(&format!("{kept_dir}\\"))
+                    || kept_dir.starts_with(&format!("{dir}\\"));
+                if !same_tree {
+                    continue;
+                }
+                let incoming = app
+                    .all_hwnds
+                    .clone()
+                    .or_else(|| app.hwnd.map(|h| vec![(h, app.name.clone())]))
+                    .unwrap_or_default();
+                let hwnds = kept.all_hwnds.get_or_insert_with(Vec::new);
+                for hwnd in incoming {
+                    if !hwnds.iter().any(|existing| existing.0 == hwnd.0) {
+                        hwnds.push(hwnd);
+                    }
+                }
+                // Keep the shallower path: that is the real launcher the pin uses.
+                if app.path.len() < kept.path.len() {
+                    kept.path = app.path.clone();
+                    kept.executable = app.executable.clone();
+                    kept.hwnd = app.hwnd.or(kept.hwnd);
+                }
+                continue 'apps;
+            }
+        }
+        out.push(app);
+    }
+    out
+}
+
 #[tauri::command]
 pub async fn get_active_windows() -> Vec<AppInfo> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -867,7 +963,15 @@ pub async fn get_active_windows() -> Vec<AppInfo> {
 
         let mut grouped: HashMap<String, AppInfo> = HashMap::new();
         
-        for app in apps {
+        for mut app in apps {
+            // Collapse helper-process windows onto the app they belong to before
+            // grouping, so Steam and friends never show up twice.
+            if let Some(root) = app_root_exe(&app.path) {
+                app.executable = std::path::Path::new(&root)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned());
+                app.path = root;
+            }
             let path = app.path.to_lowercase();
             let name = app.name.to_lowercase();
             
@@ -904,6 +1008,8 @@ pub async fn get_active_windows() -> Vec<AppInfo> {
         };
 
         let mut result_apps: Vec<AppInfo> = grouped.into_values().collect();
+
+        result_apps = merge_install_family(result_apps);
 
         for app in &mut result_apps {
             if let Some(ref mut hwnds) = app.all_hwnds {
@@ -3418,7 +3524,7 @@ pub async fn capture_window_thumbnail(hwnd: isize, max_width: u32, max_height: u
 }
 
 
-// ── Radio helpers — Windows Runtime Windows.Devices.Radios ───────────────────
+// â”€â”€ Radio helpers â€” Windows Runtime Windows.Devices.Radios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Replaces PowerShell -ExecutionPolicy Bypass scripts for WiFi/Bluetooth state.
 
 fn get_radio_state_sync(kind: windows::Devices::Radios::RadioKind) -> Result<bool, String> {
@@ -3601,7 +3707,7 @@ pub async fn set_bluetooth_state(enabled: bool) -> Result<(), String> {
     }).await.map_err(|e| e.to_string())?
 }
 
-// Settings openers — use ShellExecuteA directly instead of spawning powershell
+// Settings openers â€” use ShellExecuteA directly instead of spawning powershell
 
 #[tauri::command]
 pub fn open_bluetooth_settings() {
@@ -3673,7 +3779,7 @@ pub async fn get_battery_saver_state() -> Result<bool, String> {
     if active_overlay_guid().as_deref() == Some(OVERLAY_BEST_EFFICIENCY) {
         return Ok(true);
     }
-    // Uses Windows Runtime PowerManager — no PowerShell required.
+    // Uses Windows Runtime PowerManager â€” no PowerShell required.
     tauri::async_runtime::spawn_blocking(|| {
         unsafe {
             let _ = windows::Win32::System::Com::CoInitializeEx(
@@ -4285,7 +4391,7 @@ pub fn setup_settings_watcher(app: AppHandle) {
                             *cache = new_settings.clone();
                             (changed, removed)
                         };
-                        // Lock dropped — safe to emit without blocking save_setting
+                        // Lock dropped â€” safe to emit without blocking save_setting
                         for (key, value) in &changed {
                             let _ = app.emit(
                                 "settings-external-changed",

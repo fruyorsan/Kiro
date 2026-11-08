@@ -3659,6 +3659,17 @@ pub unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> B
                         return true.into();
                     }
 
+                    // Overlay hosts draw a real, visible top-level window but are
+                    // not apps the user can switch to; listing them put a stray
+                    // extra icon (NVIDIA's overlay, the automation cursor) next
+                    // to the actual apps in the dock.
+                    let is_overlay = lowercase_path.ends_with("nvidia overlay.exe")
+                        || lowercase_path.ends_with("cua-driver-background.exe");
+                    if is_overlay {
+                        let _ = CloseHandle(process_handle);
+                        return true.into();
+                    }
+
                     if (lowercase_path.contains("kiro.exe") && title != "Settings") ||
                        lowercase_path.contains("conhost.exe") ||
                        (lowercase_path.contains("explorer.exe") && !is_explorer_window) ||

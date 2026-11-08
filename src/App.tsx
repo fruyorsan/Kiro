@@ -1380,11 +1380,6 @@ function App() {
 
   // Window height is now kept constant to prevent rendering layout lag and sharp corners
 
-  const wheelAccumRef = useRef(0);
-  const wheelIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const WHEEL_STEP_THRESHOLD = 60;
-  const WHEEL_IDLE_RESET_MS = 180;
-
   // Music shifts position based on playing state:
   // Playing: command-center → music → status → calendar (active, near command-center)
   // Paused:  command-center → status → music → calendar (secondary, after status)
@@ -1404,47 +1399,13 @@ function App() {
     });
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('.calendar-grid') || target.closest('.timer-column') || target.closest('.cal-scroll')) {
-      return;
-    }
-
-    // The AI panel owns the notch while it is open: the wheel belongs to the
-    // answer, not to the panel carousel. Without this a single scroll while
-    // reading the reply switched to the next mode, so the conversation
-    // vanished mid-sentence and the calendar (two steps away) opened instead.
-    if (aiOpen) return;
-    if (target.closest('.ai-body') || target.closest('.ai-setup') || target.closest('.ai-input-row') || target.closest('.ai-attachments')) {
-      return;
-    }
-
-    if (!isHovered) return;
-
-    // Use absolute values to detect horizontal swipe gestures on trackpad
-    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-    if (Math.abs(delta) < 2) return; // Ignore near-zero noise
-
-    wheelAccumRef.current += delta;
-    if (wheelIdleTimeoutRef.current) clearTimeout(wheelIdleTimeoutRef.current);
-    wheelIdleTimeoutRef.current = setTimeout(() => { wheelAccumRef.current = 0; }, WHEEL_IDLE_RESET_MS);
-
-    if (Math.abs(wheelAccumRef.current) < WHEEL_STEP_THRESHOLD) return;
-    const direction = wheelAccumRef.current > 0 ? 1 : -1;
-    wheelAccumRef.current = 0;
-
-    const availableModes = availableNotchModes();
-
-    if (kiroMode === 'agent') { if (availableModes[0]) setKiroMode(availableModes[0]); return; }
-    if (kiroMode === 'tour') return;
-    const currentIndex = availableModes.indexOf(kiroMode);
-    if (currentIndex === -1) return;
-
-    const nextIndex = (currentIndex + direction + availableModes.length) % availableModes.length;
-    const nextMode = availableModes[nextIndex];
-    manualMusicRef.current = nextMode === 'music';
-    setKiroMode(nextMode);
-  };
+  // Scrolling must never change the notch panel. It was used as a mode
+  // carousel, but the wheel is routinely spun over the hover widgets (Wi-Fi,
+  // battery, ...) and every few notches jumped to the calendar or the music
+  // panel, which read as the app doing something on its own. The wheel now
+  // only does what it looks like it does: scroll the content under the
+  // pointer (and the sliders keep their own handlers).
+  const handleWheel = (_e: React.WheelEvent) => {};
 
 
 

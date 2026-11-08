@@ -607,10 +607,48 @@ body {
   z-index: 9999;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   min-width: 160px;
+  max-width: 240px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
   font-family: inherit;
+}
+
+/* The default Windows scrollbar is a bright white slab that breaks the glass
+   look; make it thin and quiet on both engines. */
+.context-menu::-webkit-scrollbar,
+.submenu::-webkit-scrollbar,
+.add-popup::-webkit-scrollbar,
+.dock-search-results::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.context-menu::-webkit-scrollbar-track,
+.submenu::-webkit-scrollbar-track,
+.add-popup::-webkit-scrollbar-track,
+.dock-search-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.context-menu::-webkit-scrollbar-thumb,
+.submenu::-webkit-scrollbar-thumb,
+.add-popup::-webkit-scrollbar-thumb,
+.dock-search-results::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.context-menu::-webkit-scrollbar-thumb:hover,
+.submenu::-webkit-scrollbar-thumb:hover,
+.add-popup::-webkit-scrollbar-thumb:hover,
+.dock-search-results::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .menu-item {
@@ -620,6 +658,9 @@ body {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
