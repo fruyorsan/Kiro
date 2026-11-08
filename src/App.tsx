@@ -53,6 +53,42 @@ function aiProviderName(id: string): string {
   return id === "openai" ? "ChatGPT" : id === "gemini" ? "Gemini" : "Claude";
 }
 
+// Claude keeps the original setting names so an existing key/model survives.
+const AI_KEY_SETTINGS: Record<string, string> = {
+  claude: "kiro-ai-key",
+  openai: "kiro-ai-key-openai",
+  gemini: "kiro-ai-key-gemini",
+};
+
+const AI_MODEL_SETTINGS: Record<string, string> = {
+  claude: "kiro-ai-model",
+  openai: "kiro-ai-model-openai",
+  gemini: "kiro-ai-model-gemini",
+};
+
+const AI_DEFAULT_MODELS: Record<string, string> = {
+  claude: "claude-sonnet-4-5",
+  openai: "gpt-4o-mini",
+  gemini: "gemini-2.0-flash",
+};
+
+const AI_KEY_PLACEHOLDERS: Record<string, string> = {
+  claude: "sk-ant-...",
+  openai: "sk-...",
+  gemini: "AIza...",
+};
+
+// Short, curated lists. Nobody should have to know a model id to ask a question.
+const AI_MODEL_PRESETS: Record<string, string[]> = {
+  claude: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"],
+  openai: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini"],
+  gemini: ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash"],
+};
+
+function aiHasKey(provider: string): boolean {
+  return !!localStorage.getItem(AI_KEY_SETTINGS[provider] ?? "")?.trim();
+}
+
 // One critically damped spring for the notch's width, height and corners, so the shape settles
 // together without overshooting or wobbling.
 const SHELL_SPRING = { type: "spring", stiffness: 400, damping: 40 } as const;
@@ -560,6 +596,13 @@ function App() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiProvider, setAiProvider] = useState(() => localStorage.getItem("kiro-ai-provider") || "claude");
+  // Inline key setup: the notch itself asks for the key, so the user never has
+  // to find Settings > General just to start using an assistant.
+  const [aiSetup, setAiSetup] = useState(false);
+  const [aiKeyDraft, setAiKeyDraft] = useState("");
+  const [aiModelDraft, setAiModelDraft] = useState("");
+  const [aiKeyVisible, setAiKeyVisible] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
   const aiInputRef = useRef<HTMLInputElement>(null);
   const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem("kiro-dock-enabled") !== "false");
   const [isNotchHovered, setIsNotchHovered] = useState(false);
@@ -644,9 +687,27 @@ function App() {
     }
   }, [dndActive, dndBusy]);
 
+  const openAiSetup = useCallback((provider: string) => {
+    setAiSetup(true);
+    setAiError(null);
+    setAiKeyVisible(false);
+    setAiKeyDraft(localStorage.getItem(AI_KEY_SETTINGS[provider] ?? "") ?? "");
+    setAiModelDraft(
+      localStorage.getItem(AI_MODEL_SETTINGS[provider] ?? "") ||
+        AI_DEFAULT_MODELS[provider] ||
+        ""
+    );
+  }, []);
+
   const askAi = useCallback(async () => {
     const prompt = aiPrompt.trim();
     if (!prompt || aiBusy) return;
+    // ChatGPT and Gemini cannot work without a key: ask for it right here
+    // instead of sending the request just to show an error.
+    if (aiProvider !== "claude" && !aiHasKey(aiProvider)) {
+      openAiSetup(aiProvider);
+      return;
+    }
     setAiBusy(true);
     setAiError(null);
     setAiAnswer("");
@@ -655,24 +716,73 @@ function App() {
       setAiAnswer(answer);
       setAiPrompt("");
     } catch (error) {
-      setAiError(typeof error === "string" ? error : String(error));
+      const message = typeof error === "string" ? error : String(error);
+      setAiError(message);
+      if (/anahtar|api key/i.test(message)) openAiSetup(aiProvider);
     } finally {
       setAiBusy(false);
     }
-  }, [aiPrompt, aiBusy]);
+  }, [aiPrompt, aiBusy, aiProvider, openAiSetup]);
+
+  const saveAiSetup = useCallback(async () => {
+    if (aiSaving) return;
+    const key = aiKeyDraft.trim();
+    const model = aiModelDraft.trim() || AI_DEFAULT_MODELS[aiProvider];
+    setAiSaving(true);
+    setAiError(null);
+    try {
+      if (key) {
+        const keySetting = AI_KEY_SETTINGS[aiProvider];
+        localStorage.setItem(keySetting, key);
+        await invoke("save_setting", { key: keySetting, value: key });
+      }
+      const modelSetting = AI_MODEL_SETTINGS[aiProvider];
+      localStorage.setItem(modelSetting, model);
+      await invoke("save_setting", { key: modelSetting, value: model });
+      setAiSetup(false);
+      setTimeout(() => aiInputRef.current?.focus(), 60);
+    } catch (error) {
+      setAiError(typeof error === "string" ? error : String(error));
+    } finally {
+      setAiSaving(false);
+    }
+  }, [aiKeyDraft, aiModelDraft, aiProvider, aiSaving]);
+
+  const openAiConsole = useCallback(() => {
+    invoke("ai_open_console", { provider: aiProvider }).catch(() => {});
+  }, [aiProvider]);
+
+  const closeAiSetup = useCallback(() => {
+    setAiSetup(false);
+    setAiError(null);
+    setTimeout(() => aiInputRef.current?.focus(), 60);
+  }, []);
 
   const closeAi = useCallback(() => {
     setAiOpen(false);
+    setAiSetup(false);
     setAiError(null);
   }, []);
 
-  const chooseAiProvider = useCallback((provider: string) => {
-    setAiProvider(provider);
-    localStorage.setItem("kiro-ai-provider", provider);
-    invoke("save_setting", { key: "kiro-ai-provider", value: provider }).catch(() => {});
-    setAiError(null);
-    setAiAnswer("");
-  }, []);
+  const chooseAiProvider = useCallback(
+    (provider: string) => {
+      setAiProvider(provider);
+      localStorage.setItem("kiro-ai-provider", provider);
+      invoke("save_setting", { key: "kiro-ai-provider", value: provider }).catch(() => {});
+      setAiError(null);
+      setAiAnswer("");
+      // No key yet? Show the setup right away instead of letting the first
+      // question fail. Claude may still run through its local CLI, so only the
+      // HTTP-only providers force the setup. While the setup is already open,
+      // switching chips just edits the other provider's fields.
+      if (aiSetup || (provider !== "claude" && !aiHasKey(provider))) {
+        openAiSetup(provider);
+      } else {
+        setAiSetup(false);
+      }
+    },
+    [aiSetup, openAiSetup]
+  );
 
   // The notch window is normally click-through and does not take the keyboard;
   // borrow it only while the AI input is on screen.
@@ -916,6 +1026,7 @@ function App() {
       setSettingsArtworkTheme(getVal("kiro-media-artwork-theme", "false") === "true");
       setSettingsCornersEnabled(getVal("kiro-corners-enabled", "false") === "true");
       setNotchBottomRight(getVal("kiro-notch-position", "top") === "bottom-right");
+      setAiProvider(getVal("kiro-ai-provider", "claude") || "claude");
       // Panel visibility has to come from the stored settings too, otherwise a
       // stale localStorage value can hide the quick-settings panel forever.
       setPanelControlCenter(getVal("kiro-panel-control-center-enabled", "true") !== "false");
@@ -2557,7 +2668,8 @@ function App() {
                                   )}
                                 </AnimatePresence>
                               </div>
-                              {notchBottomRight && isHovered && !isCompactTimerVisible && !isTimerFinished && (
+                              {isHovered && !isCompactTimerVisible && !isTimerFinished &&
+                                (notchBottomRight || (!isMusicMode && !isCalendarMode)) && (
                                 <div
                                   className="time-date"
                                   onClick={toggleCalendarMode}
@@ -2708,6 +2820,22 @@ function App() {
                             </div>
                             <button
                               type="button"
+                              className={`ai-key-btn${!aiHasKey(aiProvider) && aiProvider !== "claude" ? " missing" : ""}${aiSetup ? " active" : ""}`}
+                              title={t("ai.setup.open")}
+                              aria-label={t("ai.setup.open")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (aiSetup) closeAiSetup();
+                                else openAiSetup(aiProvider);
+                              }}
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M15 7a4 4 0 1 0 2.5 7.1L21 17.6V20h-2.4l-1-1H15v-2.4l-1.3-1.3A4 4 0 0 1 15 7Z" />
+                                <circle cx="15.5" cy="9.5" r="0.8" fill="currentColor" stroke="none" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
                               className="ai-close"
                               aria-label={t("ai.close")}
                               onClick={closeAi}
@@ -2716,42 +2844,136 @@ function App() {
                             </button>
                           </div>
                         </div>
-                        <div className="ai-body">
-                          {aiBusy ? (
-                            <div className="ai-thinking">{t("ai.thinking")}</div>
-                          ) : aiError ? (
-                            <div className="ai-error">{aiError}</div>
-                          ) : aiAnswer ? (
-                            <div className="ai-answer">{aiAnswer}</div>
-                          ) : (
-                            <div className="ai-hint">{t("ai.hint")}</div>
-                          )}
-                        </div>
-                        <form
-                          className="ai-input-row"
-                          onSubmit={(e) => { e.preventDefault(); void askAi(); }}
-                        >
-                          <input
-                            ref={aiInputRef}
-                            className="ai-input"
-                            value={aiPrompt}
-                            placeholder={t("ai.placeholder")}
-                            onChange={(e) => setAiPrompt(e.target.value)}
-                            onKeyDown={(e) => {
-                              e.stopPropagation();
-                              if (e.key === "Escape") closeAi();
-                            }}
-                            disabled={aiBusy}
-                          />
-                          <button
-                            type="submit"
-                            className="ai-send"
-                            disabled={aiBusy || !aiPrompt.trim()}
-                            aria-label={t("ai.send")}
+                        {aiSetup ? (
+                          <form
+                            className="ai-setup"
+                            onSubmit={(e) => { e.preventDefault(); void saveAiSetup(); }}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
-                          </button>
-                        </form>
+                            <div className="ai-setup-top">
+                              <span className="ai-setup-title">
+                                {t("ai.setup.title", { provider: aiLabel })}
+                              </span>
+                              <button type="button" className="ai-link" onClick={openAiConsole}>
+                                {t("ai.setup.getKey")}
+                              </button>
+                            </div>
+                            <div className="ai-setup-field">
+                              <label className="ai-setup-label" htmlFor="ai-key-input">
+                                {t("ai.setup.key")}
+                              </label>
+                              <div className="ai-key-wrap">
+                                <input
+                                  id="ai-key-input"
+                                  className="ai-input"
+                                  type={aiKeyVisible ? "text" : "password"}
+                                  value={aiKeyDraft}
+                                  placeholder={AI_KEY_PLACEHOLDERS[aiProvider] ?? t("ai.setup.keyPlaceholder")}
+                                  autoComplete="off"
+                                  spellCheck={false}
+                                  autoFocus
+                                  onChange={(e) => setAiKeyDraft(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    e.stopPropagation();
+                                    if (e.key === "Escape") closeAi();
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="ai-eye"
+                                  aria-label={aiKeyVisible ? t("ai.setup.hideKey") : t("ai.setup.showKey")}
+                                  onClick={() => setAiKeyVisible((value) => !value)}
+                                >
+                                  {aiKeyVisible ? (
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+                                      <path d="M9.9 5.2A10.5 10.5 0 0 1 12 5c5 0 9 4.5 9 7a9.6 9.6 0 0 1-2.2 3.2M6.2 6.2A10.4 10.4 0 0 0 3 12c0 2.5 4 7 9 7a10.6 10.6 0 0 0 4.1-.8" />
+                                    </svg>
+                                  ) : (
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 12c0-2.5 4-7 9-7s9 4.5 9 7-4 7-9 7-9-4.5-9-7Z" />
+                                      <circle cx="12" cy="12" r="2.6" />
+                                    </svg>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                            <div className="ai-setup-field">
+                              <label className="ai-setup-label" htmlFor="ai-model-select">
+                                {t("ai.setup.model")}
+                              </label>
+                              <select
+                                id="ai-model-select"
+                                className="ai-select"
+                                value={aiModelDraft}
+                                onChange={(e) => setAiModelDraft(e.target.value)}
+                              >
+                                {(AI_MODEL_PRESETS[aiProvider] ?? []).map((model) => (
+                                  <option key={model} value={model}>{model}</option>
+                                ))}
+                                {aiModelDraft && !(AI_MODEL_PRESETS[aiProvider] ?? []).includes(aiModelDraft) && (
+                                  <option value={aiModelDraft}>{aiModelDraft}</option>
+                                )}
+                              </select>
+                            </div>
+                            <div className="ai-setup-actions">
+                              <span className="ai-setup-note">{t("ai.setup.note")}</span>
+                              <button
+                                type="button"
+                                className="ai-secondary"
+                                onClick={closeAiSetup}
+                              >
+                                {t("ai.setup.back")}
+                              </button>
+                              <button
+                                type="submit"
+                                className="ai-primary"
+                                disabled={aiSaving || (!aiKeyDraft.trim() && aiProvider !== "claude")}
+                              >
+                                {aiSaving ? t("ai.setup.saving") : t("ai.setup.save")}
+                              </button>
+                            </div>
+                            {aiError && <div className="ai-error">{aiError}</div>}
+                          </form>
+                        ) : (
+                          <>
+                            <div className="ai-body">
+                              {aiBusy ? (
+                                <div className="ai-thinking">{t("ai.thinking")}</div>
+                              ) : aiError ? (
+                                <div className="ai-error">{aiError}</div>
+                              ) : aiAnswer ? (
+                                <div className="ai-answer">{aiAnswer}</div>
+                              ) : (
+                                <div className="ai-hint">{t("ai.hint")}</div>
+                              )}
+                            </div>
+                            <form
+                              className="ai-input-row"
+                              onSubmit={(e) => { e.preventDefault(); void askAi(); }}
+                            >
+                              <input
+                                ref={aiInputRef}
+                                className="ai-input"
+                                value={aiPrompt}
+                                placeholder={t("ai.placeholder")}
+                                onChange={(e) => setAiPrompt(e.target.value)}
+                                onKeyDown={(e) => {
+                                  e.stopPropagation();
+                                  if (e.key === "Escape") closeAi();
+                                }}
+                                disabled={aiBusy}
+                              />
+                              <button
+                                type="submit"
+                                className="ai-send"
+                                disabled={aiBusy || !aiPrompt.trim()}
+                                aria-label={t("ai.send")}
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+                              </button>
+                            </form>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -2841,7 +3063,12 @@ function App() {
                         className={`cc-circular-btn ai-btn${aiOpen ? ' active' : ''}`}
                         style={{ order: -1, "--kiro-ai-accent": aiAccent } as React.CSSProperties}
                         {...tip(t("ai.open"))}
-                        onClick={(e) => { e.stopPropagation(); setAiOpen(true); setAiError(null); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAiOpen(true);
+                          setAiError(null);
+                          if (aiProvider !== "claude" && !aiHasKey(aiProvider)) openAiSetup(aiProvider);
+                        }}
                       >
                         <AiProviderIcon provider={aiProvider} />
                       </button>

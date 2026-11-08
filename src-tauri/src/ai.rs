@@ -16,12 +16,32 @@
 use serde::Deserialize;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use tauri::AppHandle;
 
 const MAX_PROMPT: usize = 4000;
 const CLI_TIMEOUT: Duration = Duration::from_secs(120);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(90);
+
+/// One client for every provider. Building a `reqwest::Client` per question
+/// pulled in a fresh TLS configuration and connection pool each time; asking a
+/// few questions left several of those resident. A single pool keeps the idle
+/// connection count at one and lets it expire quickly after the answer.
+static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn http_client() -> Result<&'static reqwest::Client, String> {
+    if let Some(client) = HTTP_CLIENT.get() {
+        return Ok(client);
+    }
+    let client = reqwest::Client::builder()
+        .timeout(HTTP_TIMEOUT)
+        .pool_max_idle_per_host(1)
+        .pool_idle_timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(HTTP_CLIENT.get_or_init(|| client))
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Provider {
@@ -169,10 +189,7 @@ async fn ask_anthropic(key: &str, model: &str, prompt: &str) -> Result<String, S
         "max_tokens": 1024,
         "messages": [{ "role": "user", "content": prompt }]
     });
-    let client = reqwest::Client::builder()
-        .timeout(HTTP_TIMEOUT)
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = http_client()?;
     let response = client
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", key)
@@ -209,10 +226,7 @@ async fn ask_openai(key: &str, model: &str, prompt: &str) -> Result<String, Stri
         "max_tokens": 1024,
         "messages": [{ "role": "user", "content": prompt }]
     });
-    let client = reqwest::Client::builder()
-        .timeout(HTTP_TIMEOUT)
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = http_client()?;
     let response = client
         .post("https://api.openai.com/v1/chat/completions")
         .header("authorization", format!("Bearer {key}"))
@@ -247,10 +261,7 @@ async fn ask_gemini(key: &str, model: &str, prompt: &str) -> Result<String, Stri
         "contents": [{ "role": "user", "parts": [{ "text": prompt }] }],
         "generationConfig": { "maxOutputTokens": 1024 }
     });
-    let client = reqwest::Client::builder()
-        .timeout(HTTP_TIMEOUT)
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = http_client()?;
     let url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
         model
@@ -375,6 +386,15 @@ fn ask_cli(prompt: &str) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn ai_ask(app: AppHandle, prompt: String) -> Result<String, String> {
+    let result = ask_provider(app, prompt).await;
+    // The response body, the JSON parse and the answer string are the only big
+    // allocations in this path. They are dropped by now; ask the idle reclaim
+    // worker to push the freed pages out once the user stops typing/reading.
+    crate::memory_saver::trim_soon();
+    result
+}
+
+async fn ask_provider(app: AppHandle, prompt: String) -> Result<String, String> {
     let prompt: String = prompt.trim().chars().take(MAX_PROMPT).collect();
     if prompt.is_empty() {
         return Err("Boş mesaj".into());
@@ -391,7 +411,10 @@ pub async fn ai_ask(app: AppHandle, prompt: String) -> Result<String, String> {
             return ask_anthropic(&key, &model, &prompt).await;
         }
         if backend == "api" {
-            return Err("API anahtarı ayarlı değil".into());
+            return Err(
+                "Claude API anahtarı yok. Çentikteki anahtar simgesine tıklayıp ekleyebilirsin."
+                    .into(),
+            );
         }
     }
     if provider == Provider::Claude {
@@ -402,7 +425,7 @@ pub async fn ai_ask(app: AppHandle, prompt: String) -> Result<String, String> {
 
     let key = provider_key(&app, provider).ok_or_else(|| {
         format!(
-            "{} API anahtarı ayarlı değil. Ayarlar > Genel > Notch AI bölümünden ekleyebilirsin.",
+            "{} API anahtarı yok. Çentikteki anahtar simgesine tıklayıp ekleyebilirsin.",
             provider.label()
         )
     })?;
@@ -411,5 +434,39 @@ pub async fn ai_ask(app: AppHandle, prompt: String) -> Result<String, String> {
         Provider::OpenAI => ask_openai(&key, &model, &prompt).await,
         Provider::Gemini => ask_gemini(&key, &model, &prompt).await,
         Provider::Claude => unreachable!(),
+    }
+}
+
+/// Open the provider's key page from the notch. Only these URLs can be opened,
+/// so a malformed setting can never turn this into a generic URL launcher.
+#[tauri::command]
+pub fn ai_open_console(provider: String) -> Result<(), String> {
+    let url = match provider.trim().to_ascii_lowercase().as_str() {
+        "openai" | "chatgpt" | "gpt" => "https://platform.openai.com/api-keys",
+        "gemini" | "google" => "https://aistudio.google.com/app/apikey",
+        _ => "https://console.anthropic.com/settings/keys",
+    };
+    open_url(url)
+}
+
+fn open_url(url: &str) -> Result<(), String> {
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    let verb: Vec<u16> = "open".encode_utf16().chain(std::iter::once(0)).collect();
+    let target: Vec<u16> = url.encode_utf16().chain(std::iter::once(0)).collect();
+    let result = unsafe {
+        ShellExecuteW(
+            None,
+            windows::core::PCWSTR(verb.as_ptr()),
+            windows::core::PCWSTR(target.as_ptr()),
+            None,
+            None,
+            SW_SHOWNORMAL,
+        )
+    };
+    if result.0 as usize <= 32 {
+        Err(format!("Tarayıcı açılamadı (kod {})", result.0 as usize))
+    } else {
+        Ok(())
     }
 }

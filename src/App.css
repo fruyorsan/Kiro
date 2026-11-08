@@ -2911,6 +2911,201 @@ img {
   color: var(--kiro-text, #fff);
 }
 
+/* Key/setup button in the header. It gets a soft accent while the provider
+   still has no key, so the next step is obvious without a modal. */
+.ai-key-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.6));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ai-key-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ai-key-btn:hover,
+.ai-key-btn.active {
+  background: var(--kiro-border, rgba(255, 255, 255, 0.1));
+  color: var(--kiro-text, #fff);
+}
+
+.ai-key-btn.missing {
+  color: #d97757;
+  background: rgba(217, 119, 87, 0.14);
+}
+
+/* Inline key setup: stays inside the notch, no Settings detour. */
+.ai-setup {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.ai-setup-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ai-setup-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kiro-text, #fff);
+  opacity: 0.9;
+}
+
+.ai-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--kiro-accent, #007aff);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ai-link:hover {
+  text-decoration: underline;
+}
+
+.ai-setup-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-setup-label {
+  flex: 0 0 52px;
+  font-size: 11px;
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.ai-key-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ai-key-wrap .ai-input {
+  padding-right: 32px;
+}
+
+.ai-eye {
+  position: absolute;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.55));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ai-eye:hover {
+  color: var(--kiro-text, #fff);
+  background: var(--kiro-border, rgba(255, 255, 255, 0.1));
+}
+
+.ai-eye svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ai-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 9px;
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.12));
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+  color: var(--kiro-text, #fff);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.ai-select:focus {
+  border-color: var(--kiro-accent, #007aff);
+}
+
+.ai-select option {
+  background: #1c1c1e;
+  color: #fff;
+}
+
+.ai-setup-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.ai-setup-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.45));
+}
+
+.ai-secondary,
+.ai-primary {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ai-secondary {
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.7));
+}
+
+.ai-secondary:hover {
+  color: var(--kiro-text, #fff);
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+}
+
+.ai-primary {
+  border: none;
+  background: var(--kiro-accent, #007aff);
+  color: #fff;
+}
+
+.ai-primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .ai-body {
   flex: 1 1 auto;
   min-height: 0;

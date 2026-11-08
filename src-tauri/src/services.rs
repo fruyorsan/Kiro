@@ -2319,6 +2319,12 @@ fn start_mouse_worker(app_handle: AppHandle) {
             if !MOUSE_DIRTY.swap(false, Ordering::Relaxed) {
                 continue;
             }
+            // Fullscreen game: game_boost hid the dock/notch, so skip the hit
+            // test entirely instead of doing it 20 times a second.
+            if crate::perf::active() {
+                std::thread::sleep(Duration::from_millis(250));
+                continue;
+            }
             let cursor = windows::Win32::Foundation::POINT {
                 x: MOUSE_X.load(Ordering::Relaxed),
                 y: MOUSE_Y.load(Ordering::Relaxed),
@@ -2326,9 +2332,7 @@ fn start_mouse_worker(app_handle: AppHandle) {
             unsafe { process_mouse_move(&app_handle, cursor) };
             // 16 ms keeps edge reveals feeling immediate without making the
             // worker churn; the per-pass body now reads only cached values.
-            // In auto performance mode nobody is hovering the dock, so slow down.
-            let worker_ms = if crate::perf::active() { 48 } else { 16 };
-            std::thread::sleep(Duration::from_millis(worker_ms));
+            std::thread::sleep(Duration::from_millis(16));
         });
     if let Ok(worker) = worker {
         let _ = MOUSE_WORKER.set(worker.thread().clone());
@@ -2387,6 +2391,12 @@ fn setup_volume_mixer_watchdog(app_handle: AppHandle) {
         if SHUTTING_DOWN.load(Ordering::Relaxed) {
             continue;
         }
+        // While a game runs the hook is paused, so there is no edge UI to
+        // watch. Skip the GetCursorPos + monitor work and sleep longer.
+        if crate::perf::active() {
+            std::thread::sleep(Duration::from_millis(1_000));
+            continue;
+        }
         let mut pt = windows::Win32::Foundation::POINT::default();
         if unsafe { windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut pt) }.is_err() {
             continue;
@@ -2432,6 +2442,14 @@ pub fn setup_mouse_hook(app_handle: AppHandle) {
 }
 
 unsafe extern "system" fn mouse_hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> windows::Win32::Foundation::LRESULT {
+    // A fullscreen game owns the screen and game_boost has already hidden the
+    // dock and notch. There is nothing to hit-test, so return before the
+    // per-event atomics, timestamp and worker wake-up. This is the hottest
+    // callback in the process: during a game it fires for every single mouse
+    // movement the game produces.
+    if crate::perf::active() {
+        return CallNextHookEx(None, code, wparam, lparam);
+    }
     if code >= 0 && wparam.0 == WM_MOUSEMOVE as usize && !SHUTTING_DOWN.load(Ordering::Relaxed) {
         crate::diagnostics::HOOK_EVENTS.fetch_add(1, Ordering::Relaxed);
         crate::diagnostics::HOOK_LAST_EVENT_MS.store(now_ms(), Ordering::Relaxed);

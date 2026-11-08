@@ -1115,7 +1115,7 @@ function OverlayApp() {
   );
 }
 
-initPerfMode();
+initPerfMode(false);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

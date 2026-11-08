@@ -181,6 +181,7 @@ fn main() {
             get_custom_icons,
             set_menu_open,
             ai::ai_ask,
+            ai::ai_open_console,
             set_window_keyboard_focus,
             get_drives,
             open_dock_extra,
