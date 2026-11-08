@@ -27,6 +27,7 @@ import { parseCcLayout, parsePanelOrder, resolveCcLayout, type CcKind } from "./
 import { NotchProgressBorder } from "./components/NotchProgressBorder";
 import { SurfaceShape } from "./components/SurfaceShape";
 import { AiMarkdown } from "./aiMarkdown";
+import { AI_MAX_IMAGES, fileToAiImage, imageFilesFrom, imageFilesFromDataTransfer, type AiImage } from "./aiImage";
 import { playAgentSound } from "./agentSounds";
 import { AgentLeft, AgentDot, AgentPanel, type AgentActivity } from "./components/AgentStatus";
 import type { WidgetConfig } from "./components/StatusWidgetConfig";
@@ -616,6 +617,11 @@ function App() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiProvider, setAiProvider] = useState(() => localStorage.getItem("kiro-ai-provider") || "claude");
+  // Screenshots attached to the next question. They live only until the answer
+  // arrives: the base64 copy is the biggest thing the webview holds, so it is
+  // dropped as soon as it is not needed any more.
+  const [aiImages, setAiImages] = useState<AiImage[]>([]);
+  const [aiImageBusy, setAiImageBusy] = useState(false);
   // Inline key setup: the notch itself asks for the key, so the user never has
   // to find Settings > General just to start using an assistant.
   const [aiSetup, setAiSetup] = useState(false);
@@ -624,6 +630,7 @@ function App() {
   const [aiKeyVisible, setAiKeyVisible] = useState(false);
   const [aiSaving, setAiSaving] = useState(false);
   const aiInputRef = useRef<HTMLInputElement>(null);
+  const aiFileRef = useRef<HTMLInputElement>(null);
   const aiBodyRef = useRef<HTMLDivElement>(null);
   const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem("kiro-dock-enabled") !== "false");
   const [isNotchHovered, setIsNotchHovered] = useState(false);
@@ -720,9 +727,50 @@ function App() {
     );
   }, []);
 
+  const addAiImages = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      const room = AI_MAX_IMAGES - aiImages.length;
+      if (room <= 0) {
+        setAiError(t("ai.attach.full", { max: AI_MAX_IMAGES }));
+        return;
+      }
+      setAiError(null);
+      setAiImageBusy(true);
+      try {
+        const accepted = files.slice(0, room);
+        // Decode in parallel: one 4K screenshot takes long enough to be
+        // noticeable on its own.
+        const converted = await Promise.all(
+          accepted.map((file) => fileToAiImage(file).catch(() => null))
+        );
+        const ready = converted.filter((image): image is AiImage => image !== null);
+        if (ready.length) {
+          setAiImages((current) => [...current, ...ready].slice(0, AI_MAX_IMAGES));
+        }
+        if (ready.length < accepted.length) {
+          setAiError(t("ai.attach.error"));
+        }
+      } finally {
+        setAiImageBusy(false);
+        // Let the same file be picked again after a remove.
+        if (aiFileRef.current) aiFileRef.current.value = "";
+      }
+    },
+    [aiImages.length, t]
+  );
+
+  const removeAiImage = useCallback((id: string) => {
+    setAiImages((current) => current.filter((image) => image.id !== id));
+  }, []);
+
   const askAi = useCallback(async () => {
-    const prompt = aiPrompt.trim();
-    if (!prompt || aiBusy) return;
+    const typed = aiPrompt.trim();
+    const images = aiImages;
+    // An image alone is a valid question ("what is this?"); ask the model to
+    // describe it when the user sent no text.
+    const prompt = typed || (images.length ? t("ai.attach.prompt") : "");
+    if ((!prompt && !images.length) || aiBusy || aiImageBusy) return;
     // ChatGPT and Gemini cannot work without a key: ask for it right here
     // instead of sending the request just to show an error.
     if (aiProvider !== "claude" && !aiHasKey(aiProvider)) {
@@ -733,9 +781,13 @@ function App() {
     setAiError(null);
     setAiAnswer("");
     try {
-      const answer = await invoke<string>("ai_ask", { prompt });
+      const answer = await invoke<string>("ai_ask", {
+        prompt,
+        images: images.map((image) => image.dataUrl),
+      });
       setAiAnswer(answer);
       setAiPrompt("");
+      setAiImages([]);
     } catch (error) {
       const message = typeof error === "string" ? error : String(error);
       setAiError(message);
@@ -747,7 +799,7 @@ function App() {
     } finally {
       setAiBusy(false);
     }
-  }, [aiPrompt, aiBusy, aiProvider, openAiSetup]);
+  }, [aiPrompt, aiImages, aiBusy, aiImageBusy, aiProvider, openAiSetup, t]);
 
   const saveAiSetup = useCallback(async () => {
     if (aiSaving) return;
@@ -787,6 +839,11 @@ function App() {
     setAiOpen(false);
     setAiSetup(false);
     setAiError(null);
+    // Closing the panel is the point where the attachments and the rendered
+    // answer stop being useful; dropping them here keeps an idle notch at its
+    // baseline memory instead of holding the last conversation forever.
+    setAiImages([]);
+    setAiAnswer("");
   }, []);
 
   const chooseAiProvider = useCallback(
@@ -2982,16 +3039,69 @@ function App() {
                                 <div className="ai-hint">{t("ai.hint")}</div>
                               )}
                             </div>
+                            {aiImages.length > 0 && (
+                              <div className="ai-attachments">
+                                {aiImages.map((image) => (
+                                  <div className="ai-attachment" key={image.id}>
+                                    <img src={image.dataUrl} alt={image.name} />
+                                    <button
+                                      type="button"
+                                      className="ai-attachment-remove"
+                                      aria-label={t("ai.attach.remove")}
+                                      title={t("ai.attach.remove")}
+                                      onClick={() => removeAiImage(image.id)}
+                                    >
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             <form
                               className="ai-input-row"
                               onSubmit={(e) => { e.preventDefault(); void askAi(); }}
                             >
+                              <input
+                                ref={aiFileRef}
+                                className="ai-file"
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                tabIndex={-1}
+                                aria-hidden="true"
+                                onChange={(e) => void addAiImages(imageFilesFrom(e.target.files))}
+                              />
+                              <button
+                                type="button"
+                                className={`ai-attach${aiImages.length ? " active" : ""}`}
+                                title={t("ai.attach")}
+                                aria-label={t("ai.attach")}
+                                onClick={() => aiFileRef.current?.click()}
+                                disabled={aiBusy || aiImageBusy || aiImages.length >= AI_MAX_IMAGES}
+                              >
+                                {aiImageBusy ? (
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="ai-attach-spin">
+                                    <path d="M21 12a9 9 0 1 1-6.2-8.5" />
+                                  </svg>
+                                ) : (
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M20.5 11.5 12 20a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L9.6 17.7a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
+                                  </svg>
+                                )}
+                              </button>
                               <input
                                 ref={aiInputRef}
                                 className="ai-input"
                                 value={aiPrompt}
                                 placeholder={t("ai.placeholder")}
                                 onChange={(e) => setAiPrompt(e.target.value)}
+                                onPaste={(e) => {
+                                  const files = imageFilesFromDataTransfer(e.clipboardData);
+                                  if (files.length) {
+                                    e.preventDefault();
+                                    void addAiImages(files);
+                                  }
+                                }}
                                 onKeyDown={(e) => {
                                   e.stopPropagation();
                                   if (e.key === "Escape") closeAi();
@@ -3001,7 +3111,7 @@ function App() {
                               <button
                                 type="submit"
                                 className="ai-send"
-                                disabled={aiBusy || !aiPrompt.trim()}
+                                disabled={aiBusy || aiImageBusy || (!aiPrompt.trim() && !aiImages.length)}
                                 aria-label={t("ai.send")}
                               >
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>

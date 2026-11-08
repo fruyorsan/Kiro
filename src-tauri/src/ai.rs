@@ -209,11 +209,68 @@ fn error_message(text: &str) -> String {
         .unwrap_or_else(|| text.chars().take(300).collect())
 }
 
-async fn ask_anthropic(key: &str, model: &str, prompt: &str) -> Result<String, String> {
+/// An image attached to a question. The frontend already downscales it and
+/// hands over a `data:image/...;base64,...` URL, so what travels from the
+/// webview to here is a few hundred kilobytes, not a camera raw.
+struct InlineImage {
+    mime: String,
+    data: String,
+}
+
+/// Hard limits: a paste of four huge screenshots must not balloon the process.
+const MAX_IMAGES: usize = 4;
+const MAX_IMAGE_BASE64: usize = 8 * 1024 * 1024;
+
+fn parse_data_url(url: &str) -> Option<InlineImage> {
+    let rest = url.trim().strip_prefix("data:")?;
+    let (meta, data) = rest.split_once(',')?;
+    let mime = meta.strip_suffix(";base64")?.trim().to_ascii_lowercase();
+    if !mime.starts_with("image/") || data.is_empty() || data.len() > MAX_IMAGE_BASE64 {
+        return None;
+    }
+    Some(InlineImage {
+        mime,
+        data: data.to_string(),
+    })
+}
+
+fn parse_images(images: Vec<String>) -> Vec<InlineImage> {
+    images
+        .into_iter()
+        .filter_map(|url| parse_data_url(&url))
+        .take(MAX_IMAGES)
+        .collect()
+}
+
+async fn ask_anthropic(
+    key: &str,
+    model: &str,
+    prompt: &str,
+    images: &[InlineImage],
+) -> Result<String, String> {
+    let content = if images.is_empty() {
+        serde_json::json!(prompt)
+    } else {
+        let mut blocks: Vec<serde_json::Value> = images
+            .iter()
+            .map(|image| {
+                serde_json::json!({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": image.mime.as_str(),
+                        "data": image.data.as_str()
+                    }
+                })
+            })
+            .collect();
+        blocks.push(serde_json::json!({ "type": "text", "text": prompt }));
+        serde_json::Value::Array(blocks)
+    };
     let body = serde_json::json!({
         "model": model,
         "max_tokens": 1024,
-        "messages": [{ "role": "user", "content": prompt }]
+        "messages": [{ "role": "user", "content": content }]
     });
     let client = http_client()?;
     let response = client
@@ -246,11 +303,33 @@ async fn ask_anthropic(key: &str, model: &str, prompt: &str) -> Result<String, S
     Ok(answer)
 }
 
-async fn ask_openai(key: &str, model: &str, prompt: &str) -> Result<String, String> {
+async fn ask_openai(
+    key: &str,
+    model: &str,
+    prompt: &str,
+    images: &[InlineImage],
+) -> Result<String, String> {
+    let content = if images.is_empty() {
+        serde_json::json!(prompt)
+    } else {
+        let mut parts: Vec<serde_json::Value> = images
+            .iter()
+            .map(|image| {
+                serde_json::json!({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": format!("data:{};base64,{}", image.mime, image.data)
+                    }
+                })
+            })
+            .collect();
+        parts.push(serde_json::json!({ "type": "text", "text": prompt }));
+        serde_json::Value::Array(parts)
+    };
     let body = serde_json::json!({
         "model": model,
         "max_tokens": 1024,
-        "messages": [{ "role": "user", "content": prompt }]
+        "messages": [{ "role": "user", "content": content }]
     });
     let client = http_client()?;
     let response = client
@@ -282,9 +361,26 @@ async fn ask_openai(key: &str, model: &str, prompt: &str) -> Result<String, Stri
     Ok(answer)
 }
 
-async fn ask_gemini(key: &str, model: &str, prompt: &str) -> Result<String, String> {
+async fn ask_gemini(
+    key: &str,
+    model: &str,
+    prompt: &str,
+    images: &[InlineImage],
+) -> Result<String, String> {
+    let mut parts: Vec<serde_json::Value> = images
+        .iter()
+        .map(|image| {
+            serde_json::json!({
+                "inline_data": {
+                    "mime_type": image.mime.as_str(),
+                    "data": image.data.as_str()
+                }
+            })
+        })
+        .collect();
+    parts.push(serde_json::json!({ "text": prompt }));
     let body = serde_json::json!({
-        "contents": [{ "role": "user", "parts": [{ "text": prompt }] }],
+        "contents": [{ "role": "user", "parts": parts }],
         "generationConfig": { "maxOutputTokens": 1024 }
     });
     let client = http_client()?;
@@ -411,18 +507,28 @@ fn ask_cli(prompt: &str) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn ai_ask(app: AppHandle, prompt: String) -> Result<String, String> {
-    let result = ask_provider(app, prompt).await;
-    // The response body, the JSON parse and the answer string are the only big
-    // allocations in this path. They are dropped by now; ask the idle reclaim
-    // worker to push the freed pages out once the user stops typing/reading.
+pub async fn ai_ask(
+    app: AppHandle,
+    prompt: String,
+    images: Option<Vec<String>>,
+) -> Result<String, String> {
+    let images = parse_images(images.unwrap_or_default());
+    let result = ask_provider(app, prompt, images).await;
+    // The response body, the JSON parse, the base64 images and the answer
+    // string are the only big allocations in this path. They are dropped by
+    // now; ask the idle reclaim worker to push the freed pages out once the
+    // user stops typing/reading, so an idle notch keeps a tiny working set.
     crate::memory_saver::trim_soon();
     result
 }
 
-async fn ask_provider(app: AppHandle, prompt: String) -> Result<String, String> {
+async fn ask_provider(
+    app: AppHandle,
+    prompt: String,
+    images: Vec<InlineImage>,
+) -> Result<String, String> {
     let prompt: String = prompt.trim().chars().take(MAX_PROMPT).collect();
-    if prompt.is_empty() {
+    if prompt.is_empty() && images.is_empty() {
         return Err("Boş mesaj".into());
     }
 
@@ -434,13 +540,19 @@ async fn ask_provider(app: AppHandle, prompt: String) -> Result<String, String> 
     if provider == Provider::Claude && backend != "cli" {
         if let Some(key) = provider_key(&app, provider) {
             let model = provider_model(&app, provider);
-            return ask_anthropic(&key, &model, &prompt).await;
+            return ask_anthropic(&key, &model, &prompt, &images).await;
         }
-        if backend == "api" {
-            return Err(
+        if backend == "api" || !images.is_empty() {
+            // The CLI takes a plain text prompt only, so an attached screenshot
+            // would be silently dropped. Ask for the key instead of answering
+            // as if it had seen the image.
+            return Err(if images.is_empty() {
                 "Claude API anahtarı yok. Çentikteki anahtar simgesine tıklayıp ekleyebilirsin."
-                    .into(),
-            );
+                    .into()
+            } else {
+                "Görsel göndermek için Claude API anahtarı gerekiyor. Çentikteki anahtar simgesine tıklayıp ekleyebilirsin."
+                    .into()
+            });
         }
     }
     if provider == Provider::Claude {
@@ -457,10 +569,10 @@ async fn ask_provider(app: AppHandle, prompt: String) -> Result<String, String> 
     })?;
     let model = provider_model(&app, provider);
     match provider {
-        Provider::OpenAI => ask_openai(&key, &model, &prompt).await,
+        Provider::OpenAI => ask_openai(&key, &model, &prompt, &images).await,
         Provider::Gemini => {
             let mut current = model;
-            let mut attempt = ask_gemini(&key, &current, &prompt).await;
+            let mut attempt = ask_gemini(&key, &current, &prompt, &images).await;
             // Google retires ids without notice and sometimes answers "high
             // demand" for the newest model. Its own error text names the
             // replacement, so follow that and retry instead of failing.
@@ -473,7 +585,7 @@ async fn ask_provider(app: AppHandle, prompt: String) -> Result<String, String> 
                     break;
                 };
                 current = next;
-                attempt = ask_gemini(&key, &current, &prompt).await;
+                attempt = ask_gemini(&key, &current, &prompt, &images).await;
             }
             attempt
         }

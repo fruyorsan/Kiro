@@ -3324,6 +3324,111 @@ img {
   flex: 0 0 auto;
 }
 
+/* Attachments: a small thumbnail strip above the input. The file input itself
+   stays hidden; the paperclip button opens it. */
+.ai-file {
+  display: none;
+}
+
+.ai-attachments {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+  overflow-x: auto;
+  padding: 1px 0;
+  scrollbar-width: none;
+}
+
+.ai-attachments::-webkit-scrollbar {
+  display: none;
+}
+
+.ai-attachment {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.14));
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ai-attachment img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ai-attachment-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  cursor: pointer;
+}
+
+.ai-attachment-remove svg {
+  width: 9px;
+  height: 9px;
+}
+
+.ai-attachment-remove:hover {
+  background: #ff5a5a;
+}
+
+.ai-attach {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 9px;
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.12));
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+  color: var(--kiro-text, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.ai-attach svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ai-attach:hover:not(:disabled),
+.ai-attach.active {
+  border-color: var(--kiro-accent, #007aff);
+  color: var(--kiro-accent, #007aff);
+}
+
+.ai-attach:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ai-attach-spin {
+  animation: ai-spin 0.9s linear infinite;
+}
+
+@keyframes ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .ai-input {
   flex: 1 1 auto;
   min-width: 0;
