@@ -622,7 +622,6 @@ body {
 /* The default Windows scrollbar is a bright white slab that breaks the glass
    look; make it thin and quiet on both engines. */
 .context-menu::-webkit-scrollbar,
-.submenu::-webkit-scrollbar,
 .add-popup::-webkit-scrollbar,
 .dock-search-results::-webkit-scrollbar {
   width: 6px;
@@ -630,14 +629,12 @@ body {
 }
 
 .context-menu::-webkit-scrollbar-track,
-.submenu::-webkit-scrollbar-track,
 .add-popup::-webkit-scrollbar-track,
 .dock-search-results::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .context-menu::-webkit-scrollbar-thumb,
-.submenu::-webkit-scrollbar-thumb,
 .add-popup::-webkit-scrollbar-thumb,
 .dock-search-results::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.18);
@@ -645,7 +642,6 @@ body {
 }
 
 .context-menu::-webkit-scrollbar-thumb:hover,
-.submenu::-webkit-scrollbar-thumb:hover,
 .add-popup::-webkit-scrollbar-thumb:hover,
 .dock-search-results::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
@@ -678,95 +674,8 @@ body {
   margin: 4px 8px;
 }
 
-.menu-item.has-submenu {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-}
 
-.submenu-arrow {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 auto;
-  margin-left: 10px;
-  opacity: 0.55;
-  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.7));
-}
-
-.submenu-arrow.left {
-  transform: scaleX(-1);
-}
-
-.submenu {
-  position: absolute;
-  /* The parent item is inset by the menu's 6px padding, so 100% alone lands
-     inside the menu box. Add that padding back plus a small gap. */
-  left: calc(100% + 8px);
-  /* Grow upwards from the item. The dock menu always opens just above the
-     dock, so anchoring the top would push the fly-out off the screen. */
-  top: auto;
-  bottom: -6px;
-  background: var(--kiro-bg-expanded, rgba(40, 40, 40, 0.98));
-  backdrop-filter: blur(25px);
-  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
-  border-radius: 12px;
-  padding: 6px;
-  min-width: 168px;
-  max-height: calc(100vh - 16px);
-  overflow-y: auto;
-  /* Laid out even while closed so the pointer tracker can measure it before it
-     becomes visible; `display: none` reported a 0x0 rect. */
-  display: flex;
-  flex-direction: column;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  z-index: 10001;
-}
-
-.submenu.open {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-/* Near the right edge the fly-out flips to the menu's left side. */
-.submenu.left {
-  left: auto;
-  right: calc(100% + 8px);
-}
-
-/* Bridge the gap so the pointer can cross into the fly-out without dropping hover. */
-.submenu::before {
-  content: "";
-  position: absolute;
-  left: -20px;
-  top: -20px;
-  bottom: -20px;
-  width: 24px;
-  z-index: -1;
-}
-
-.submenu.left::before {
-  left: auto;
-  right: -20px;
-}
-
-.menu-item.has-submenu:hover {
-  background: var(--kiro-border, rgba(255, 255, 255, 0.12));
-}
-
-.menu-item.has-submenu .submenu .menu-item:hover {
-  background: var(--kiro-border, rgba(255, 255, 255, 0.12));
-}
-
-.menu-item.has-submenu .submenu .menu-item.quit:hover {
-  background: #ef4444;
-}
-
-/* Add App Popup — card fused into the top of the dock.
+/* Add App Popup - card fused into the top of the dock.
    The pill paints above the card (z-index) and covers its bottom ~14px,
    so the seam stays seamless without pixel-exact positioning. */
 .add-popup-anchor {
@@ -1019,8 +928,7 @@ body {
 }
 
 .light-mode .start-menu,
-.light-mode .context-menu,
-.light-mode .submenu {
+.light-mode .context-menu {
   background: var(--kiro-bg-expanded);
   border-color: var(--kiro-border);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
@@ -1284,6 +1192,3 @@ body {
   flex-shrink: 0;
 }
 
-.menu-item.has-submenu.open {
-  background: rgba(255, 255, 255, 0.09);
-}

@@ -95,7 +95,7 @@ const isIdentifier = (p: string) => !p.includes('/') && !p.includes('\\');
 const isKiroWindow = (app: { name: string; path: string }) => {
   const path = app.path.toLowerCase();
   const name = app.name.toLowerCase();
-  return path.includes('kiro.exe') || path.includes('kiro.exe') || name === 'kiro' || name === 'kiro';
+  return path.includes('kiro.exe') || name === 'kiro';
 };
 
 function parseDrives(val: string | null): string[] {
