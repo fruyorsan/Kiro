@@ -48,10 +48,13 @@ fn defaults() -> Vec<(&'static str, Value)> {
         // Updates install themselves on the next launch.
         ("kiro-auto-update", json!("true")),
         ("kiro-update-channel", json!("stable")),
-        // Appearance: frosted dark, blue accent, same numbers as the maintainer.
+        // Appearance: liquid glass on a dark surface with a monochrome (white)
+        // accent, so a fresh install lands on the branded look instead of a
+        // blue frosted panel.
         ("kiro-theme-mode", json!("dark")),
         ("kiro-theme-color", json!("#007aff")),
-        ("kiro-theme-style", json!("frosted")),
+        ("kiro-theme-style", json!("liquid")),
+        ("kiro-theme-accent", json!("mono")),
         ("kiro-theme-opacity", json!("0.6")),
         ("kiro-theme-saturation", json!("0.5")),
         ("kiro-theme-brightness", json!("0.15")),

@@ -2646,6 +2646,69 @@ img {
     image-rendering: pixelated;
 }
 
+/* The ring is the "something is running" signal: it only spins while a task
+   is actually in flight, so an idle agent costs nothing and stays invisible. */
+.agent-ring {
+    --agent-ring-a: #60a5fa;
+    --agent-ring-b: #cfe4ff;
+    --agent-ring-speed: 2.2s;
+    position: relative;
+    width: 28px;
+    height: 28px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+}
+
+.agent-ring::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0 52%, var(--agent-ring-a) 84%, var(--agent-ring-b) 100%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.4px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.4px));
+    animation: agent-ring-spin var(--agent-ring-speed) linear infinite;
+}
+
+.agent-ring .agent-mascot {
+    height: 22px;
+}
+
+.agent-ring.tool {
+    --agent-ring-a: #a78bfa;
+    --agent-ring-b: #e2d8ff;
+    --agent-ring-speed: 1.6s;
+}
+
+.agent-ring.needs_input {
+    --agent-ring-a: #ff9f43;
+    --agent-ring-b: #ffe0b8;
+    --agent-ring-speed: 1.1s;
+}
+
+.agent-ring.done {
+    --agent-ring-a: #4ade80;
+    --agent-ring-b: #4ade80;
+}
+
+.agent-ring.error {
+    --agent-ring-a: #ff5f5f;
+    --agent-ring-b: #ff5f5f;
+}
+
+/* A finished task is a fact, not an activity: stop the spin and close the ring. */
+.agent-ring.done::before,
+.agent-ring.error::before {
+    animation: none;
+    background: conic-gradient(var(--agent-ring-a) 0 100%);
+}
+
+@keyframes agent-ring-spin {
+    to { transform: rotate(360deg); }
+}
+
 .agent-dot {
     width: 9px;
     height: 9px;

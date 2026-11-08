@@ -224,7 +224,7 @@ export async function applyTheme(
 
   // Legacy Mode keeps the classic look: no glass or Material You, and monochrome highlights.
   const legacy = localStorage.getItem("kiro-legacy-mode") === "true";
-  const style = legacy ? "solid" : localStorage.getItem("kiro-theme-style") || "frosted";
+  const style = legacy ? "solid" : localStorage.getItem("kiro-theme-style") || "liquid";
   root.classList.remove(...THEME_STYLES.map((s) => `style-${s}`));
   root.classList.add(`style-${(THEME_STYLES as readonly string[]).includes(style) ? style : "solid"}`);
 

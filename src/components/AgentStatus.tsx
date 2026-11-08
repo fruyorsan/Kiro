@@ -48,10 +48,20 @@ export function AgentDot({ activity }: { activity: AgentActivity }) {
   return <span className={`agent-dot ${activity.state}`} title={useAgentLabel(activity)} />;
 }
 
+/** A ring that spins around the penguin while a task is running and settles
+ *  into a still, fully drawn circle once the agent is done or has failed. */
+export function AgentRing({ activity }: { activity: AgentActivity }) {
+  return (
+    <span className={`agent-ring ${activity.state}`} title={useAgentLabel(activity)}>
+      <AgentMascot activity={activity} />
+    </span>
+  );
+}
+
 export function AgentLeft({ activity, dot }: { activity: AgentActivity; dot: boolean }) {
   return (
     <>
-      <AgentMascot activity={activity} />
+      <AgentRing activity={activity} />
       {dot && <AgentDot activity={activity} />}
     </>
   );

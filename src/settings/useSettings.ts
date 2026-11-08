@@ -232,7 +232,7 @@ export function useSettings() {
     const val = localStorage.getItem("kiro-theme-brightness");
     return val !== null ? parseFloat(val) : 0.15;
   });
-  const [themeStyle, setThemeStyle] = useState(() => localStorage.getItem("kiro-theme-style") || "solid");
+  const [themeStyle, setThemeStyle] = useState(() => localStorage.getItem("kiro-theme-style") || "liquid");
   const [themeAccent, setThemeAccent] = useState(() => localStorage.getItem("kiro-theme-accent") || "mono");
   const [themeAccentColor, setThemeAccentColor] = useState(
     () => localStorage.getItem("kiro-theme-accent-color") || DEFAULT_ACCENT_COLOR

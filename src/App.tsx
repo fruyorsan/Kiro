@@ -29,7 +29,7 @@ import { SurfaceShape } from "./components/SurfaceShape";
 import { AiMarkdown } from "./aiMarkdown";
 import { AI_MAX_IMAGES, fileToAiImage, imageFilesFrom, imageFilesFromDataTransfer, type AiImage } from "./aiImage";
 import { playAgentSound } from "./agentSounds";
-import { AgentLeft, AgentDot, AgentPanel, type AgentActivity } from "./components/AgentStatus";
+import { AgentLeft, AgentPanel, type AgentActivity } from "./components/AgentStatus";
 import type { WidgetConfig } from "./components/StatusWidgetConfig";
 import {
   DEFAULT_DUAL_CLOCK_ZONE,
@@ -2257,6 +2257,13 @@ function App() {
   const agentNeedsYou = !!agentActivity && isNotchWindow;
   const agentWings = !!agentActivity && isNotchWindow && !isHovered && (kiroMode === 'status' || isMusicMode);
 
+  // The collapsed notch always shows a small balanced indicator set: weather and
+  // the agent ring on the left, playback and battery on the right. All of these
+  // values are already polled for the open panels, so this adds no background work.
+  const notchBalanced = isNotchWindow && !isHovered && !isMusicMode;
+  const showCollapsedWeather = notchBalanced && settingsWeatherEnabled && temperature !== null;
+  const showCollapsedBattery = notchBalanced && hasBattery;
+
   // The AI panel only owns the notch while it is actually on screen.
   const aiVisible = aiOpen && isExpanded && isHovered && !isHidden && kiroMode === 'command-center';
 
@@ -2277,7 +2284,9 @@ function App() {
     if (isMusicMode && isHovered) return mediaLayout === 'compact' ? 300 : 340;
     if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse) && !isHovered) return 200;
 
-    let w = 140 + dualClockExtra + (agentWings ? (isMusicMode ? 24 : 56) : 0);
+    let w = 140 + dualClockExtra + (agentWings ? (isMusicMode ? 24 : 34) : 0);
+    if (showCollapsedWeather) w += 46;
+    if (showCollapsedBattery) w += 46;
     if (isMusicMode) {
       if (settingsVisualizerEnabled && isPlaying) w += 30;
       if (settingsAlbumArtEnabled) w += 30;
@@ -2748,6 +2757,18 @@ function App() {
                                     </motion.div>
                                   )}
                                 </AnimatePresence>
+                              ) : showCollapsedWeather ? (
+                                <motion.div
+                                  key="collapsed-weather"
+                                  className="passive-feature"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  {...(settingsLegacyMode ? { "data-tooltip": t("notch.widgetsTooltip") } : {})}
+                                >
+                                  <WeatherIcon size={12} strokeWidth={2.2} />
+                                  <span className="label">{temperature}°{tempUnit === "fahrenheit" ? "F" : "C"}</span>
+                                </motion.div>
                               ) : (!isMusicMode && isHovered && statusWidgets.left.length > 0) ? (
                                 <motion.div
                                   key="left-widgets"
@@ -2821,9 +2842,7 @@ function App() {
 
                             {/* Right: album art (music) or battery (command-center, calendar) */}
                             <div className="side-content right">
-                              {agentWings && !isMusicMode && agentActivity ? (
-                                <AgentDot activity={agentActivity} />
-                              ) : isMusicMode && settingsAlbumArtEnabled ? (
+                              {isMusicMode && settingsAlbumArtEnabled ? (
                                 <AnimatePresence mode="wait">
                                   <motion.div
                                     key="album-art"
@@ -2893,6 +2912,21 @@ function App() {
                                   </button>
                                   </motion.div>
                                 </AnimatePresence>
+                              ) : showCollapsedBattery ? (
+                                <motion.div
+                                  key="collapsed-battery"
+                                  className={`passive-feature${batterySaverEnabled ? " saver-on" : ""}`}
+                                  role="button"
+                                  style={{ cursor: "pointer" }}
+                                  onClick={(e) => { e.stopPropagation(); void toggleBatterySaver(); }}
+                                  {...tip(batteryTooltip(isCharging, batteryLevel, batterySecondsLeft))}
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                >
+                                  <BatteryIcon charging={isCharging} level={batteryLevel} threshold={lowBatteryThreshold} />
+                                  <span className="label">{batteryLevel}%</span>
+                                </motion.div>
                               ) : (!isMusicMode && isHovered && statusWidgets.right.length > 0) ? (
                                 <motion.div
                                   key="right-widgets"
