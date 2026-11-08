@@ -239,7 +239,16 @@ fn hook_entries(exe: &str) -> Vec<(&'static str, Option<&'static str>, serde_jso
         let mut all = vec!["agent"];
         all.extend_from_slice(args);
         all.extend_from_slice(&["--name", "Claude Code"]);
-        let mut entry = serde_json::json!({ "type": "command", "command": exe, "args": all });
+        // Claude Code runs a hook's "command" through the shell and has no
+        // "args" field, so the flags have to live inside the command string.
+        // Emitting them separately launched a bare kiro.exe (a second app
+        // window) and never reported any activity.
+        let quoted: Vec<String> = all
+            .iter()
+            .map(|arg| if arg.contains(' ') { format!("\"{arg}\"") } else { (*arg).to_string() })
+            .collect();
+        let command = format!("\"{exe}\" {}", quoted.join(" "));
+        let mut entry = serde_json::json!({ "type": "command", "command": command });
         if let Some(timeout) = timeout {
             entry["timeout"] = timeout.into();
         }
@@ -260,7 +269,15 @@ fn hook_entries(exe: &str) -> Vec<(&'static str, Option<&'static str>, serde_jso
 fn is_ours(group: &serde_json::Value) -> bool {
     group["hooks"].as_array().is_some_and(|hooks| {
         hooks.iter().any(|hook| {
-            hook["args"][0].as_str() == Some("agent") && hook["command"].as_str().is_some_and(|c| c.to_ascii_lowercase().contains("kiro"))
+            let command = hook["command"].as_str().unwrap_or_default().to_ascii_lowercase();
+            if !command.contains("kiro") {
+                return false;
+            }
+            // Older builds wrote the flags to a separate "args" array, which
+            // Claude Code ignores. Treat those as ours too so they get replaced
+            // instead of piling up next to the working entry.
+            hook["args"][0].as_str() == Some("agent")
+                || command.split_whitespace().any(|part| part == "agent")
         })
     })
 }
@@ -337,6 +354,10 @@ pub fn start(app: AppHandle) {
     if !enabled {
         return;
     }
+    // Older builds wrote hooks in a shape Claude Code ignores, so a user who
+    // had the feature on could never see the penguin. Re-sync on every launch;
+    // the writer compares before saving, so an up-to-date file costs nothing.
+    std::thread::spawn(|| set_hooks(true));
     let Some(token) = random_token() else { return };
     let Ok(listener) = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))) else { return };
     let Ok(addr) = listener.local_addr() else { return };
