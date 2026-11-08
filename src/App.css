@@ -1709,6 +1709,25 @@ img {
     background: color-mix(in srgb, var(--kiro-highlight, var(--kiro-text, #ffffff)) 88%, transparent);
 }
 
+/* Claude lives in the middle of the action row; tint it with its own accent so
+   it reads as the assistant, not as another system toggle. */
+.cc-circular-btn.ai-btn {
+    color: var(--kiro-ai-accent, #d97757);
+    border-color: color-mix(in srgb, var(--kiro-ai-accent, #d97757) 38%, transparent);
+    background: color-mix(in srgb, var(--kiro-ai-accent, #d97757) 14%, transparent);
+}
+
+.cc-circular-btn.ai-btn:hover {
+    background: color-mix(in srgb, var(--kiro-ai-accent, #d97757) 26%, transparent);
+    color: var(--kiro-ai-accent, #d97757);
+}
+
+.cc-circular-btn.ai-btn.active {
+    background: var(--kiro-ai-accent, #d97757);
+    border-color: var(--kiro-ai-accent, #d97757);
+    color: #fff;
+}
+
 /* Classic Sliders Area */
 .cc-classic-sliders-area {
     display: flex;
@@ -2768,4 +2787,213 @@ img {
 
 .time-date:hover {
     color: var(--kiro-text, white);
+}
+
+/* ---- Notch AI (Claude) ---- */
+.ai-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+
+.ai-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--kiro-text, #fff);
+  opacity: 0.92;
+}
+
+.ai-title svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.85;
+}
+
+/* Brand tint for the active assistant in the panel title. */
+.ai-brand-claude {
+  color: #d97757;
+}
+
+.ai-brand-openai {
+  color: var(--kiro-text, #fff);
+}
+
+.ai-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Quick provider switch: the three real marks sit next to the close button. */
+.ai-provider-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+}
+
+.ai-provider-chip {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.6));
+  opacity: 0.45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.ai-provider-chip svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ai-provider-chip:hover {
+  opacity: 0.85;
+  background: var(--kiro-border, rgba(255, 255, 255, 0.1));
+}
+
+.ai-provider-chip.active {
+  opacity: 1;
+  background: var(--kiro-border, rgba(255, 255, 255, 0.12));
+}
+
+.ai-provider-chip[data-provider="claude"].active {
+  color: #d97757;
+}
+
+.ai-provider-chip[data-provider="openai"].active {
+  color: var(--kiro-text, #fff);
+}
+
+.ai-close {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.6));
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.ai-close svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ai-close:hover {
+  background: var(--kiro-border, rgba(255, 255, 255, 0.1));
+  color: var(--kiro-text, #fff);
+}
+
+.ai-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--kiro-text, #fff);
+  scrollbar-width: thin;
+}
+
+.ai-hint,
+.ai-thinking {
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.ai-thinking {
+  animation: ai-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.ai-error {
+  color: #ff8a8a;
+}
+
+.ai-answer {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.ai-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.12));
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+  color: var(--kiro-text, #fff);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.ai-input:focus {
+  border-color: var(--kiro-accent, #007aff);
+}
+
+.ai-input::placeholder {
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.45));
+}
+
+.ai-send {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.12));
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+  color: var(--kiro-text, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ai-send svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ai-send:disabled {
+  opacity: 0.35;
+  cursor: default;
 }

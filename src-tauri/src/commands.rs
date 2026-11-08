@@ -718,8 +718,35 @@ fn gui_launcher_for(path: &str) -> Option<String> {
     (twin.exists() && pe_subsystem(twin_str) == Some(2)).then(|| twin_str.to_string())
 }
 
+/// Some apps expose a helper process as their window owner. Pinning such a
+/// window stores the helper executable, and launching that helper on its own
+/// does nothing at all (Steam's `steamwebhelper.exe` is the common case: the
+/// Steam window belongs to the CEF helper, but only `steam.exe` starts Steam).
+/// Map those helpers back to the real launcher.
+fn resolve_helper_target(path: &str) -> Option<String> {
+    let exe = std::path::Path::new(path);
+    let name = exe.file_name()?.to_str()?.to_ascii_lowercase();
+    match name.as_str() {
+        "steamwebhelper.exe" => {
+            // Walk up from bin/cef/cef.win64/steamwebhelper.exe to the Steam root.
+            let mut dir = exe.parent()?;
+            for _ in 0..6 {
+                let candidate = dir.join("steam.exe");
+                if candidate.is_file() {
+                    return Some(candidate.to_string_lossy().into_owned());
+                }
+                dir = dir.parent()?;
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 /// Opens a path, shortcut or shell app id through the shell.
 fn launch_path(path: &str, args: Option<&str>) {
+    let resolved = resolve_helper_target(path);
+    let path = resolved.as_deref().unwrap_or(path);
     unsafe {
         use windows::Win32::UI::Shell::ShellExecuteW;
         use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
@@ -1986,6 +2013,25 @@ pub fn save_pinned_apps(app: AppHandle, apps: Vec<AppInfo>) -> Result<(), String
     Ok(())
 }
 
+fn repair_pinned_targets(apps: &mut [AppInfo]) -> bool {
+    let mut changed = false;
+    for app in apps.iter_mut() {
+        let Some(target) = resolve_helper_target(&app.path) else { continue };
+        app.path = target;
+        if let Some(exe) = std::path::Path::new(&app.path).file_name() {
+            app.executable = Some(exe.to_string_lossy().into_owned());
+        }
+        if app.name.to_ascii_lowercase().contains("webhelper") {
+            app.name = "Steam".to_string();
+        }
+        app.hwnd = None;
+        app.all_hwnds = None;
+        app.is_running = false;
+        changed = true;
+    }
+    changed
+}
+
 #[tauri::command]
 pub async fn load_pinned_apps(app: AppHandle) -> Vec<AppInfo> {
     let cfg_dir = app.path().app_config_dir().unwrap_or_default();
@@ -2004,7 +2050,15 @@ pub async fn load_pinned_apps(app: AppHandle) -> Vec<AppInfo> {
     }
 
     if let Ok(content) = std::fs::read_to_string(&path) {
-        if let Ok(apps) = serde_json::from_str(&content) { return apps; }
+        if let Ok(mut apps) = serde_json::from_str::<Vec<AppInfo>>(&content) {
+            // Pins created before the helper-process fix store a helper exe
+            // (Steam's window belongs to steamwebhelper.exe). Repair them once
+            // so an existing pin starts working without re-pinning.
+            if repair_pinned_targets(&mut apps) {
+                let _ = save_pinned_apps(app.clone(), apps.clone());
+            }
+            return apps;
+        }
     }
 
     vec![

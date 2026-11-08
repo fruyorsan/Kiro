@@ -78,7 +78,7 @@ function Logo({ size = 64, idle = false }: { size?: number; idle?: boolean }) {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 220, damping: 18 }}
     >
-      <img src="/kiro.svg" alt="Kiro" width={size * 0.55} height={size * 0.55} />
+      <img src="/kiro.png" alt="Kiro" width={size * 0.72} height={size * 0.72} />
     </motion.div>
   );
 }

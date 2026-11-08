@@ -1,4 +1,4 @@
-import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap, Gamepad2 } from "lucide-react";
+import { Power, Download, Clock, History, BatteryWarning, RefreshCw, LogOut, Languages, MemoryStick, Zap, Gamepad2, Sparkles, KeyRound, Cpu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -229,13 +229,109 @@ interface GeneralTabProps {
   toggleGameBoost: () => void;
   fpsBoost: boolean;
   toggleFpsBoost: () => void;
-  ramUltra: boolean;
-  toggleRamUltra: () => void;
   lowBatteryThreshold: number;
   hasBattery: boolean;
   handleThresholdChange: (val: number) => void;
   restartKiro: () => void;
   quitKiro: () => void;
+}
+
+/**
+ * Notch AI settings. The provider picker chooses which assistant the notch
+ * talks to; Claude can fall back to the local Claude Code CLI, ChatGPT and
+ * Gemini use their HTTP APIs with the key stored here.
+ */
+const AI_PROVIDERS = [
+  { value: "claude", label: "Claude", keyHint: "sk-ant-…", model: "claude-sonnet-4-5" },
+  { value: "openai", label: "ChatGPT", keyHint: "sk-…", model: "gpt-4o-mini" },
+  { value: "gemini", label: "Gemini", keyHint: "AIza…", model: "gemini-2.0-flash" },
+];
+
+function AiSection() {
+  const t = useT();
+  const [provider, setProvider] = useState(() => localStorage.getItem("kiro-ai-provider") ?? "claude");
+  const [backend, setBackend] = useState(() => localStorage.getItem("kiro-ai-backend") ?? "auto");
+  const providerInfo = AI_PROVIDERS.find((item) => item.value === provider) ?? AI_PROVIDERS[0];
+  // Claude keeps the original keys so an existing setup survives the update.
+  const keySetting = provider === "claude" ? "kiro-ai-key" : `kiro-ai-key-${provider}`;
+  const modelSetting = provider === "claude" ? "kiro-ai-model" : `kiro-ai-model-${provider}`;
+  const [key, setKey] = useState(() => localStorage.getItem(keySetting) ?? "");
+  const [model, setModel] = useState(
+    () => localStorage.getItem(modelSetting) ?? providerInfo.model
+  );
+
+  useEffect(() => {
+    setKey(localStorage.getItem(keySetting) ?? "");
+    setModel(localStorage.getItem(modelSetting) ?? providerInfo.model);
+  }, [keySetting, modelSetting, providerInfo.model]);
+
+  const save = (k: string, v: string) => {
+    localStorage.setItem(k, v);
+    invoke("save_setting", { key: k, value: v }).catch(() => {});
+  };
+
+  const backendOptions = [
+    { value: "auto", label: t("general.aiBackend.auto") },
+    { value: "cli", label: t("general.aiBackend.cli") },
+    { value: "api", label: t("general.aiBackend.api") },
+  ];
+
+  return (
+    <SettingSection id="general-ai" title={t("general.aiSection")}>
+      <SettingRow icon={Sparkles} label={t("general.aiProvider")} desc={t("general.aiProvider.desc")}>
+        <Dropdown
+          value={provider}
+          options={AI_PROVIDERS.map((item) => ({ value: item.value, label: item.label }))}
+          onChange={(value) => {
+            setProvider(value);
+            save("kiro-ai-provider", value);
+          }}
+        />
+      </SettingRow>
+
+      {provider === "claude" && (
+        <SettingRow icon={Sparkles} label={t("general.aiBackend")} desc={t("general.aiBackend.desc")}>
+          <Dropdown
+            value={backend}
+            options={backendOptions}
+            onChange={(value) => {
+              setBackend(value);
+              save("kiro-ai-backend", value);
+            }}
+          />
+        </SettingRow>
+      )}
+
+      <SettingRow icon={KeyRound} label={t("general.aiKey")} desc={t("general.aiKey.desc")}>
+        <input
+          className="ai-settings-input"
+          type="password"
+          value={key}
+          placeholder={providerInfo.keyHint}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => {
+            setKey(e.target.value);
+            save(keySetting, e.target.value.trim());
+          }}
+        />
+      </SettingRow>
+
+      <SettingRow icon={Cpu} label={t("general.aiModel")} desc={t("general.aiModel.desc")} divider={false}>
+        <input
+          className="ai-settings-input"
+          type="text"
+          value={model}
+          placeholder={providerInfo.model}
+          spellCheck={false}
+          onChange={(e) => {
+            setModel(e.target.value);
+            save(modelSetting, e.target.value.trim());
+          }}
+        />
+      </SettingRow>
+    </SettingSection>
+  );
 }
 
 export function GeneralTab({
@@ -255,8 +351,6 @@ export function GeneralTab({
   toggleGameBoost,
   fpsBoost,
   toggleFpsBoost,
-  ramUltra,
-  toggleRamUltra,
   lowBatteryThreshold,
   hasBattery,
   handleThresholdChange,
@@ -343,18 +437,6 @@ export function GeneralTab({
           </label>
         </SettingRow>
 
-        <SettingRow
-          icon={Zap}
-          label={t("general.ramUltra")}
-          desc={t("general.ramUltra.desc")}
-          divider={hasBattery}
-        >
-          <label className="toggle-switch">
-            <input type="checkbox" checked={ramUltra} onChange={toggleRamUltra} />
-            <span className="slider"></span>
-          </label>
-        </SettingRow>
-
         {hasBattery && (
           <SettingRow
             icon={BatteryWarning}
@@ -391,6 +473,8 @@ export function GeneralTab({
         </SettingRow>
         <FpsAuditPanel />
       </SettingSection>
+
+      <AiSection />
 
       <SettingSection id="general-app" title={t("general.app")}>
         <SettingRow icon={RefreshCw} label={t("general.restart")} desc={t("general.restart.desc")} action onClick={restartKiro} />

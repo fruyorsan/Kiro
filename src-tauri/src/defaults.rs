@@ -1,7 +1,7 @@
 //! Defaults written on first launch.
 //!
 //! A fresh install should already look and behave like the maintainer's own
-//! Kiro: notch in the bottom-right corner, dock in smart mode, 24-hour clock,
+//! Kiro: notch at the top edge, dock in smart mode, 24-hour clock,
 //! frosted theme, the quick-settings panel on the notch. Only keys that are
 //! missing are written, so a user who later changes a setting keeps the value
 //! they chose. Machine-specific state (monitor ids, weather cache, saved power
@@ -15,8 +15,8 @@ use tauri::Manager;
 
 fn defaults() -> Vec<(&'static str, Value)> {
     vec![
-        // Notch: bottom-right corner, 24-hour clock, quick settings on open.
-        ("kiro-notch-position", json!("bottom-right")),
+        // Notch: top edge, 24-hour clock, quick settings on open.
+        ("kiro-notch-position", json!("top")),
         ("kiro-time-format-24h", json!("true")),
         ("kiro-notch-edge-delay", json!("200")),
         ("kiro-notch-scroll-volume", json!("false")),
@@ -35,7 +35,6 @@ fn defaults() -> Vec<(&'static str, Value)> {
         ("kiro-dock-show-desktop-corner", json!("true")),
         // Performance: memory saving and the automatic game/fullscreen mode.
         ("kiro-ram-saver", json!("true")),
-        ("kiro-ram-ultra", json!("false")),
         ("kiro-auto-perf", json!("true")),
         ("kiro-game-boost", json!("true")),
         ("kiro-fps-boost", json!("true")),

@@ -16,39 +16,8 @@ const BASE_ARGS: &str = concat!(
     "--num-raster-threads=2"
 );
 
-const ULTRA_ARGS: &str = " --disable-gpu";
-
-fn settings_file() -> Option<std::path::PathBuf> {
-    let appdata = std::env::var_os("APPDATA")?;
-    Some(
-        std::path::PathBuf::from(appdata)
-            .join("com.fruyorsan.kiro")
-            .join("settings.json"),
-    )
-}
-
-fn read_setting(key: &str) -> Option<serde_json::Value> {
-    let path = settings_file()?;
-    let content = std::fs::read_to_string(path).ok()?;
-    let map: std::collections::HashMap<String, serde_json::Value> =
-        serde_json::from_str(&content).ok()?;
-    map.get(key).cloned()
-}
-
-fn flag_enabled(key: &str) -> bool {
-    match read_setting(key) {
-        Some(serde_json::Value::Bool(b)) => b,
-        Some(serde_json::Value::String(s)) => s == "true",
-        _ => false,
-    }
-}
-
 pub fn arguments() -> String {
-    let mut args = String::from(BASE_ARGS);
-    if flag_enabled("kiro-ram-ultra") {
-        args.push_str(ULTRA_ARGS);
-    }
-    args
+    BASE_ARGS.to_string()
 }
 
 pub fn apply() {

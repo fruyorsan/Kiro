@@ -848,6 +848,7 @@ const Dock = memo(function Dock() {
 
   const menuRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
+  const submenuItemRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   // Moving the pointer from the menu item into the fly-out crosses a small gap.
@@ -872,7 +873,7 @@ const Dock = memo(function Dock() {
     submenuCloseTimer.current = setTimeout(() => {
       submenuCloseTimer.current = null;
       setActiveSubmenu(null);
-    }, 450);
+    }, 1200);
   };
 
 
@@ -904,6 +905,46 @@ const Dock = memo(function Dock() {
     invoke('set_menu_open', { open: false, rect: null }).catch(() => {});
   };
 
+  // The fly-out used to rely on mouseenter/mouseleave. When React paints the
+  // fly-out under a pointer that is already moving into it, the browser never
+  // fires mouseenter, so the close timer won the race and the fly-out vanished
+  // while the user was heading towards it. Drive it from what is actually under
+  // the pointer instead, and treat the union of the menu box and the fly-out
+  // box (plus the gap between them) as "inside": hit-testing alone fails while
+  // the pointer crosses the gap, because there is no element there.
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onMove = (e: MouseEvent) => {
+      const item = submenuItemRef.current;
+      const sub = submenuRef.current;
+      const menu = menuRef.current;
+      if (!item || !sub) return;
+      const pad = 10;
+      const inside = (rect: DOMRect) =>
+        e.clientX >= rect.left - pad &&
+        e.clientX <= rect.right + pad &&
+        e.clientY >= rect.top - pad &&
+        e.clientY <= rect.bottom + pad;
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const overItem = inside(item.getBoundingClientRect()) || (!!under && item.contains(under));
+      const overSub =
+        activeSubmenu === 'kiro' &&
+        (inside(sub.getBoundingClientRect()) || (!!under && sub.contains(under)));
+      // Anywhere inside the menu counts as "still interested": passing over
+      // another item on the way to the fly-out must not start the close timer,
+      // otherwise a diagonal move closes the fly-out before it is reached.
+      const overMenu = !!menu && (inside(menu.getBoundingClientRect()) || (!!under && menu.contains(under)));
+      if (overItem || overSub || overMenu) {
+        if (submenuCloseTimer.current) cancelSubmenuClose();
+        if (overItem && activeSubmenu !== 'kiro') setActiveSubmenu('kiro');
+      } else if (activeSubmenu === 'kiro' && !submenuCloseTimer.current) {
+        scheduleSubmenuClose();
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [contextMenu, activeSubmenu]);
+
   const closePopup = () => {
     setShowAddPopup(false);
     invoke('set_menu_open', { open: false, rect: null }).catch(() => {});
@@ -934,30 +975,27 @@ const Dock = memo(function Dock() {
     if (contextMenu && menuRef.current) {
       const r = menuRef.current.getBoundingClientRect();
       // The fly-out submenu sits outside the menu box, and the native mouse
-      // hook routes clicks by this rect. Report the union of both so hovering
-      // and clicking the submenu keeps working instead of falling through.
-      const sub = activeSubmenu ? submenuRef.current?.getBoundingClientRect() : null;
+      // hook routes clicks by this rect. Report the union of the menu and the
+      // strip the fly-out occupies so hovering and clicking it keeps working
+      // instead of falling through. The strip is reserved even while the
+      // fly-out is open: the pointer has to cross it, and a measured rect can
+      // lag behind the zoomed layout by a frame, which used to make the region
+      // click-through mid-transit and close the fly-out.
+      const flyoutWidth = (220 + 16) * scale;
+      const flyoutHeight = 280 * scale;
+      const opensLeft = r.x + r.width + flyoutWidth > window.innerWidth - 8;
       let left = r.x;
       let right = r.right;
-      let top = r.y;
+      let top = Math.max(0, r.y - flyoutHeight);
       let bottom = r.bottom;
+      if (opensLeft) left -= flyoutWidth;
+      else right += flyoutWidth;
+      const sub = activeSubmenu ? submenuRef.current?.getBoundingClientRect() : null;
       if (sub) {
         left = Math.min(left, sub.x);
         right = Math.max(right, sub.right);
         top = Math.min(top, sub.y);
         bottom = Math.max(bottom, sub.bottom);
-      } else {
-        // Reserve the strip the fly-out will occupy before it is opened. The
-        // pointer has to cross that strip to reach the fly-out, and without
-        // this the native hit-test made it click-through and the fly-out
-        // closed/never received the pointer. The fly-out grows upwards from the
-        // menu item, so reserve its full vertical reach as well.
-        const flyoutWidth = (220 + 16) * scale;
-        const flyoutHeight = 280 * scale;
-        const opensLeft = r.x + r.width + flyoutWidth > window.innerWidth - 8;
-        if (opensLeft) left -= flyoutWidth;
-        else right += flyoutWidth;
-        top = Math.max(0, top - flyoutHeight);
       }
       rect = {
         x: Math.round(left),
@@ -1878,13 +1916,14 @@ const Dock = memo(function Dock() {
                 {t("dockmenu.addApp")}
               </div>
               <div
+                ref={submenuItemRef}
                 className={`menu-item has-submenu${activeSubmenu === 'kiro' ? ' open' : ''}`}
                 onMouseEnter={() => openSubmenu('kiro')}
                 onMouseLeave={scheduleSubmenuClose}
                 onClick={() => openSubmenu('kiro')}
               >
                 {t("dockmenu.options")}
-                <span className="submenu-arrow">{submenuOpensLeft ? "\u25c2" : "\u25b8"}</span>
+                <svg className={`submenu-arrow${submenuOpensLeft ? ' left' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
                 <div
                   ref={submenuRef}
                   className={`submenu${activeSubmenu === 'kiro' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
@@ -1924,13 +1963,14 @@ const Dock = memo(function Dock() {
                 {t("dockmenu.addApp")}
               </div>
               <div
+                ref={submenuItemRef}
                 className={`menu-item has-submenu${activeSubmenu === 'kiro' ? ' open' : ''}`}
                 onMouseEnter={() => openSubmenu('kiro')}
                 onMouseLeave={scheduleSubmenuClose}
                 onClick={() => openSubmenu('kiro')}
               >
                 {t("dockmenu.options")}
-                <span className="submenu-arrow">{submenuOpensLeft ? "\u25c2" : "\u25b8"}</span>
+                <svg className={`submenu-arrow${submenuOpensLeft ? ' left' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
                 <div
                   ref={submenuRef}
                   className={`submenu${activeSubmenu === 'kiro' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}

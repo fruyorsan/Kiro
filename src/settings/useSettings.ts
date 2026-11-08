@@ -102,9 +102,6 @@ export function useSettings() {
   const [fpsBoost, setFpsBoost] = useState(
     () => localStorage.getItem("kiro-fps-boost") !== "false"
   );
-  const [ramUltra, setRamUltra] = useState(
-    () => localStorage.getItem("kiro-ram-ultra") === "true"
-  );
   const [tempUnitFahrenheit, setTempUnitFahrenheit] = useState(false);
   const [cityName, setCityName] = useState("");
   const [cityQuery, setCityQuery] = useState("");
@@ -170,7 +167,7 @@ export function useSettings() {
     () => localStorage.getItem("kiro-dock-desktop-persist") !== "false"
   );
   const [notchPosition, setNotchPosition] = useState(
-    () => localStorage.getItem("kiro-notch-position") || "bottom-right"
+    () => localStorage.getItem("kiro-notch-position") || "top"
   );
   const [dockWinNumberEnabled, setDockWinNumberEnabled] = useState(
     () => localStorage.getItem("kiro-dock-win-number-enabled") !== "false"
@@ -286,7 +283,6 @@ export function useSettings() {
       apply(getVal("kiro-auto-perf"), setAutoPerf, (v) => v !== "false");
       apply(getVal("kiro-game-boost"), setGameBoost, (v) => v !== "false");
       apply(getVal("kiro-fps-boost"), setFpsBoost, (v) => v !== "false");
-      apply(getVal("kiro-ram-ultra"), setRamUltra, readBool);
       apply(getVal("kiro-auto-update"), setAutoUpdate, readBool);
       apply(getVal("kiro-update-channel"), setPrereleaseChannel, (v) => v === "prerelease");
       apply(getVal("kiro-volume-edge-enabled"), setVolumeEdgeEnabled, readBool);
@@ -454,7 +450,6 @@ export function useSettings() {
     "kiro-time-format-24h": setTimeFormat24h,
     "kiro-legacy-mode": setLegacyMode,
     "kiro-ram-saver": (v) => setRamSaver(v !== false && v !== "false"),
-    "kiro-ram-ultra": (v) => setRamUltra(v === true || v === "true"),
     "kiro-auto-perf": (v) => setAutoPerf(v !== false && v !== "false"),
     "kiro-game-boost": (v) => setGameBoost(v !== false && v !== "false"),
     "kiro-fps-boost": (v) => setFpsBoost(v !== false && v !== "false"),
@@ -776,12 +771,6 @@ export function useSettings() {
     const next = !fpsBoost;
     setFpsBoost(next);
     saveSetting("kiro-fps-boost", String(next));
-  };
-
-  const toggleRamUltra = () => {
-    const next = !ramUltra;
-    setRamUltra(next);
-    saveSetting("kiro-ram-ultra", String(next));
   };
 
   const toggleTempUnit = () => {
@@ -1243,8 +1232,6 @@ export function useSettings() {
     toggleUpdateIndicator,
     ramSaver,
     toggleRamSaver,
-    ramUltra,
-    toggleRamUltra,
     autoPerf,
     toggleAutoPerf,
     gameBoost,

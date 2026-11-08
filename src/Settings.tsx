@@ -117,8 +117,6 @@ function SettingsApp() {
               toggleUpdateIndicator={settings.toggleUpdateIndicator}
               ramSaver={settings.ramSaver}
               toggleRamSaver={settings.toggleRamSaver}
-              ramUltra={settings.ramUltra}
-              toggleRamUltra={settings.toggleRamUltra}
               lowBatteryThreshold={settings.lowBatteryThreshold}
               hasBattery={settings.hasBattery}
               handleThresholdChange={settings.handleThresholdChange}

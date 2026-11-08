@@ -33,6 +33,7 @@ mod defaults;
 mod perf;
 mod game_boost;
 mod fps_boost;
+mod ai;
 
 use tauri::Manager;
 use windows::Win32::System::Console::SetConsoleCtrlHandler;
@@ -179,6 +180,7 @@ fn main() {
             remove_custom_icon,
             get_custom_icons,
             set_menu_open,
+            ai::ai_ask,
             set_window_keyboard_focus,
             get_drives,
             open_dock_extra,
