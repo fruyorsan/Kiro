@@ -14,6 +14,8 @@
   "general.legacyMode.desc": "Klasik çentik ve dock'u korur. 1.4 sürümünden sonraki özellikleri kapatır",
   "general.ramSaver": "Bellek Tasarrufu",
   "general.ramSaver.desc": "Etkileşimi bıraktıktan birkaç saniye sonra kullanılmayan belleği Windows'a geri verir. Görünümü değiştirmez",
+  "general.ramUltra": "Maksimum Bellek Tasarrufu",
+  "general.ramUltra.desc": "GPU hızlandırmasını kapatır: yaklaşık 140-170 MB daha az RAM kullanır. Bulanıklık ve animasyonlar yavaşlar; yeniden başlatma gerekir",
   "general.notchPosition": "Çentik konumu",
   "general.notchPosition.desc": "Üst orta (varsayılan) veya sağ alt köşede yüzen çentik",
   "general.notchPosition.top": "Üst orta (varsayılan)",

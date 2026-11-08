@@ -35,6 +35,9 @@ fn defaults() -> Vec<(&'static str, Value)> {
         ("kiro-dock-show-desktop-corner", json!("true")),
         // Performance: memory saving and the automatic game/fullscreen mode.
         ("kiro-ram-saver", json!("true")),
+        // Opt-in GPU-off mode: ~140-170 MB less private memory, but blur and
+        // animations are rendered on the CPU and a restart is required.
+        ("kiro-ram-ultra", json!("false")),
         ("kiro-auto-perf", json!("true")),
         ("kiro-game-boost", json!("true")),
         ("kiro-fps-boost", json!("true")),

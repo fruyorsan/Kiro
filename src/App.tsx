@@ -1614,7 +1614,23 @@ function App() {
     };
 
     updateTime();
-    const interval = setVisibleInterval(updateTime, 1000);
+    // The clock shows hours and minutes, so there is nothing to repaint until
+    // the minute changes. A self-arming timeout that fires exactly on the next
+    // minute boundary keeps the idle renderer asleep instead of waking it 60
+    // times a minute. A reveal after the window was hidden (game boost) would
+    // otherwise show a stale minute, so visibility also refreshes it.
+    let clockTimer: number | undefined;
+    const scheduleClock = () => {
+      clockTimer = window.setTimeout(() => {
+        updateTime();
+        scheduleClock();
+      }, 60_000 - (Date.now() % 60_000) + 50);
+    };
+    scheduleClock();
+    const onVisibility = () => {
+      if (!document.hidden) updateTime();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     // Toggle compact timer view every 5 seconds if running
     let timerToggleInterval: any;
@@ -1627,7 +1643,8 @@ function App() {
     }
 
     return () => {
-      clearInterval(interval);
+      if (clockTimer) clearTimeout(clockTimer);
+      document.removeEventListener("visibilitychange", onVisibility);
       if (timerToggleInterval) clearInterval(timerToggleInterval);
     };
   }, [isTimerRunning, stopwatch.running, kiroMode, timeFormat24h, settingsDualClockEnabled, dualClockZone]);

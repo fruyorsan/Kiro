@@ -8,7 +8,9 @@ use windows::Win32::System::Diagnostics::ToolHelp::{
 };
 use windows::Win32::System::ProcessStatus::EmptyWorkingSet;
 use windows::Win32::System::Threading::{
-    GetCurrentProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_QUOTA,
+    GetCurrentProcess, OpenProcess, SetProcessInformation, ProcessMemoryPriority,
+    MEMORY_PRIORITY_INFORMATION, MEMORY_PRIORITY_NORMAL, MEMORY_PRIORITY_VERY_LOW,
+    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION, PROCESS_SET_QUOTA,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
@@ -17,12 +19,16 @@ use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThre
 // seconds keeps the always-on dock/notch renderers and the GPU process at a
 // near-zero working set, so the first hover after idle has to fault hundreds of
 // megabytes back in. That shows up as an input stutter, so trim once the app is
-// properly idle and then leave it alone for a long while.
+// properly idle and then leave it alone for a while.
 const SETTLE_MS: i64 = 10_000;
 
-const RETRIM_MS: i64 = 120_000;
+// 45 s (was 2 min): the renderers grow back quickly from timers and small
+// polls, so the old interval let the task-manager number sit ~100 MB above the
+// trimmed floor. Trimming still only happens after SETTLE_MS of real idle and
+// the whole tree is restored before the next hover, so this stays invisible.
+const RETRIM_MS: i64 = 45_000;
 
-const MEDIA_RETRIM_MS: i64 = 300_000;
+const MEDIA_RETRIM_MS: i64 = 120_000;
 
 const STARTUP_GRACE_MS: i64 = 8_000;
 
@@ -38,6 +44,11 @@ static TRIM_SOON: AtomicBool = AtomicBool::new(false);
 
 static STARTED_AT_MS: AtomicI64 = AtomicI64::new(0);
 
+/// True while the whole process tree is at MEMORY_PRIORITY_VERY_LOW. The flag
+/// keeps the restore sweep out of the hot path: `mark_interaction` runs on every
+/// hover/poll tick, but only the first call after an idle trim touches handles.
+static LOW_PRIORITY: AtomicBool = AtomicBool::new(false);
+
 pub fn init() {
     STARTED_AT_MS.store(crate::utils::get_now_ms(), Ordering::Relaxed);
     LAST_INTERACTION_MS.store(crate::utils::get_now_ms(), Ordering::Relaxed);
@@ -46,6 +57,13 @@ pub fn init() {
 pub fn mark_interaction() {
     LAST_INTERACTION_MS.store(crate::utils::get_now_ms(), Ordering::Relaxed);
     TRIM_SOON.store(false, Ordering::Relaxed);
+    // Back from idle: raise the tree before the user can notice. Without this
+    // the first hover after a trim would be served from pages that Windows
+    // already dropped, which is the stutter the old code avoided by trimming
+    // rarely.
+    if LOW_PRIORITY.swap(false, Ordering::Relaxed) {
+        set_tree_priority(false);
+    }
 }
 
 pub fn set_busy(busy: bool) {
@@ -194,6 +212,59 @@ pub fn trim_tree() -> usize {
     trimmed
 }
 
+/// Memory priority is the per-process hint Windows' trimmer uses when RAM gets
+/// tight. Idle Kiro does not need to compete with the foreground game or app,
+/// so the whole tree drops to VERY_LOW once it settles. It is not a hard cap:
+/// pages only leave when something else actually needs them, and the next
+/// interaction puts every process back to NORMAL.
+fn set_priority_pid(pid: u32, low: bool) -> bool {
+    let priority = if low {
+        MEMORY_PRIORITY_VERY_LOW
+    } else {
+        MEMORY_PRIORITY_NORMAL
+    };
+    let info = MEMORY_PRIORITY_INFORMATION {
+        MemoryPriority: priority,
+    };
+    let size = std::mem::size_of::<MEMORY_PRIORITY_INFORMATION>() as u32;
+
+    unsafe {
+        if pid == std::process::id() {
+            return SetProcessInformation(
+                GetCurrentProcess(),
+                ProcessMemoryPriority,
+                &info as *const _ as *const core::ffi::c_void,
+                size,
+            )
+            .is_ok();
+        }
+
+        let handle: HANDLE = match OpenProcess(
+            PROCESS_SET_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION,
+            false,
+            pid,
+        ) {
+            Ok(h) => h,
+            Err(_) => return false,
+        };
+        let ok = SetProcessInformation(
+            handle,
+            ProcessMemoryPriority,
+            &info as *const _ as *const core::ffi::c_void,
+            size,
+        )
+        .is_ok();
+        let _ = CloseHandle(handle);
+        ok
+    }
+}
+
+fn set_tree_priority(low: bool) {
+    for pid in tree_pids() {
+        set_priority_pid(pid, low);
+    }
+}
+
 fn ram_saver_enabled(app: &tauri::AppHandle) -> bool {
     // On by default: a taskbar replacement should not be the reason a game
     // stutters. Users can turn it off in Settings > General.
@@ -271,6 +342,11 @@ pub fn start_reclaim_worker(app: tauri::AppHandle) {
 
                 last_trim = now;
                 let trimmed = trim_tree();
+                // Sweep every time: a settings window or a new renderer may
+                // have appeared since the last trim and would otherwise keep
+                // normal priority forever.
+                set_tree_priority(true);
+                LOW_PRIORITY.store(true, Ordering::Relaxed);
                 crate::diagnostics::log(&format!(
                     "idle reclaim: trimmed {trimmed} processes"
                 ));

@@ -223,6 +223,8 @@ interface GeneralTabProps {
   toggleUpdateIndicator: () => void;
   ramSaver: boolean;
   toggleRamSaver: () => void;
+  ramUltra: boolean;
+  toggleRamUltra: () => void;
   autoPerf: boolean;
   toggleAutoPerf: () => void;
   gameBoost: boolean;
@@ -345,6 +347,8 @@ export function GeneralTab({
   toggleUpdateIndicator,
   ramSaver,
   toggleRamSaver,
+  ramUltra,
+  toggleRamUltra,
   autoPerf,
   toggleAutoPerf,
   gameBoost,
@@ -408,6 +412,17 @@ export function GeneralTab({
         >
           <label className="toggle-switch">
             <input type="checkbox" checked={ramSaver} onChange={toggleRamSaver} />
+            <span className="slider"></span>
+          </label>
+        </SettingRow>
+
+        <SettingRow
+          icon={Zap}
+          label={t("general.ramUltra")}
+          desc={t("general.ramUltra.desc")}
+        >
+          <label className="toggle-switch">
+            <input type="checkbox" checked={ramUltra} onChange={toggleRamUltra} />
             <span className="slider"></span>
           </label>
         </SettingRow>

@@ -271,15 +271,27 @@ function DockClock() {
   const [use24h, setUse24h] = useState(() => localStorage.getItem("kiro-time-format-24h") !== "false");
 
   useEffect(() => {
-    // Align the first tick with the next second so the minute flips on time.
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const timeout = setTimeout(() => {
-      setNow(new Date());
-      // Re-rendering the whole dock once a second in a hidden window during a
-      // game is wasted work; the shared helper skips those ticks.
-      interval = setVisibleInterval(() => setNow(new Date()), 1000);
-    }, 1000 - (Date.now() % 1000));
-    return () => { clearTimeout(timeout); if (interval) clearInterval(interval); };
+    // The clock only changes once a minute, but this used to re-render the
+    // whole dock every second (`setNow(new Date())` always produced a new
+    // object, so React could not bail out). Align the first tick with the next
+    // minute and re-arm; a hidden window that comes back (game boost) also
+    // refreshes immediately so it never shows a stale minute.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        setNow(new Date());
+        schedule();
+      }, 60_000 - (Date.now() % 60_000) + 50);
+    };
+    schedule();
+    const onVisibility = () => {
+      if (!document.hidden) setNow(new Date());
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   useEffect(() => {
