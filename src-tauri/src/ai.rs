@@ -227,6 +227,59 @@ fn error_message(text: &str) -> String {
         .unwrap_or_else(|| text.chars().take(300).collect())
 }
 
+/// Providers answer with English machine text ("You exceeded your current
+/// quota"). On their own these are unreadable in a 340 px notch and never say
+/// what to do next, so map the frequent ones to a short Turkish instruction
+/// and keep the original wording in brackets for anyone who wants the details.
+fn friendly_error(provider: &str, status: u16, text: &str) -> String {
+    let raw = error_message(text);
+    let lower = raw.to_ascii_lowercase();
+    let quota = lower.contains("quota")
+        || lower.contains("insufficient")
+        || lower.contains("billing")
+        || lower.contains("credit balance")
+        || lower.contains("exceeded your current");
+    let auth = lower.contains("api key")
+        || lower.contains("api_key")
+        || lower.contains("invalid key")
+        || lower.contains("unauthorized")
+        || lower.contains("permission")
+        || status == 401
+        || status == 403;
+    let rate = lower.contains("rate limit")
+        || lower.contains("too many requests")
+        || lower.contains("resource_exhausted")
+        || status == 429;
+    let model = lower.contains("not found")
+        || lower.contains("does not exist")
+        || lower.contains("unsupported")
+        || status == 404;
+    let offline = lower.contains("timed out")
+        || lower.contains("timeout")
+        || lower.contains("connection")
+        || lower.contains("dns")
+        || lower.contains("network");
+
+    let hint = if quota {
+        "kota doldu. Faturalama sayfasından limiti artır ya da üstteki çiplerden başka bir sağlayıcıya geç"
+    } else if rate {
+        "çok fazla istek. Birkaç saniye bekleyip tekrar dene"
+    } else if auth {
+        "anahtar geçersiz ya da yetkisiz. Anahtar düğmesinden yenile"
+    } else if model {
+        "seçili model bu anahtarla kullanılamıyor. Ayarlar > Çentik AI bölümünden modeli değiştir"
+    } else if offline {
+        "sunucuya ulaşılamadı. Bağlantıyı kontrol edip tekrar dene"
+    } else {
+        ""
+    };
+
+    if hint.is_empty() {
+        return format!("{provider} API hatası: {raw}");
+    }
+    format!("{provider} API hatası: {hint} ({raw})")
+}
+
 /// An image attached to a question. The frontend already downscales it and
 /// hands over a `data:image/...;base64,...` URL, so what travels from the
 /// webview to here is a few hundred kilobytes, not a camera raw.
@@ -309,7 +362,7 @@ async fn ask_anthropic(
                 let status = response.status();
                 let text = response.text().await.map_err(|e| e.to_string())?;
                 if !status.is_success() {
-                    let error = format!("Claude API hatası: {}", error_message(&text));
+                    let error = friendly_error("Claude", status.as_u16(), &text);
                     // A failed continuation must not throw away the part that
                     // already arrived on screen.
                     if round > 0 && !answer.trim().is_empty() {
@@ -404,7 +457,7 @@ async fn ask_openai(
                 let status = response.status();
                 let text = response.text().await.map_err(|e| e.to_string())?;
                 if !status.is_success() {
-                    let error = format!("ChatGPT API hatası: {}", error_message(&text));
+                    let error = friendly_error("ChatGPT", status.as_u16(), &text);
                     if round > 0 && !answer.trim().is_empty() {
                         break;
                     }
@@ -497,7 +550,7 @@ async fn ask_gemini(
                 let status = response.status();
                 let text = response.text().await.map_err(|e| e.to_string())?;
                 if !status.is_success() {
-                    let error = format!("Gemini API hatası: {}", error_message(&text));
+                    let error = friendly_error("Gemini", status.as_u16(), &text);
                     if round > 0 && !answer.trim().is_empty() {
                         break;
                     }

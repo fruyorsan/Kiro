@@ -211,6 +211,7 @@ fn main() {
             set_dnd_enabled,
             fps_boost::fps_boost_state,
             fps_boost::fps_boost_profiles,
+            fps_boost::fps_boost_apply_profile,
             fps_boost::fps_boost_remove_profile,
             fps_boost::fps_boost_restore_all,
             fps_boost::fps_boost_system_tweaks_active,

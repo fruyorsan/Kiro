@@ -52,8 +52,6 @@ use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
 /// Master switch. Default on: the whole feature exists to be invisible.
 pub const SETTING: &str = "kiro-fps-boost";
-/// Per-application registry profiles (GPU preference + exclusive fullscreen).
-pub const COMPAT_SETTING: &str = "kiro-fps-compat-v2";
 
 const GPU_KEY: &str = r"Software\Microsoft\DirectX\UserGpuPreferences";
 const LAYERS_KEY: &str = r"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers";
@@ -69,12 +67,6 @@ const DX_GRAPHICS_KEY: &str = r"Software\Microsoft\DirectX\GraphicsSettings";
 const HOLD: Duration = Duration::from_millis(1200);
 /// Give focus blips (alt-tab, our own OSD) time to pass before releasing.
 const RELEASE_HOLD: Duration = Duration::from_millis(2500);
-/// How many fullscreen sessions an unknown exe needs before we touch its
-/// persistent registry profile. One is not enough: trailers, launchers,
-/// dev tools and benchmark screens go fullscreen once and should not be
-/// configured. Three separate launches is a strong signal the user really
-/// plays this.
-const SIGHTINGS_BEFORE_PROFILE: u32 = 3;
 
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 static SINCE: Mutex<Option<Instant>> = Mutex::new(None);
@@ -108,17 +100,6 @@ fn enabled(app: &AppHandle) -> bool {
     crate::utils::get_setting_str(app, SETTING)
         .map(|v| v != "false")
         .unwrap_or(true)
-}
-
-fn compat_enabled(app: &AppHandle) -> bool {
-    // Writing per-app compatibility/GPU registry values is opt-in and off by
-    // default. It permanently changes how Windows launches that exe and that
-    // is exactly the kind of "the game suddenly behaves differently" surprise
-    // Kiro must not create on its own. The reversible, in-memory boost above
-    // is what runs during a game.
-    crate::utils::get_setting_str(app, COMPAT_SETTING)
-        .map(|v| v == "true")
-        .unwrap_or(false)
 }
 
 // --- registry helpers -------------------------------------------------------
@@ -351,12 +332,7 @@ fn boostable(exe: &str) -> bool {
             | "photos.exe"
             | "gamebar.exe"
             | "steamwebhelper.exe"
-            // The lock screen and logon UI go fullscreen legitimately and are
-            // not games. Profiling them would be wrong and pointless.
-            | "lockapp.exe"
             | "logonui.exe"
-            | "textinputhost.exe"
-            | "sihost.exe"
             | "useroobebroker.exe"
             | "systemsettings.exe"
             | "windowssecurity.exe"
@@ -513,6 +489,14 @@ pub struct Profile {
     pub applied: bool,
     #[serde(default)]
     pub seen: u32,
+    /// True for profiles written without asking, by a build that did that.
+    /// Those are reverted at startup; everything the user applies is false.
+    #[serde(default = "default_auto")]
+    pub auto: bool,
+}
+
+fn default_auto() -> bool {
+    true
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -589,14 +573,14 @@ fn revert_registry_profile(profile: &Profile) {
     }
 }
 
-/// Older builds applied graphics profiles on their own. The automatic write is
-/// gone (it changed how Windows launched an exe forever, and it even hit
-/// LockApp.exe), so undo every profile those builds left behind once.
+/// Older builds applied graphics profiles without asking. `auto` is false on
+/// every profile the user applies deliberately from Settings, so this only ever
+/// undoes the writes nobody approved (it even hit `LockApp.exe`).
 fn revert_auto_profiles(app: &AppHandle) {
     let mut file = load_profiles(app);
     let mut reverted = 0;
     for profile in file.profiles.iter_mut() {
-        if profile.applied {
+        if profile.applied && profile.auto {
             revert_registry_profile(profile);
             profile.applied = false;
             reverted += 1;
@@ -605,45 +589,90 @@ fn revert_auto_profiles(app: &AppHandle) {
     if reverted > 0 {
         save_profiles(app, &file);
         crate::diagnostics::log(&format!(
-            "fps boost: restored {reverted} registry profile(s) written by an older build"
+            "fps boost: restored {reverted} registry profile(s) written without approval"
         ));
     }
 }
 
-/// Record a sighting and, once the same exe has been seen playing fullscreen
-/// twice, write the persistent per-app profile. Everything is backed up first.
-fn maybe_apply_profile(app: &AppHandle, exe: &str) {
-    if !compat_enabled(app) || !profile_allowed(exe) {
+/// Record that this exe ran fullscreen. Never writes to the registry: a
+/// graphics profile changes how Windows launches that exe forever, so it is
+/// only ever written when the user clicks the suggestion in Settings
+/// (spec rule: `Apply()` never exists without an explicit approval).
+fn note_sighting(app: &AppHandle, exe: &str) {
+    if !profile_allowed(exe) {
         return;
     }
     let mut file = load_profiles(app);
     if let Some(profile) = file.profiles.iter_mut().find(|p| p.exe.eq_ignore_ascii_case(exe)) {
-        if profile.applied {
-            return;
-        }
-        profile.seen = profile.seen.saturating_add(1);
-        if profile.seen < SIGHTINGS_BEFORE_PROFILE {
+        let next = profile.seen.saturating_add(1);
+        if next != profile.seen {
+            profile.seen = next;
             save_profiles(app, &file);
-            return;
         }
-        if apply_registry_profile(exe).is_ok() {
-            profile.applied = true;
-            crate::diagnostics::log(&format!("fps boost: applied graphics profile for {exe}"));
-        }
-        save_profiles(app, &file);
         return;
     }
-
-    // First sighting: remember the original values, do not touch anything.
     let profile = Profile {
         exe: exe.to_string(),
         gpu_previous: reg_get_string(HKEY_CURRENT_USER, GPU_KEY, exe),
         layers_previous: reg_get_string(HKEY_CURRENT_USER, LAYERS_KEY, exe),
         applied: false,
         seen: 1,
+        auto: false,
     };
     file.profiles.push(profile);
     save_profiles(app, &file);
+}
+
+/// Write the per-app graphics profile for one executable. Called only from the
+/// Settings button, never automatically.
+fn apply_profile_for(app: &AppHandle, exe: &str) -> Result<(), String> {
+    if !profile_allowed(exe) {
+        return Err("Bu uygulama için profil yazılmaz.".to_string());
+    }
+    let mut file = load_profiles(app);
+    let position = match file.profiles.iter().position(|p| p.exe.eq_ignore_ascii_case(exe)) {
+        Some(position) => position,
+        None => {
+            file.profiles.push(Profile {
+                exe: exe.to_string(),
+                gpu_previous: reg_get_string(HKEY_CURRENT_USER, GPU_KEY, exe),
+                layers_previous: reg_get_string(HKEY_CURRENT_USER, LAYERS_KEY, exe),
+                applied: false,
+                seen: 0,
+                auto: false,
+            });
+            file.profiles.len() - 1
+        }
+    };
+    // Back up the current values before touching anything, then write.
+    let profile = &mut file.profiles[position];
+    profile.gpu_previous = reg_get_string(HKEY_CURRENT_USER, GPU_KEY, exe);
+    profile.layers_previous = reg_get_string(HKEY_CURRENT_USER, LAYERS_KEY, exe);
+    let gpu_before = profile.gpu_previous.clone();
+    let layers_before = profile.layers_previous.clone();
+    save_profiles(app, &file);
+
+    if let Err(error) = apply_registry_profile(exe) {
+        // Put back whatever the first write managed to change.
+        let restore = Profile {
+            exe: exe.to_string(),
+            gpu_previous: gpu_before,
+            layers_previous: layers_before,
+            applied: false,
+            seen: 0,
+            auto: false,
+        };
+        revert_registry_profile(&restore);
+        return Err(error);
+    }
+
+    if let Some(profile) = file.profiles.iter_mut().find(|p| p.exe.eq_ignore_ascii_case(exe)) {
+        profile.applied = true;
+        profile.auto = false;
+    }
+    save_profiles(app, &file);
+    crate::diagnostics::log(&format!("fps boost: user applied graphics profile for {exe}"));
+    Ok(())
 }
 
 // --- session engage / release ----------------------------------------------
@@ -741,11 +770,10 @@ fn toast_backup_path(app: &AppHandle) -> Option<PathBuf> {
 /// Undo anything a previous Kiro process left behind. Runs at startup, before
 /// the foreground watcher exists.
 pub fn init(app: &AppHandle) {
-    // Undo the per-app registry profiles older builds wrote on their own, but
-    // only while the opt-in compatibility mode is off.
-    if !compat_enabled(app) {
-        revert_auto_profiles(app);
-    }
+    // Nothing is ever written to the registry without the user asking, so any
+    // profile marked `auto` came from a build that did it silently. Undo those.
+    revert_auto_profiles(app);
+    prune_profiles(app);
     let Some(path) = toast_backup_path(app) else {
         return;
     };
@@ -808,7 +836,7 @@ fn engage(app: &AppHandle, pid: u32) {
         })
         .unwrap_or(true);
     if count_this {
-        maybe_apply_profile(app, &exe);
+        note_sighting(app, &exe);
     }
     let _ = app.emit("fps-boost", status_payload(app));
 }
@@ -934,6 +962,10 @@ pub struct ProfileInfo {
     pub exe: String,
     pub name: String,
     pub applied: bool,
+    /// How many fullscreen sessions Kiro has seen. The UI turns this into a
+    /// suggestion ("bu oyunu yüksek performanslı GPU'ya sabitle") instead of
+    /// writing the registry behind the user's back.
+    pub seen: u32,
 }
 
 #[tauri::command]
@@ -943,15 +975,24 @@ pub fn fps_boost_state() -> BoostState {
 
 #[tauri::command]
 pub fn fps_boost_profiles(app: AppHandle) -> Vec<ProfileInfo> {
-    load_profiles(&app)
+    let mut profiles: Vec<ProfileInfo> = load_profiles(&app)
         .profiles
         .into_iter()
         .map(|p| ProfileInfo {
             name: file_name(&p.exe),
             exe: p.exe,
             applied: p.applied,
+            seen: p.seen,
         })
-        .collect()
+        .collect();
+    profiles.sort_by(|a, b| b.seen.cmp(&a.seen));
+    profiles
+}
+
+/// Write the graphics profile for one game. Explicit user action only.
+#[tauri::command]
+pub fn fps_boost_apply_profile(app: AppHandle, exe: String) -> Result<(), String> {
+    apply_profile_for(&app, &exe)
 }
 
 #[tauri::command]

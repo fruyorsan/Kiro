@@ -3281,6 +3281,15 @@ img {
 
 .ai-error {
   color: #ff8a8a;
+  /* Same trap as .ai-answer: .kiro sets white-space: nowrap for the pill, so an
+     error was clipped at the right edge mid-word and the actual advice never
+     showed. Errors have to wrap. */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+  max-height: 190px;
+  overflow-y: auto;
 }
 
 .ai-answer {

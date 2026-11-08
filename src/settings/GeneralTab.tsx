@@ -91,6 +91,7 @@ interface ProfileInfo {
   exe: string;
   name: string;
   applied: boolean;
+  seen: number;
 }
 
 /**
@@ -136,6 +137,12 @@ function FpsAuditPanel() {
 
   const removeProfile = (exe: string) => {
     invoke("fps_boost_remove_profile", { exe })
+      .then(loadProfiles)
+      .catch((e) => setError(typeof e === "string" ? e : String(e)));
+  };
+
+  const applyProfile = (exe: string) => {
+    invoke("fps_boost_apply_profile", { exe })
       .then(loadProfiles)
       .catch((e) => setError(typeof e === "string" ? e : String(e)));
   };
@@ -193,19 +200,33 @@ function FpsAuditPanel() {
         <div className="fps-profiles">
           <div className="fps-profiles-head">
             <span>{t("general.fpsBoost.profiles")}</span>
-            <button type="button" className="fps-link" onClick={restoreAll}>
-              {t("general.fpsBoost.restoreAll")}
-            </button>
+            {profiles.some((profile) => profile.applied) && (
+              <button type="button" className="fps-link" onClick={restoreAll}>
+                {t("general.fpsBoost.restoreAll")}
+              </button>
+            )}
           </div>
           {profiles.map((profile) => (
             <div key={profile.exe} className="fps-profile">
               <span className={`fps-profile-dot${profile.applied ? " is-applied" : ""}`} />
-              <span className="fps-profile-name">{profile.name}</span>
-              <button type="button" className="fps-link" onClick={() => removeProfile(profile.exe)}>
-                {t("general.fpsBoost.undo")}
-              </button>
+              <span className="fps-profile-name" title={profile.exe}>{profile.name}</span>
+              {profile.applied ? (
+                <button type="button" className="fps-link" onClick={() => removeProfile(profile.exe)}>
+                  {t("general.fpsBoost.undo")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="fps-link"
+                  title={t("general.fpsBoost.applyHint")}
+                  onClick={() => applyProfile(profile.exe)}
+                >
+                  {t("general.fpsBoost.apply")}
+                </button>
+              )}
             </div>
           ))}
+          <p className="fps-audit-meta">{t("general.fpsBoost.profilesNote")}</p>
         </div>
       )}
     </>
