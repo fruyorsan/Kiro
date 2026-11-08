@@ -24,6 +24,18 @@ const MAX_PROMPT: usize = 4000;
 const CLI_TIMEOUT: Duration = Duration::from_secs(120);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(90);
 
+/// Long answers used to stop mid-sentence because every request asked for only
+/// 1024 output tokens. The limit is generous now, and if a model still runs out
+/// of room the request is repeated with the partial answer so it can finish the
+/// sentence instead of leaving the user with half a reply.
+const MAX_OUTPUT_TOKENS: u32 = 4096;
+const MAX_CONTINUATIONS: usize = 2;
+/// English keeps the continuation in whatever language the answer was already
+/// written in; a Turkish instruction made English answers switch language
+/// halfway through.
+const CONTINUE_PROMPT: &str =
+    "Your previous answer was cut off. Continue exactly where it stopped. Do not repeat anything and do not start over.";
+
 /// One client for every provider. Building a `reqwest::Client` per question
 /// pulled in a fresh TLS configuration and connection pool each time; asking a
 /// few questions left several of those resident. A single pool keeps the idle
@@ -106,6 +118,8 @@ struct ApiError {
 #[derive(Deserialize)]
 struct AnthropicResponse {
     content: Option<Vec<AnthropicBlock>>,
+    #[serde(default)]
+    stop_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -122,6 +136,8 @@ struct OpenAiResponse {
 #[derive(Deserialize)]
 struct OpenAiChoice {
     message: OpenAiMessage,
+    #[serde(default)]
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -138,6 +154,8 @@ struct GeminiResponse {
 #[derive(Deserialize)]
 struct GeminiCandidate {
     content: Option<GeminiContent>,
+    #[serde(default, rename = "finishReason")]
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -267,40 +285,77 @@ async fn ask_anthropic(
         blocks.push(serde_json::json!({ "type": "text", "text": prompt }));
         serde_json::Value::Array(blocks)
     };
-    let body = serde_json::json!({
-        "model": model,
-        "max_tokens": 1024,
-        "messages": [{ "role": "user", "content": content }]
-    });
+    let mut messages = vec![serde_json::json!({ "role": "user", "content": content })];
     let client = http_client()?;
-    let response = client
-        .post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", key)
-        .header("anthropic-version", "2023-06-01")
-        .header("content-type", "application/json")
-        .body(body.to_string())
-        .send()
-        .await
-        .map_err(|e| format!("Bağlantı hatası: {e}"))?;
-    let status = response.status();
-    let text = response.text().await.map_err(|e| e.to_string())?;
-    if !status.is_success() {
-        return Err(format!("Claude API hatası: {}", error_message(&text)));
+    let mut answer = String::new();
+
+    for round in 0..=MAX_CONTINUATIONS {
+        let body = serde_json::json!({
+            "model": model,
+            "max_tokens": MAX_OUTPUT_TOKENS,
+            "messages": messages
+        });
+        let response = client
+            .post("https://api.anthropic.com/v1/messages")
+            .header("x-api-key", key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await
+            .map_err(|e| format!("Bağlantı hatası: {e}"));
+        let parsed = match response {
+            Ok(response) => {
+                let status = response.status();
+                let text = response.text().await.map_err(|e| e.to_string())?;
+                if !status.is_success() {
+                    let error = format!("Claude API hatası: {}", error_message(&text));
+                    // A failed continuation must not throw away the part that
+                    // already arrived on screen.
+                    if round > 0 && !answer.trim().is_empty() {
+                        break;
+                    }
+                    return Err(error);
+                }
+                match serde_json::from_str::<AnthropicResponse>(&text) {
+                    Ok(parsed) => parsed,
+                    Err(error) => {
+                        if round > 0 && !answer.trim().is_empty() {
+                            break;
+                        }
+                        return Err(error.to_string());
+                    }
+                }
+            }
+            Err(error) => {
+                if round > 0 && !answer.trim().is_empty() {
+                    break;
+                }
+                return Err(error);
+            }
+        };
+        let text = parsed
+            .content
+            .unwrap_or_default()
+            .into_iter()
+            .map(|block| block.text)
+            .collect::<Vec<_>>()
+            .join("");
+        if text.trim().is_empty() {
+            if answer.trim().is_empty() {
+                return Err("Claude boş yanıt döndürdü".into());
+            }
+            break;
+        }
+        answer.push_str(&text);
+        if parsed.stop_reason.as_deref() != Some("max_tokens") {
+            break;
+        }
+        messages.push(serde_json::json!({ "role": "assistant", "content": text }));
+        messages.push(serde_json::json!({ "role": "user", "content": CONTINUE_PROMPT }));
     }
-    let parsed: AnthropicResponse = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    let answer = parsed
-        .content
-        .unwrap_or_default()
-        .into_iter()
-        .map(|block| block.text)
-        .collect::<Vec<_>>()
-        .join("")
-        .trim()
-        .to_string();
-    if answer.is_empty() {
-        return Err("Claude boş yanıt döndürdü".into());
-    }
-    Ok(answer)
+
+    Ok(answer.trim().to_string())
 }
 
 async fn ask_openai(
@@ -326,39 +381,76 @@ async fn ask_openai(
         parts.push(serde_json::json!({ "type": "text", "text": prompt }));
         serde_json::Value::Array(parts)
     };
-    let body = serde_json::json!({
-        "model": model,
-        "max_tokens": 1024,
-        "messages": [{ "role": "user", "content": content }]
-    });
+    let mut messages = vec![serde_json::json!({ "role": "user", "content": content })];
     let client = http_client()?;
-    let response = client
-        .post("https://api.openai.com/v1/chat/completions")
-        .header("authorization", format!("Bearer {key}"))
-        .header("content-type", "application/json")
-        .body(body.to_string())
-        .send()
-        .await
-        .map_err(|e| format!("Bağlantı hatası: {e}"))?;
-    let status = response.status();
-    let text = response.text().await.map_err(|e| e.to_string())?;
-    if !status.is_success() {
-        return Err(format!("ChatGPT API hatası: {}", error_message(&text)));
+    let mut answer = String::new();
+
+    for round in 0..=MAX_CONTINUATIONS {
+        let body = serde_json::json!({
+            "model": model,
+            "max_tokens": MAX_OUTPUT_TOKENS,
+            "messages": messages
+        });
+        let response = client
+            .post("https://api.openai.com/v1/chat/completions")
+            .header("authorization", format!("Bearer {key}"))
+            .header("content-type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await
+            .map_err(|e| format!("Bağlantı hatası: {e}"));
+        let parsed = match response {
+            Ok(response) => {
+                let status = response.status();
+                let text = response.text().await.map_err(|e| e.to_string())?;
+                if !status.is_success() {
+                    let error = format!("ChatGPT API hatası: {}", error_message(&text));
+                    if round > 0 && !answer.trim().is_empty() {
+                        break;
+                    }
+                    return Err(error);
+                }
+                match serde_json::from_str::<OpenAiResponse>(&text) {
+                    Ok(parsed) => parsed,
+                    Err(error) => {
+                        if round > 0 && !answer.trim().is_empty() {
+                            break;
+                        }
+                        return Err(error.to_string());
+                    }
+                }
+            }
+            Err(error) => {
+                if round > 0 && !answer.trim().is_empty() {
+                    break;
+                }
+                return Err(error);
+            }
+        };
+        let choice = parsed.choices.unwrap_or_default().into_iter().next();
+        let Some(choice) = choice else {
+            if answer.trim().is_empty() {
+                return Err("ChatGPT boş yanıt döndürdü".into());
+            }
+            break;
+        };
+        let truncated = choice.finish_reason.as_deref() == Some("length");
+        let text = choice.message.content.unwrap_or_default();
+        if text.trim().is_empty() {
+            if answer.trim().is_empty() {
+                return Err("ChatGPT boş yanıt döndürdü".into());
+            }
+            break;
+        }
+        answer.push_str(&text);
+        if !truncated {
+            break;
+        }
+        messages.push(serde_json::json!({ "role": "assistant", "content": text }));
+        messages.push(serde_json::json!({ "role": "user", "content": CONTINUE_PROMPT }));
     }
-    let parsed: OpenAiResponse = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    let answer = parsed
-        .choices
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|choice| choice.message.content)
-        .collect::<Vec<_>>()
-        .join("")
-        .trim()
-        .to_string();
-    if answer.is_empty() {
-        return Err("ChatGPT boş yanıt döndürdü".into());
-    }
-    Ok(answer)
+
+    Ok(answer.trim().to_string())
 }
 
 async fn ask_gemini(
@@ -379,44 +471,86 @@ async fn ask_gemini(
         })
         .collect();
     parts.push(serde_json::json!({ "text": prompt }));
-    let body = serde_json::json!({
-        "contents": [{ "role": "user", "parts": parts }],
-        "generationConfig": { "maxOutputTokens": 1024 }
-    });
+    let mut contents = vec![serde_json::json!({ "role": "user", "parts": parts })];
     let client = http_client()?;
     let url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
         model
     );
-    let response = client
-        .post(url)
-        .query(&[("key", key)])
-        .header("content-type", "application/json")
-        .body(body.to_string())
-        .send()
-        .await
-        .map_err(|e| format!("Bağlantı hatası: {e}"))?;
-    let status = response.status();
-    let text = response.text().await.map_err(|e| e.to_string())?;
-    if !status.is_success() {
-        return Err(format!("Gemini API hatası: {}", error_message(&text)));
+    let mut answer = String::new();
+
+    for round in 0..=MAX_CONTINUATIONS {
+        let body = serde_json::json!({
+            "contents": contents,
+            "generationConfig": { "maxOutputTokens": MAX_OUTPUT_TOKENS }
+        });
+        let response = client
+            .post(&url)
+            .query(&[("key", key)])
+            .header("content-type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await
+            .map_err(|e| format!("Bağlantı hatası: {e}"));
+        let parsed = match response {
+            Ok(response) => {
+                let status = response.status();
+                let text = response.text().await.map_err(|e| e.to_string())?;
+                if !status.is_success() {
+                    let error = format!("Gemini API hatası: {}", error_message(&text));
+                    if round > 0 && !answer.trim().is_empty() {
+                        break;
+                    }
+                    return Err(error);
+                }
+                match serde_json::from_str::<GeminiResponse>(&text) {
+                    Ok(parsed) => parsed,
+                    Err(error) => {
+                        if round > 0 && !answer.trim().is_empty() {
+                            break;
+                        }
+                        return Err(error.to_string());
+                    }
+                }
+            }
+            Err(error) => {
+                if round > 0 && !answer.trim().is_empty() {
+                    break;
+                }
+                return Err(error);
+            }
+        };
+        let candidate = parsed.candidates.unwrap_or_default().into_iter().next();
+        let Some(candidate) = candidate else {
+            if answer.trim().is_empty() {
+                return Err("Gemini boş yanıt döndürdü".into());
+            }
+            break;
+        };
+        let truncated = candidate.finish_reason.as_deref() == Some("MAX_TOKENS");
+        let text = candidate
+            .content
+            .map(|content| content.parts.unwrap_or_default())
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|part| part.text)
+            .collect::<Vec<_>>()
+            .join("");
+        if text.trim().is_empty() {
+            if answer.trim().is_empty() {
+                return Err("Gemini boş yanıt döndürdü".into());
+            }
+            break;
+        }
+        answer.push_str(&text);
+        if !truncated {
+            break;
+        }
+        contents.push(serde_json::json!({ "role": "model", "parts": [{ "text": text }] }));
+        contents.push(serde_json::json!({ "role": "user", "parts": [{ "text": CONTINUE_PROMPT }] }));
     }
-    let parsed: GeminiResponse = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    let answer = parsed
-        .candidates
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|candidate| candidate.content)
-        .flat_map(|content| content.parts.unwrap_or_default())
-        .filter_map(|part| part.text)
-        .collect::<Vec<_>>()
-        .join("")
-        .trim()
-        .to_string();
-    if answer.is_empty() {
-        return Err("Gemini boş yanıt döndürdü".into());
-    }
-    Ok(answer)
+
+    Ok(answer.trim().to_string())
 }
 
 fn claude_candidates() -> Vec<PathBuf> {

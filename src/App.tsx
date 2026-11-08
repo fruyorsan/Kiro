@@ -878,11 +878,21 @@ function App() {
     if (!aiOpen) return;
     invoke("set_window_keyboard_focus", { enabled: true }).catch(() => {});
     const timer = setTimeout(() => aiInputRef.current?.focus(), 60);
+    // Escape has to work even when the focus moved to the answer (clicking the
+    // text to select it took the focus off the input, so its handler no longer
+    // fired and the panel could only be closed with the X).
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeAi();
+    };
+    window.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(timer);
+      window.removeEventListener("keydown", onKey);
       invoke("set_window_keyboard_focus", { enabled: false }).catch(() => {});
     };
-  }, [aiOpen]);
+  }, [aiOpen, closeAi]);
 
   useEffect(() => {
     let lastSent = "";
@@ -1397,6 +1407,15 @@ function App() {
   const handleWheel = (e: React.WheelEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('.calendar-grid') || target.closest('.timer-column') || target.closest('.cal-scroll')) {
+      return;
+    }
+
+    // The AI panel owns the notch while it is open: the wheel belongs to the
+    // answer, not to the panel carousel. Without this a single scroll while
+    // reading the reply switched to the next mode, so the conversation
+    // vanished mid-sentence and the calendar (two steps away) opened instead.
+    if (aiOpen) return;
+    if (target.closest('.ai-body') || target.closest('.ai-setup') || target.closest('.ai-input-row') || target.closest('.ai-attachments')) {
       return;
     }
 
@@ -1992,6 +2011,9 @@ function App() {
 
   const toggleCalendarMode = (e: React.MouseEvent) => {
     e.stopPropagation();
+    // Clicking the clock while the assistant is open would replace the whole
+    // conversation with the calendar; the panel has its own close button.
+    if (aiOpen) return;
     if (isTimerFinished) {
       resetTimer();
       return;
@@ -2255,11 +2277,14 @@ function App() {
     if (!isExpanded || isHidden) {
       return isImpacted ? 28.9 : 44.2;
     }
-    if (aiVisible) return 250;
+    // The answer needs more room than the empty prompt: a 250 px panel cut the
+    // reply after a few lines, which read as a truncated conversation. The
+    // notch window is 420 px tall, so 320 still fits.
+    if (aiVisible) return aiAnswer || aiError ? 320 : 250;
     if (kiroMode === 'tour') return 210;
     if (kiroMode === 'agent') return agentActivity?.ask ? 184 : agentActivity?.detail ? 160 : 130;
     if (kiroMode === 'shelf') return shelf.items.length === 0 ? 96 : 156;
-    if (kiroMode === 'calendar') return settingsCalendarEnabled ? (caldav.connected ? 350 : 310) : 262;
+    if (kiroMode === 'calendar') return settingsCalendarEnabled ? (caldav.connected ? 392 : 316) : 262;
     if (kiroMode === 'command-center') {
       if (!isHovered) return 36;
       const tileRows = Math.ceil(ccResolved.tiles.length / 2);

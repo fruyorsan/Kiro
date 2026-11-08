@@ -682,6 +682,16 @@ img {
 .calendar-column {
     flex: 1.2;
     min-width: 0;
+    /* The month grid plus the selected-day agenda is taller than the old
+       310/350 px panel, which clipped the last week of the month. The panel is
+       taller now; this is the fallback if a locale or font still needs more. */
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.calendar-column::-webkit-scrollbar {
+    display: none;
 }
 
 .timer-column {
