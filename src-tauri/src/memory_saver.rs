@@ -68,6 +68,12 @@ pub fn mark_interaction() {
 
 pub fn set_busy(busy: bool) {
     BUSY.store(busy, Ordering::Relaxed);
+    // Hovering the notch/dock is the most common wake-up. Restore the tree
+    // right here instead of waiting for the next one-second worker tick, so
+    // the reveal is not paid for by pages still at VERY_LOW priority.
+    if busy {
+        mark_interaction();
+    }
 }
 
 pub fn trim_soon() {

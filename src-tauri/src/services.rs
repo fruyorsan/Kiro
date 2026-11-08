@@ -2073,9 +2073,10 @@ fn window_exe_name(hwnd: HWND) -> String {
 
 /// Fullscreen video is not a game. The automatic performance mode is meant for
 /// apps that render as fast as they can; lowering our priority and trimming the
-/// renderers while a movie plays only makes the notch stutter. Browsers count as
-/// video only while Windows reports media playing, so a browser game still gets
-/// the boost. Video players are always excluded.
+/// renderers while a movie plays only makes the notch stutter. Browsers are
+/// always treated as video: ads/DRM do not expose a media session and a browser
+/// game is rare, while hiding the UI on every fullscreen YouTube video was not.
+/// Video players and shell surfaces (lock screen included) are excluded too.
 fn is_video_window(hwnd: HWND) -> bool {
     // Called from the foreground tick; cache so a long movie costs one lookup.
     static CACHE: Mutex<Option<(isize, bool, Instant)>> = Mutex::new(None);
@@ -2133,10 +2134,27 @@ fn video_exe_matches(hwnd: HWND) -> bool {
         "yandex.exe",
         "arc.exe",
     ];
+    // Shell surfaces are fullscreen but never games. The lock screen is the
+    // important one: while the machine is locked its title is whatever media
+    // was playing last (a YouTube video title, for example), and it used to be
+    // treated as a fullscreen game, which hid the dock/notch and engaged the
+    // boost for as long as the screen stayed locked.
+    const SHELL: [&str; 7] = [
+        "lockapp.exe",
+        "logonui.exe",
+        "shellexperiencehost.exe",
+        "searchhost.exe",
+        "startmenuexperiencehost.exe",
+        "textinputhost.exe",
+        "applicationframehost.exe",
+    ];
 
     let exe = window_exe_name(hwnd);
     if exe.is_empty() {
         return false;
+    }
+    if SHELL.contains(&exe.as_str()) {
+        return true;
     }
     if PLAYERS.contains(&exe.as_str()) {
         return true;
