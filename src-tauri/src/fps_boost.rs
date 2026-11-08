@@ -604,6 +604,15 @@ fn mute_toasts(app: &AppHandle) -> (Option<u32>, bool) {
 }
 
 fn restore_toasts(app: &AppHandle, previous: Option<u32>) {
+    // If the value is no longer muted, something else owns it now (the user hit
+    // the Do Not Disturb button, Windows Settings, ...). Put nothing back so we
+    // never silently undo a choice the user made while the game was running.
+    if reg_get_u32(HKEY_CURRENT_USER, NOTIF_KEY, TOASTS_VALUE) != Some(0) {
+        if let Some(path) = toast_backup_path(app) {
+            let _ = std::fs::remove_file(path);
+        }
+        return;
+    }
     match previous {
         Some(value) => {
             let _ = reg_set_u32(HKEY_CURRENT_USER, NOTIF_KEY, TOASTS_VALUE, value);

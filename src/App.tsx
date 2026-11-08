@@ -605,11 +605,15 @@ function App() {
   // Mirror Windows' own "do not disturb" switch. The moon button used to flip a
   // local boolean only, so it looked completely broken: nothing changed and the
   // state reset on every reload.
+  // Re-read it whenever the notch is shown: the FPS boost mutes notifications
+  // while a game runs and restores them after, and Windows Settings can change
+  // the same switch behind our back.
   useEffect(() => {
+    if (!isNotchWindow || !isVisible || isHidden) return;
     invoke<boolean>("get_dnd_enabled")
       .then((value) => setDndActive(value))
       .catch(() => { });
-  }, []);
+  }, [isExpanded, isVisible, isHidden, isNotchWindow]);
 
   const toggleDnd = useCallback(async () => {
     if (dndBusy) return;

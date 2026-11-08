@@ -872,7 +872,7 @@ const Dock = memo(function Dock() {
     submenuCloseTimer.current = setTimeout(() => {
       submenuCloseTimer.current = null;
       setActiveSubmenu(null);
-    }, 300);
+    }, 450);
   };
 
 
@@ -939,21 +939,26 @@ const Dock = memo(function Dock() {
       const sub = activeSubmenu ? submenuRef.current?.getBoundingClientRect() : null;
       let left = r.x;
       let right = r.right;
+      let top = r.y;
+      let bottom = r.bottom;
       if (sub) {
         left = Math.min(left, sub.x);
         right = Math.max(right, sub.right);
+        top = Math.min(top, sub.y);
+        bottom = Math.max(bottom, sub.bottom);
       } else {
         // Reserve the strip the fly-out will occupy before it is opened. The
         // pointer has to cross that strip to reach the fly-out, and without
         // this the native hit-test made it click-through and the fly-out
-        // closed/never received the pointer.
+        // closed/never received the pointer. The fly-out grows upwards from the
+        // menu item, so reserve its full vertical reach as well.
         const flyoutWidth = (220 + 16) * scale;
+        const flyoutHeight = 280 * scale;
         const opensLeft = r.x + r.width + flyoutWidth > window.innerWidth - 8;
         if (opensLeft) left -= flyoutWidth;
         else right += flyoutWidth;
+        top = Math.max(0, top - flyoutHeight);
       }
-      const top = sub ? Math.min(r.y, sub.y) : r.y;
-      const bottom = sub ? Math.max(r.bottom, sub.bottom) : r.bottom;
       rect = {
         x: Math.round(left),
         y: Math.round(top),
