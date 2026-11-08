@@ -244,7 +244,7 @@ interface GeneralTabProps {
 const AI_PROVIDERS = [
   { value: "claude", label: "Claude", keyHint: "sk-ant-…", model: "claude-sonnet-4-5" },
   { value: "openai", label: "ChatGPT", keyHint: "sk-…", model: "gpt-4o-mini" },
-  { value: "gemini", label: "Gemini", keyHint: "AIza…", model: "gemini-2.0-flash" },
+  { value: "gemini", label: "Gemini", keyHint: "AIza…", model: "gemini-3.5-flash" },
 ];
 
 function AiSection() {

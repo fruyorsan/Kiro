@@ -69,7 +69,11 @@ const AI_MODEL_SETTINGS: Record<string, string> = {
 const AI_DEFAULT_MODELS: Record<string, string> = {
   claude: "claude-sonnet-4-5",
   openai: "gpt-4o-mini",
-  gemini: "gemini-2.0-flash",
+  // Google retires concrete Gemini ids regularly (`gemini-2.0-flash` and
+  // `gemini-2.5-flash` are already closed to new users). 3.5 Flash is the
+  // current stable one; the backend follows Google's replacement suggestion if
+  // it is retired too.
+  gemini: "gemini-3.5-flash",
 };
 
 const AI_KEY_PLACEHOLDERS: Record<string, string> = {
@@ -82,8 +86,20 @@ const AI_KEY_PLACEHOLDERS: Record<string, string> = {
 const AI_MODEL_PRESETS: Record<string, string[]> = {
   claude: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"],
   openai: ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini"],
-  gemini: ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash"],
+  gemini: ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-pro-latest"],
 };
+
+// Model ids Google already retired. An old settings file can still hold one,
+// so rewrite it once instead of sending a request that is guaranteed to fail.
+function migrateAiModels() {
+  const stored = (localStorage.getItem("kiro-ai-model-gemini") ?? "").trim().toLowerCase();
+  if (!stored) return;
+  if (stored.startsWith("gemini-1.0") || stored.startsWith("gemini-1.5") || stored.startsWith("gemini-2.0") || stored.startsWith("gemini-2.5")) {
+    const model = AI_DEFAULT_MODELS.gemini;
+    localStorage.setItem("kiro-ai-model-gemini", model);
+    invoke("save_setting", { key: "kiro-ai-model-gemini", value: model }).catch(() => {});
+  }
+}
 
 function aiHasKey(provider: string): boolean {
   return !!localStorage.getItem(AI_KEY_SETTINGS[provider] ?? "")?.trim();
@@ -718,7 +734,11 @@ function App() {
     } catch (error) {
       const message = typeof error === "string" ? error : String(error);
       setAiError(message);
-      if (/anahtar|api key/i.test(message)) openAiSetup(aiProvider);
+      // A missing key or a retired model id both need the setup panel, not a
+      // dead-end error message.
+      if (/anahtar|api key|no longer available|not found|does not exist/i.test(message)) {
+        openAiSetup(aiProvider);
+      }
     } finally {
       setAiBusy(false);
     }
@@ -1000,6 +1020,8 @@ function App() {
 
     invoke("load_settings").then((settings: any) => {
       hydrateStorageFromSettings(settings);
+      // Retired Gemini ids must be rewritten before any request uses them.
+      migrateAiModels();
       const getVal = (key: string, fallback: string | null = null) => {
         const val = settings[key];
         if (val !== undefined && val !== null) return String(val);
@@ -2248,7 +2270,7 @@ function App() {
       <div style={{ zoom: scale, width: '100%', display: 'flex', justifyContent: notchBottomRight ? 'flex-end' : 'center', alignItems: notchBottomRight ? 'flex-end' : 'flex-start', height: '100%', paddingRight: notchBottomRight ? '12px' : 0, paddingBottom: notchBottomRight ? '10px' : 0, boxSizing: 'border-box' }}>
         <motion.div
           ref={kiroRef}
-          className={`kiro ${isHovered ? 'expanded' : ''} ${isImpacted && !notchBottomRight ? 'is-impacted' : ''} ${isPanelOpen ? 'panel-open' : ''}`}
+          className={`kiro ${isHovered ? 'expanded' : ''} ${isImpacted && !notchBottomRight ? 'is-impacted' : ''} ${isPanelOpen ? 'panel-open' : ''} ${aiVisible ? 'ai-open' : ''}`}
           onMouseEnter={() => setIsNotchHovered(true)}
         onMouseLeave={() => setIsNotchHovered(false)}
         onWheel={handleWheel}

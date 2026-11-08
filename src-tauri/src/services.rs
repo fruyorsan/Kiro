@@ -2131,20 +2131,13 @@ fn video_exe_matches(hwnd: HWND) -> bool {
     if !BROWSERS.contains(&exe.as_str()) {
         return false;
     }
-    if crate::state::ANY_MEDIA_PLAYING.load(Ordering::Relaxed) {
-        return true;
-    }
-    // Media sessions are not always exposed (ads, some DRM players), so a
-    // browser showing a known video site counts as video too.
-    const SITES: [&str; 6] = ["youtube", "netflix", "twitch", "prime video", "disney+", "hulu"];
-    let title = window_title(hwnd).to_lowercase();
-    SITES.iter().any(|site| title.contains(site))
-}
-
-fn window_title(hwnd: HWND) -> String {
-    let mut text = [0u16; 512];
-    let len = unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowTextW(hwnd, &mut text) };
-    String::from_utf16_lossy(&text[..len as usize])
+    // A fullscreen browser is a video, a presentation or a web game — never a
+    // game Kiro should hide its UI for. Treat every browser as video so the
+    // dock/notch are never hidden and the automatic performance mode never
+    // engages while the user watches YouTube in fullscreen. Media sessions are
+    // not exposed for ads/DRM, and the window title does not always contain
+    // the site name, so the old check let those through as "games".
+    true
 }
 
 fn apply_capture_ui_state(app: &AppHandle, active: bool) {    if SHUTTING_DOWN.load(Ordering::Relaxed) {

@@ -38,7 +38,10 @@ fn defaults() -> Vec<(&'static str, Value)> {
         ("kiro-auto-perf", json!("true")),
         ("kiro-game-boost", json!("true")),
         ("kiro-fps-boost", json!("true")),
-        ("kiro-fps-compat", json!("true")),
+        // Per-app registry profiles (GPU preference + disabling fullscreen
+        // optimizations) are opt-in. Writing them automatically changed how
+        // Windows launched an exe forever, so it is off and needs the v2 key.
+        ("kiro-fps-compat-v2", json!("false")),
         // Updates install themselves on the next launch.
         ("kiro-auto-update", json!("true")),
         ("kiro-update-channel", json!("stable")),

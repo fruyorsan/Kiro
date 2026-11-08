@@ -2799,6 +2799,20 @@ img {
   min-height: 0;
 }
 
+/* The AI panel is the whole surface, not a small pill. Glass styles normally
+   leave the body transparent and let the measured fill layer paint it; while a
+   conversation is open a plain fill is used instead, so the text stays readable
+   over bright pages and video even while the shell is still expanding. */
+:root:is(.style-frosted, .style-liquid) .kiro.ai-open {
+  background: var(--notch-bg, rgba(0, 0, 0, 0.92)) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+:root:is(.style-frosted, .style-liquid) .kiro.ai-open > .surface-fill {
+  display: none !important;
+}
+
 .ai-head {
   display: flex;
   align-items: center;

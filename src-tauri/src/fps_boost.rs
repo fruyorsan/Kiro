@@ -53,7 +53,7 @@ use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 /// Master switch. Default on: the whole feature exists to be invisible.
 pub const SETTING: &str = "kiro-fps-boost";
 /// Per-application registry profiles (GPU preference + exclusive fullscreen).
-pub const COMPAT_SETTING: &str = "kiro-fps-compat";
+pub const COMPAT_SETTING: &str = "kiro-fps-compat-v2";
 
 const GPU_KEY: &str = r"Software\Microsoft\DirectX\UserGpuPreferences";
 const LAYERS_KEY: &str = r"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers";
@@ -109,9 +109,14 @@ fn enabled(app: &AppHandle) -> bool {
 }
 
 fn compat_enabled(app: &AppHandle) -> bool {
+    // Writing per-app compatibility/GPU registry values is opt-in and off by
+    // default. It permanently changes how Windows launches that exe and that
+    // is exactly the kind of "the game suddenly behaves differently" surprise
+    // Kiro must not create on its own. The reversible, in-memory boost above
+    // is what runs during a game.
     crate::utils::get_setting_str(app, COMPAT_SETTING)
-        .map(|v| v != "false")
-        .unwrap_or(true)
+        .map(|v| v == "true")
+        .unwrap_or(false)
 }
 
 // --- registry helpers -------------------------------------------------------
@@ -286,20 +291,38 @@ fn boostable(exe: &str) -> bool {
     if name.is_empty() {
         return false;
     }
+    // Never touch anything that ships with Windows. LockApp, the shell hosts
+    // and SystemApps go "fullscreen" all the time, and an older build even
+    // wrote a graphics profile for LockApp.exe just because the lock screen
+    // was in front. Those must never be boosted or get registry changes.
+    if let Ok(windir) = std::env::var("WINDIR") {
+        let windir = windir.to_ascii_lowercase();
+        if !windir.is_empty() && exe.to_ascii_lowercase().starts_with(&windir) {
+            return false;
+        }
+    }
     !matches!(
         name.as_str(),
         "kiro.exe"
             | "explorer.exe"
             | "dwm.exe"
             | "searchhost.exe"
+            | "searchapp.exe"
             | "startmenuexperiencehost.exe"
             | "shellexperiencehost.exe"
             | "applicationframehost.exe"
             | "runtimebroker.exe"
+            | "lockapp.exe"
+            | "sihost.exe"
+            | "textinputhost.exe"
+            | "taskmgr.exe"
+            | "notepad.exe"
+            | "snippingtool.exe"
             // Browsers and players go "fullscreen" all the time. Boosting them
             // costs battery and writing them a graphics profile would be wrong.
             | "chrome.exe"
             | "msedge.exe"
+            | "msedgewebview2.exe"
             | "firefox.exe"
             | "brave.exe"
             | "opera.exe"
@@ -312,6 +335,9 @@ fn boostable(exe: &str) -> bool {
             | "obs32.exe"
             | "obs64.exe"
             | "code.exe"
+            | "cursor.exe"
+            | "windsurf.exe"
+            | "opencode.exe"
             | "devenv.exe"
             | "discord.exe"
             | "slack.exe"
@@ -356,12 +382,13 @@ fn set_process_boost(pid: u32) -> Option<SavedProcess> {
         .is_ok();
 
         // HIGH is only safe when the machine actually has cores to spare.
-        // On a dual-core laptop it can starve audio and the compositor, which
-        // shows up as stutter instead of the win we are after.
+        // On a small laptop it can starve audio and the compositor, which
+        // shows up as stutter instead of the win we are after, so 8 cores is
+        // the line. Everything else only goes one step above normal.
         let cores = std::thread::available_parallelism()
             .map(|c| c.get())
             .unwrap_or(4);
-        let target = if cores >= 4 {
+        let target = if cores >= 8 {
             HIGH_PRIORITY_CLASS
         } else {
             ABOVE_NORMAL_PRIORITY_CLASS
@@ -540,6 +567,27 @@ fn revert_registry_profile(profile: &Profile) {
     }
 }
 
+/// Older builds applied graphics profiles on their own. The automatic write is
+/// gone (it changed how Windows launched an exe forever, and it even hit
+/// LockApp.exe), so undo every profile those builds left behind once.
+fn revert_auto_profiles(app: &AppHandle) {
+    let mut file = load_profiles(app);
+    let mut reverted = 0;
+    for profile in file.profiles.iter_mut() {
+        if profile.applied {
+            revert_registry_profile(profile);
+            profile.applied = false;
+            reverted += 1;
+        }
+    }
+    if reverted > 0 {
+        save_profiles(app, &file);
+        crate::diagnostics::log(&format!(
+            "fps boost: restored {reverted} registry profile(s) written by an older build"
+        ));
+    }
+}
+
 /// Record a sighting and, once the same exe has been seen playing fullscreen
 /// twice, write the persistent per-app profile. Everything is backed up first.
 fn maybe_apply_profile(app: &AppHandle, exe: &str) {
@@ -642,6 +690,11 @@ fn toast_backup_path(app: &AppHandle) -> Option<PathBuf> {
 /// Undo anything a previous Kiro process left behind. Runs at startup, before
 /// the foreground watcher exists.
 pub fn init(app: &AppHandle) {
+    // Undo the per-app registry profiles older builds wrote on their own, but
+    // only while the opt-in compatibility mode is off.
+    if !compat_enabled(app) {
+        revert_auto_profiles(app);
+    }
     let Some(path) = toast_backup_path(app) else {
         return;
     };

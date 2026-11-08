@@ -71,7 +71,10 @@ impl Provider {
         match self {
             Provider::Claude => "claude-sonnet-4-5",
             Provider::OpenAI => "gpt-4o-mini",
-            Provider::Gemini => "gemini-2.0-flash",
+            // Google retires concrete ids every few months (`gemini-2.5-flash`
+            // is already closed to new users). This is the current stable Flash
+            // model; a retired id is retried with whatever Google suggests.
+            Provider::Gemini => "gemini-3.5-flash",
         }
     }
 
@@ -162,13 +165,36 @@ fn provider_key(app: &AppHandle, provider: Provider) -> Option<String> {
 }
 
 fn provider_model(app: &AppHandle, provider: Provider) -> String {
-    setting(app, provider.model_setting())
+    let stored = setting(app, provider.model_setting())
         .or_else(|| {
             (provider == Provider::Claude)
                 .then(|| setting(app, "kiro-ai-model"))
                 .flatten()
         })
-        .unwrap_or_else(|| provider.default_model().to_string())
+        .unwrap_or_else(|| provider.default_model().to_string());
+    normalize_model(provider, &stored)
+}
+
+/// Old builds stored concrete Gemini ids and Google has since retired some of
+/// them (`gemini-2.0-flash` now answers "no longer available"). Map those to
+/// the current alias instead of failing every question until the user opens
+/// the setup panel again.
+fn normalize_model(provider: Provider, model: &str) -> String {
+    let id = model.trim();
+    if id.is_empty() {
+        return provider.default_model().to_string();
+    }
+    if provider == Provider::Gemini {
+        let lower = id.to_ascii_lowercase();
+        if lower.starts_with("gemini-1.0")
+            || lower.starts_with("gemini-1.5")
+            || lower.starts_with("gemini-2.0")
+            || lower.starts_with("gemini-2.5")
+        {
+            return provider.default_model().to_string();
+        }
+    }
+    id.to_string()
 }
 
 fn error_message(text: &str) -> String {
@@ -432,9 +458,59 @@ async fn ask_provider(app: AppHandle, prompt: String) -> Result<String, String> 
     let model = provider_model(&app, provider);
     match provider {
         Provider::OpenAI => ask_openai(&key, &model, &prompt).await,
-        Provider::Gemini => ask_gemini(&key, &model, &prompt).await,
+        Provider::Gemini => {
+            let mut current = model;
+            let mut attempt = ask_gemini(&key, &current, &prompt).await;
+            // Google retires ids without notice and sometimes answers "high
+            // demand" for the newest model. Its own error text names the
+            // replacement, so follow that and retry instead of failing.
+            for _ in 0..2 {
+                let next = match &attempt {
+                    Ok(_) => None,
+                    Err(error) => next_gemini_model(error, &current),
+                };
+                let Some(next) = next else {
+                    break;
+                };
+                current = next;
+                attempt = ask_gemini(&key, &current, &prompt).await;
+            }
+            attempt
+        }
         Provider::Claude => unreachable!(),
     }
+}
+
+/// Pick a replacement Gemini model from the API error. Google writes
+/// "Please update your code to use models/gemini-3.8-flash" for a retired id,
+/// and "experiencing high demand" for a temporarily overloaded one.
+fn next_gemini_model(error: &str, current: &str) -> Option<String> {
+    let lower = error.to_ascii_lowercase();
+    if let Some(index) = lower.find("use models/") {
+        let rest = &lower[index + "use models/".len()..];
+        let id: String = rest
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '.' || *c == '_')
+            .collect();
+        if !id.is_empty() && id != current {
+            return Some(id);
+        }
+    }
+    if lower.contains("high demand") && current != "gemini-3.5-flash" {
+        return Some("gemini-3.5-flash".to_string());
+    }
+    if is_retired_model_error(error) && current != Provider::Gemini.default_model() {
+        return Some(Provider::Gemini.default_model().to_string());
+    }
+    None
+}
+
+fn is_retired_model_error(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("no longer available")
+        || lower.contains("not found")
+        || lower.contains("does not exist")
+        || lower.contains("not supported")
 }
 
 /// Open the provider's key page from the notch. Only these URLs can be opened,
