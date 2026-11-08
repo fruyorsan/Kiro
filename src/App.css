@@ -2799,17 +2799,37 @@ img {
   min-height: 0;
 }
 
-/* The AI panel is the whole surface, not a small pill. Glass styles normally
-   leave the body transparent and let the measured fill layer paint it; while a
-   conversation is open a plain fill is used instead, so the text stays readable
-   over bright pages and video even while the shell is still expanding. */
-:root:is(.style-frosted, .style-liquid) .kiro.ai-open {
-  background: var(--notch-bg, rgba(0, 0, 0, 0.92)) !important;
-  background-image: none !important;
-  box-shadow: none !important;
+/* Reading surface for the AI panel.
+   Glass styles paint the notch from the measured fill layer. A conversation
+   needs a denser tint than the pill so the page behind a bright window cannot
+   compete with the answer, but the panel must stay translucent — the old fix
+   replaced the glass with flat black, which killed the look the user chose.
+   The window is transparent, so the real backdrop cannot be blurred; a veil on
+   top of the same glass fill is the closest honest option. */
+:root {
+  --ai-veil: rgba(8, 8, 10, 0.46);
+}
+
+:root.light-mode {
+  --ai-veil: rgba(250, 250, 252, 0.66);
 }
 
 :root:is(.style-frosted, .style-liquid) .kiro.ai-open > .surface-fill {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 999px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 999px var(--ai-veil);
+}
+
+/* Solid and Material paint the surface directly, so the veil is a background
+   layer over their own colour instead of an inset shadow. */
+:root:not(:is(.style-frosted, .style-liquid)) .kiro.ai-open {
+  background-image: linear-gradient(var(--ai-veil), var(--ai-veil)) !important;
+}
+
+/* The album/video glow keeps moving under the panel and pulls the eye away from
+   the answer, so it rests while the panel is open. */
+.kiro.ai-open .notch-ambient-glow {
   display: none !important;
 }
 
@@ -3124,10 +3144,50 @@ img {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  font-size: 12px;
-  line-height: 1.5;
+  padding-right: 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
   color: var(--kiro-text, #fff);
   scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+/* WebView2 draws a bright default scrollbar, which looked like a white bar
+   pasted over the glass. Thin, translucent, only visible while scrolling. */
+.ai-body::-webkit-scrollbar,
+.ai-setup::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-body::-webkit-scrollbar-track,
+.ai-setup::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-body::-webkit-scrollbar-thumb,
+.ai-setup::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.ai-body::-webkit-scrollbar-thumb:hover,
+.ai-setup::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.light-mode .ai-body,
+.light-mode .ai-setup {
+  scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
+}
+
+.light-mode .ai-body::-webkit-scrollbar-thumb,
+.light-mode .ai-setup::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.light-mode .ai-body::-webkit-scrollbar-thumb:hover,
+.light-mode .ai-setup::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.32);
 }
 
 .ai-hint,
@@ -3149,8 +3209,101 @@ img {
 }
 
 .ai-answer {
-  white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Rendered markdown inside an answer. Models emit **bold**, lists and code, so
+   the panel renders them instead of showing the raw markers. */
+.ai-md > :first-child {
+  margin-top: 0;
+}
+
+.ai-md > :last-child {
+  margin-bottom: 0;
+}
+
+.ai-md p {
+  margin: 0 0 6px;
+}
+
+.ai-md strong {
+  font-weight: 600;
+  color: var(--kiro-text, #fff);
+}
+
+.ai-md em {
+  font-style: italic;
+}
+
+.ai-md del {
+  opacity: 0.6;
+}
+
+.ai-md code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 11.5px;
+}
+
+.ai-md pre {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow-x: auto;
+}
+
+.ai-md pre code {
+  padding: 0;
+  background: none;
+  white-space: pre;
+}
+
+.ai-md ul,
+.ai-md ol {
+  margin: 4px 0 6px;
+  padding-left: 18px;
+}
+
+.ai-md li {
+  margin: 2px 0;
+}
+
+.ai-md-heading {
+  margin: 8px 0 4px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ai-md-h1 {
+  font-size: 13.5px;
+}
+
+.ai-md-h2 {
+  font-size: 13px;
+}
+
+.ai-md-h3 {
+  font-size: 12.5px;
+}
+
+.ai-md blockquote {
+  margin: 6px 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--kiro-border, rgba(255, 255, 255, 0.16));
+  opacity: 0.9;
+}
+
+.ai-md hr {
+  margin: 8px 0;
+  border: none;
+  border-top: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.14));
+}
+
+.ai-md-link {
+  color: var(--kiro-accent, #5aa9ff);
 }
 
 .ai-input-row {

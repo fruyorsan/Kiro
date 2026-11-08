@@ -26,6 +26,7 @@ import { NotchShelf, useShelf } from "./components/NotchShelf";
 import { parseCcLayout, parsePanelOrder, resolveCcLayout, type CcKind } from "./panelOrder";
 import { NotchProgressBorder } from "./components/NotchProgressBorder";
 import { SurfaceShape } from "./components/SurfaceShape";
+import { AiMarkdown } from "./aiMarkdown";
 import { playAgentSound } from "./agentSounds";
 import { AgentLeft, AgentDot, AgentPanel, type AgentActivity } from "./components/AgentStatus";
 import type { WidgetConfig } from "./components/StatusWidgetConfig";
@@ -2964,7 +2965,9 @@ function App() {
                               ) : aiError ? (
                                 <div className="ai-error">{aiError}</div>
                               ) : aiAnswer ? (
-                                <div className="ai-answer">{aiAnswer}</div>
+                                <div className="ai-answer">
+                                  <AiMarkdown text={aiAnswer} />
+                                </div>
                               ) : (
                                 <div className="ai-hint">{t("ai.hint")}</div>
                               )}
