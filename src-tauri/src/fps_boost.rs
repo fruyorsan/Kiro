@@ -70,9 +70,11 @@ const HOLD: Duration = Duration::from_millis(1200);
 /// Give focus blips (alt-tab, our own OSD) time to pass before releasing.
 const RELEASE_HOLD: Duration = Duration::from_millis(2500);
 /// How many fullscreen sessions an unknown exe needs before we touch its
-/// persistent registry profile. One is not enough: trailers, launchers and
-/// benchmark tools go fullscreen once and should not be configured.
-const SIGHTINGS_BEFORE_PROFILE: u32 = 2;
+/// persistent registry profile. One is not enough: trailers, launchers,
+/// dev tools and benchmark screens go fullscreen once and should not be
+/// configured. Three separate launches is a strong signal the user really
+/// plays this.
+const SIGHTINGS_BEFORE_PROFILE: u32 = 3;
 
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 static SINCE: Mutex<Option<Instant>> = Mutex::new(None);
@@ -349,7 +351,27 @@ fn boostable(exe: &str) -> bool {
             | "photos.exe"
             | "gamebar.exe"
             | "steamwebhelper.exe"
+            // The lock screen and logon UI go fullscreen legitimately and are
+            // not games. Profiling them would be wrong and pointless.
+            | "lockapp.exe"
+            | "logonui.exe"
+            | "textinputhost.exe"
+            | "sihost.exe"
+            | "useroobebroker.exe"
+            | "systemsettings.exe"
+            | "windowssecurity.exe"
     )
+}
+
+/// Per-app registry profiles are only ever written for executables that live in
+/// a normal install location. Anything under the Windows folder is an OS
+/// component and must never get a graphics profile.
+fn profile_allowed(exe: &str) -> bool {
+    let lower = exe.to_ascii_lowercase();
+    if lower.contains("\\windows\\") || lower.contains("\\windowsapps\\") {
+        return false;
+    }
+    boostable(exe)
 }
 
 fn set_process_boost(pid: u32) -> Option<SavedProcess> {
@@ -591,7 +613,7 @@ fn revert_auto_profiles(app: &AppHandle) {
 /// Record a sighting and, once the same exe has been seen playing fullscreen
 /// twice, write the persistent per-app profile. Everything is backed up first.
 fn maybe_apply_profile(app: &AppHandle, exe: &str) {
-    if !compat_enabled(app) {
+    if !compat_enabled(app) || !profile_allowed(exe) {
         return;
     }
     let mut file = load_profiles(app);
@@ -625,6 +647,35 @@ fn maybe_apply_profile(app: &AppHandle, exe: &str) {
 }
 
 // --- session engage / release ----------------------------------------------
+
+/// Drop records that were collected before the exclusion rules existed (the
+/// lock screen, dev tools) and revert anything they applied.
+fn prune_profiles(app: &AppHandle) {
+    let mut file = load_profiles(app);
+    let before = file.profiles.len();
+    let mut removed = Vec::new();
+    file.profiles.retain(|profile| {
+        if profile_allowed(&profile.exe) {
+            true
+        } else {
+            removed.push(profile.clone());
+            false
+        }
+    });
+    if removed.is_empty() {
+        return;
+    }
+    for profile in &removed {
+        if profile.applied {
+            revert_registry_profile(profile);
+        }
+    }
+    save_profiles(app, &file);
+    crate::diagnostics::log(&format!(
+        "fps boost: pruned {} non-game profile(s) (was {before})",
+        removed.len()
+    ));
+}
 
 fn mute_toasts(app: &AppHandle) -> (Option<u32>, bool) {
     let previous = reg_get_u32(HKEY_CURRENT_USER, NOTIF_KEY, TOASTS_VALUE);
