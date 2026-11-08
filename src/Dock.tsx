@@ -850,6 +850,30 @@ const Dock = memo(function Dock() {
   const submenuRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  // Moving the pointer from the menu item into the fly-out crosses a small gap.
+  // A short grace period keeps the fly-out open while the pointer is in it
+  // instead of closing the moment the item loses hover.
+  const submenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelSubmenuClose = () => {
+    if (submenuCloseTimer.current) {
+      clearTimeout(submenuCloseTimer.current);
+      submenuCloseTimer.current = null;
+    }
+  };
+
+  const openSubmenu = (id: string) => {
+    cancelSubmenuClose();
+    setActiveSubmenu(id);
+  };
+
+  const scheduleSubmenuClose = () => {
+    cancelSubmenuClose();
+    submenuCloseTimer.current = setTimeout(() => {
+      submenuCloseTimer.current = null;
+      setActiveSubmenu(null);
+    }, 300);
+  };
 
 
 
@@ -858,6 +882,7 @@ const Dock = memo(function Dock() {
     e.preventDefault();
     setHoveredApp(null);
     setPreviewData(null);
+    cancelSubmenuClose();
     setActiveSubmenu(null);
     setShowAddPopup(false);
     setShowSearch(false);
@@ -873,6 +898,7 @@ const Dock = memo(function Dock() {
   };
 
   const closeMenu = () => {
+    cancelSubmenuClose();
     setContextMenu(null);
     setActiveSubmenu(null);
     invoke('set_menu_open', { open: false, rect: null }).catch(() => {});
@@ -911,9 +937,22 @@ const Dock = memo(function Dock() {
       // hook routes clicks by this rect. Report the union of both so hovering
       // and clicking the submenu keeps working instead of falling through.
       const sub = activeSubmenu ? submenuRef.current?.getBoundingClientRect() : null;
-      const left = sub ? Math.min(r.x, sub.x) : r.x;
+      let left = r.x;
+      let right = r.right;
+      if (sub) {
+        left = Math.min(left, sub.x);
+        right = Math.max(right, sub.right);
+      } else {
+        // Reserve the strip the fly-out will occupy before it is opened. The
+        // pointer has to cross that strip to reach the fly-out, and without
+        // this the native hit-test made it click-through and the fly-out
+        // closed/never received the pointer.
+        const flyoutWidth = (220 + 16) * scale;
+        const opensLeft = r.x + r.width + flyoutWidth > window.innerWidth - 8;
+        if (opensLeft) left -= flyoutWidth;
+        else right += flyoutWidth;
+      }
       const top = sub ? Math.min(r.y, sub.y) : r.y;
-      const right = sub ? Math.max(r.right, sub.right) : r.right;
       const bottom = sub ? Math.max(r.bottom, sub.bottom) : r.bottom;
       rect = {
         x: Math.round(left),
@@ -1835,15 +1874,17 @@ const Dock = memo(function Dock() {
               </div>
               <div
                 className={`menu-item has-submenu${activeSubmenu === 'kiro' ? ' open' : ''}`}
-                onMouseEnter={() => setActiveSubmenu('kiro')}
-                onMouseLeave={() => setActiveSubmenu(null)}
-                onClick={() => setActiveSubmenu('kiro')}
+                onMouseEnter={() => openSubmenu('kiro')}
+                onMouseLeave={scheduleSubmenuClose}
+                onClick={() => openSubmenu('kiro')}
               >
                 {t("dockmenu.options")}
                 <span className="submenu-arrow">{submenuOpensLeft ? "\u25c2" : "\u25b8"}</span>
                 <div
                   ref={submenuRef}
                   className={`submenu${activeSubmenu === 'kiro' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
+                  onMouseEnter={cancelSubmenuClose}
+                  onMouseLeave={scheduleSubmenuClose}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
@@ -1879,15 +1920,17 @@ const Dock = memo(function Dock() {
               </div>
               <div
                 className={`menu-item has-submenu${activeSubmenu === 'kiro' ? ' open' : ''}`}
-                onMouseEnter={() => setActiveSubmenu('kiro')}
-                onMouseLeave={() => setActiveSubmenu(null)}
-                onClick={() => setActiveSubmenu('kiro')}
+                onMouseEnter={() => openSubmenu('kiro')}
+                onMouseLeave={scheduleSubmenuClose}
+                onClick={() => openSubmenu('kiro')}
               >
                 {t("dockmenu.options")}
                 <span className="submenu-arrow">{submenuOpensLeft ? "\u25c2" : "\u25b8"}</span>
                 <div
                   ref={submenuRef}
                   className={`submenu${activeSubmenu === 'kiro' ? ' open' : ''}${submenuOpensLeft ? ' left' : ''}`}
+                  onMouseEnter={cancelSubmenuClose}
+                  onMouseLeave={scheduleSubmenuClose}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>

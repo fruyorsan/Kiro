@@ -2833,6 +2833,8 @@ pub fn clear_volume_mixer_rect() {
 }
 
 pub fn restore_taskbar_and_exit(handle: &AppHandle) {
+    // Put back anything the FPS boost changed for this game session.
+    crate::fps_boost::shutdown(handle);
     SHUTTING_DOWN.store(true, Ordering::Relaxed);
     NATIVE_TASKBAR_HIDDEN.store(false, Ordering::SeqCst);
     for (_, w) in handle.webview_windows() {
@@ -2940,6 +2942,98 @@ pub fn set_hitbox_logging(enabled: bool) {
     crate::diagnostics::set_hitbox_logging(enabled);
 }
 
+// --- Do Not Disturb -------------------------------------------------------
+// Windows keeps a global toast switch under this key. Writing 0 suppresses
+// notification toasts for the current user (the same switch Settings >
+// Notifications flips), which is what the moon button is expected to do.
+const NOTIFICATION_SETTINGS_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings";
+const TOASTS_ENABLED_VALUE: &str = "NOC_GLOBAL_SETTING_TOASTS_ENABLED";
+
+fn read_reg_dword(subkey: &str, name: &str) -> Option<u32> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
+
+    let sub_w: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
+    let name_w: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut data: u32 = 0;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            PCWSTR(sub_w.as_ptr()),
+            PCWSTR(name_w.as_ptr()),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut data as *mut u32 as *mut _),
+            Some(&mut size),
+        )
+        .ok()
+        .ok()?;
+    }
+    Some(data)
+}
+
+fn write_reg_dword(subkey: &str, name: &str, value: u32) -> windows::core::Result<()> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_WRITE,
+        REG_DWORD, REG_OPTION_NON_VOLATILE,
+    };
+
+    let sub_w: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
+    let name_w: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut hkey = HKEY::default();
+    unsafe {
+        RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(sub_w.as_ptr()),
+            Some(0),
+            PCWSTR::null(),
+            REG_OPTION_NON_VOLATILE,
+            KEY_WRITE,
+            None,
+            &mut hkey,
+            None,
+        )
+        .ok()?;
+        let bytes = value.to_le_bytes();
+        let result = RegSetValueExW(
+            hkey,
+            PCWSTR(name_w.as_ptr()),
+            Some(0),
+            REG_DWORD,
+            Some(&bytes),
+        )
+        .ok();
+        let _ = RegCloseKey(hkey);
+        result?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_dnd_enabled() -> bool {
+    // The value stores whether toasts are *enabled*; absent means enabled.
+    match read_reg_dword(NOTIFICATION_SETTINGS_KEY, TOASTS_ENABLED_VALUE) {
+        Some(enabled) => enabled == 0,
+        None => false,
+    }
+}
+
+#[tauri::command]
+pub fn set_dnd_enabled(enabled: bool) -> Result<bool, String> {
+    write_reg_dword(
+        NOTIFICATION_SETTINGS_KEY,
+        TOASTS_ENABLED_VALUE,
+        if enabled { 0 } else { 1 },
+    )
+    .map_err(|e| format!("Could not change Windows notifications: {e}"))?;
+    crate::diagnostics::log(&format!(
+        "do not disturb {}",
+        if enabled { "on" } else { "off" }
+    ));
+    Ok(enabled)
+}
 #[tauri::command]
 pub fn get_hitbox_logging() -> bool {
     crate::diagnostics::hitbox_logging()

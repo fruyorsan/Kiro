@@ -39,6 +39,7 @@
 | **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent color. English and Turkish. Every option lives in a plain `settings.json`. |
 | **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. |
 | **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, stops trimming memory, and hides its always-on-top windows at the OS level so the game keeps direct-to-screen flip. Everything returns on exit. |
+| **Kiro FPS Boost** | While a game runs: the game process gets priority, Windows' efficiency throttling is switched off for it, and notifications are muted so they cannot break the game's flip path. The second time Kiro sees the same game it pins it to the high-performance GPU and disables fullscreen optimizations for it. A hardware audit reports what is actually costing frames. Every change is reversible. |
 
 <div align="center">
 <table>

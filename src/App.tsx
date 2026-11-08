@@ -545,6 +545,7 @@ function App() {
     return raw;
   });
   const [dndActive, setDndActive] = useState(false);
+  const [dndBusy, setDndBusy] = useState(false);
   const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem("kiro-dock-enabled") !== "false");
   const [isNotchHovered, setIsNotchHovered] = useState(false);
   const [agentActivity, setAgentActivity] = useState<AgentActivity | null>(null);
@@ -600,6 +601,29 @@ function App() {
       invoke('set_notch_hidden', { hidden: !isVisible || isHidden }).catch(() => { });
     }
   }, [isVisible, isHidden, isNotchWindow]);
+
+  // Mirror Windows' own "do not disturb" switch. The moon button used to flip a
+  // local boolean only, so it looked completely broken: nothing changed and the
+  // state reset on every reload.
+  useEffect(() => {
+    invoke<boolean>("get_dnd_enabled")
+      .then((value) => setDndActive(value))
+      .catch(() => { });
+  }, []);
+
+  const toggleDnd = useCallback(async () => {
+    if (dndBusy) return;
+    setDndBusy(true);
+    const next = !dndActive;
+    try {
+      const applied = await invoke<boolean>("set_dnd_enabled", { enabled: next });
+      setDndActive(applied);
+    } catch (error) {
+      console.error("do not disturb:", error);
+    } finally {
+      setDndBusy(false);
+    }
+  }, [dndActive, dndBusy]);
 
   useEffect(() => {
     let lastSent = "";
@@ -2669,7 +2693,7 @@ function App() {
                         className={`cc-circular-btn ${dndActive ? 'active' : ''}`}
                         style={ccStyle("buttons", "dnd")}
                         {...tip(t("cc.dnd"))}
-                        onClick={(e) => { e.stopPropagation(); setDndActive(prev => !prev); }}
+                        onClick={(e) => { e.stopPropagation(); void toggleDnd(); }}
                       >
                         <MoonIcon />
                       </button>

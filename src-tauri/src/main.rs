@@ -32,6 +32,7 @@ mod migrate;
 mod defaults;
 mod perf;
 mod game_boost;
+mod fps_boost;
 
 use tauri::Manager;
 use windows::Win32::System::Console::SetConsoleCtrlHandler;
@@ -203,6 +204,15 @@ fn main() {
             open_log_folder,
             set_hitbox_logging,
             get_hitbox_logging,
+            get_dnd_enabled,
+            set_dnd_enabled,
+            fps_boost::fps_boost_state,
+            fps_boost::fps_boost_profiles,
+            fps_boost::fps_boost_remove_profile,
+            fps_boost::fps_boost_restore_all,
+            fps_boost::fps_boost_system_tweaks_active,
+            fps_boost::fps_boost_set_system_tweaks,
+            fps_boost::fps_boost_audit,
             get_volume,
             get_volume_state,
             get_brightness,
@@ -277,6 +287,8 @@ fn main() {
                 crate::diagnostics::log(&format!("defaults: added {added:?}"));
             }
             crate::utils::init_settings_cache(app.handle());
+            // Undo a notification mute left behind by a killed session.
+            crate::fps_boost::init(app.handle());
             agent_api::start(app.handle().clone());
 
             #[cfg(not(debug_assertions))]

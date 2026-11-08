@@ -126,6 +126,8 @@ function SettingsApp() {
               toggleAutoPerf={settings.toggleAutoPerf}
               gameBoost={settings.gameBoost}
               toggleGameBoost={settings.toggleGameBoost}
+              fpsBoost={settings.fpsBoost}
+              toggleFpsBoost={settings.toggleFpsBoost}
               restartKiro={settings.restartKiro}
               quitKiro={settings.quitKiro}
             />

@@ -1469,6 +1469,10 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                 // "is this really a game" decision as perf mode.
                 let game_monitor = fg_info.map(|(screen, _, _)| (screen.left, screen.top));
                 crate::game_boost::update(&handle_visibility, perf_fullscreen, game_monitor);
+                // Process-level boost: priority, EcoQoS off, memory priority,
+                // notification mute. Self-reverting, so it can engage on the
+                // first fullscreen tick without a confirmation.
+                crate::fps_boost::update(&handle_visibility, perf_fullscreen, hwnd);
                 let fullscreen_on_dock = current_is_fs && fg_on("dock");
                 CURRENT_FOREGROUND_FULLSCREEN_ON_DOCK.store(fullscreen_on_dock, Ordering::Relaxed);
                 if Some(fullscreen_on_dock) != last_dock_fullscreen || last_emit.elapsed() >= Duration::from_secs(3) {
@@ -2232,12 +2236,22 @@ fn refresh_mouse_caches(app: &AppHandle) {
         MH_NOTCH_EDGE_DELAY_MS
             .store(v.parse::<i64>().unwrap_or(TOP_EDGE_DWELL_MS).clamp(0, 2000), Ordering::Relaxed);
     }
+    // Defaults must match the UI (EdgeSides.tsx / Overlay.tsx): volume on the
+    // left edge, brightness on the right. Using `== Some("right")` made an
+    // absent setting fall through to "left" for brightness too, which collapsed
+    // both OSDs onto the left edge and the brightness one never appeared.
     MH_VOLUME_RIGHT.store(
-        crate::utils::get_setting_str(app, "kiro-volume-side").as_deref() == Some("right"),
+        crate::utils::get_setting_str(app, "kiro-volume-side")
+            .as_deref()
+            .unwrap_or("left")
+            == "right",
         Ordering::Relaxed,
     );
     MH_BRIGHTNESS_RIGHT.store(
-        crate::utils::get_setting_str(app, "kiro-brightness-side").as_deref() == Some("right"),
+        crate::utils::get_setting_str(app, "kiro-brightness-side")
+            .as_deref()
+            .unwrap_or("right")
+            == "right",
         Ordering::Relaxed,
     );
     MH_NOTCH_FIXED.store(
@@ -2809,7 +2823,12 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
             let volume_right = MH_VOLUME_RIGHT.load(Ordering::Relaxed);
             let brightness_right = MH_BRIGHTNESS_RIGHT.load(Ordering::Relaxed);
 
-            if !fg_fs {
+            // Side-edge OSDs are a deliberate gesture, so they must work over
+            // normal (and even maximized / borderless) windows. This used to be
+            // gated on the foreground being non-fullscreen, and since a borderless
+            // maximized window counts as fullscreen the volume/brightness cards
+            // simply never appeared.
+            {
                 let at_edge = |right: bool| {
                     cursor.y >= mon_y && cursor.y <= (mon_y + mon_h)
                         && if right { cursor.x >= (mon_x + mon_w - 8) && cursor.x <= mon_x + mon_w } else { cursor.x >= mon_x && cursor.x <= (mon_x + 8) }
@@ -2845,6 +2864,7 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                 if prev != new_val {
                     let _ = app_handle.emit("volume-edge-hover", final_volume_hover);
                     MH_LAST_LEFT_EDGE_HOVER.store(new_val, Ordering::Relaxed);
+                    crate::diagnostics::log(&format!("edge osd: volume {final_volume_hover}"));
                 }
 
                 let brightness_enter = if brightness_right { &MH_RIGHT_ENTER_MS } else { &MH_LEFT_ENTER_MS };
@@ -2862,13 +2882,7 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                 if prev != new_val {
                     let _ = app_handle.emit("brightness-edge-hover", final_brightness_hover);
                     MH_LAST_RIGHT_EDGE_HOVER.store(new_val, Ordering::Relaxed);
-                }
-            } else {
-                if MH_LAST_LEFT_EDGE_HOVER.swap(0, Ordering::Relaxed) != 0 {
-                    let _ = app_handle.emit("volume-edge-hover", false);
-                }
-                if MH_LAST_RIGHT_EDGE_HOVER.swap(0, Ordering::Relaxed) != 0 {
-                    let _ = app_handle.emit("brightness-edge-hover", false);
+                    crate::diagnostics::log(&format!("edge osd: brightness {final_brightness_hover}"));
                 }
             }
 
