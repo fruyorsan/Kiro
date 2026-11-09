@@ -310,11 +310,14 @@ fn main() {
 
             crate::calendar_sync::start_background_sync(app.handle().clone());
 
-            let window = app.get_webview_window("main").unwrap();
-            let dock_win = app.get_webview_window("dock").unwrap();
-
-            crate::services::wire_window_events(app.handle(), &window, crate::types::WindowKind::Notch, false);
-            crate::services::wire_window_events(app.handle(), &dock_win, crate::types::WindowKind::Dock, false);
+            // The windows come from tauri.conf.json, but a missing one must not
+            // panic the whole app inside the setup hook: just skip wiring it.
+            if let Some(window) = app.get_webview_window("main") {
+                crate::services::wire_window_events(app.handle(), &window, crate::types::WindowKind::Notch, false);
+            }
+            if let Some(dock_win) = app.get_webview_window("dock") {
+                crate::services::wire_window_events(app.handle(), &dock_win, crate::types::WindowKind::Dock, false);
+            }
 
             for label in ["main", "dock", "overlay"] {
                 if let Some(w) = app.get_webview_window(label) {
@@ -405,8 +408,13 @@ fn main() {
                 let calendar_item = make("calendar", "dockmenu.openCalendar")?;
                 let menu = Menu::with_items(app, &[&calendar_item, &settings_item, &restart_item, &quit_item])?;
                 let ah = app.handle().clone();
-                TrayIconBuilder::new()
-                    .icon(app.default_window_icon().unwrap().clone())
+                let mut tray = TrayIconBuilder::new();
+                // Without a bundled icon default_window_icon() is None; the old
+                // unwrap panicked the whole startup and left no tray at all.
+                if let Some(icon) = app.default_window_icon() {
+                    tray = tray.icon(icon.clone());
+                }
+                tray
                     .tooltip("Kiro")
                     .menu(&menu)
                     .on_menu_event(move |_, event| match event.id().as_ref() {

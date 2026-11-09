@@ -3373,15 +3373,51 @@ const MONITOR_TARGETING_KEYS: [&str; 5] = [
     "kiro-dock-enabled",
 ];
 
+/// Serialises every read-modify-write of settings.json. Several windows call
+/// `save_setting` at the same time (the settings window writes on every
+/// keystroke and every theme slider tick), and without this lock two calls read
+/// the same snapshot and the second write silently drops the first key. A
+/// poisoned lock is recovered instead of panicking: a settings write must never
+/// take the app down.
+static SETTINGS_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn lock_settings() -> std::sync::MutexGuard<'static, ()> {
+    SETTINGS_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Write the settings file atomically: readers (the file watcher and
+/// `load_settings`) must never observe a truncated file in the middle of a
+/// write. Writing a sibling temp file and renaming it over the target makes the
+/// swap atomic on NTFS.
+fn write_settings_atomic(path: &std::path::Path, content: &str) -> std::io::Result<()> {
+    let temp = path.with_extension("json.tmp");
+    std::fs::write(&temp, content)?;
+    match std::fs::rename(&temp, path) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            let _ = std::fs::remove_file(&temp);
+            Err(error)
+        }
+    }
+}
+
 #[tauri::command]
 pub fn save_setting(app: AppHandle, key: String, value: serde_json::Value) -> Result<(), String> {
     let path = app.path().app_config_dir().map_err(|e| e.to_string())?.join("settings.json");
     if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
-    let mut settings = HashMap::new();
-    if let Ok(content) = std::fs::read_to_string(&path) { if let Ok(existing) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) { settings = existing; } }
-    settings.insert(key.clone(), value);
-    let content = serde_json::to_string(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(path, content).map_err(|e| e.to_string())?;
+    // Hold the lock for the whole read-modify-write so concurrent saves queue up
+    // instead of clobbering each other.
+    let settings = {
+        let _guard = lock_settings();
+        let mut settings = HashMap::new();
+        if let Ok(content) = std::fs::read_to_string(&path) { if let Ok(existing) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) { settings = existing; } }
+        settings.insert(key.clone(), value);
+        let content = serde_json::to_string(&settings).map_err(|e| e.to_string())?;
+        write_settings_atomic(&path, &content).map_err(|e| e.to_string())?;
+        settings
+    };
 
     crate::utils::replace_settings_cache(settings.clone());
 
@@ -3459,7 +3495,10 @@ pub fn load_settings(app: AppHandle) -> Result<HashMap<String, serde_json::Value
 #[tauri::command]
 pub fn reset_settings(app: AppHandle) -> Result<(), String> {
     let path = app.path().app_config_dir().map_err(|e| e.to_string())?.join("settings.json");
-    std::fs::write(&path, "{}").map_err(|e| e.to_string())?;
+    {
+        let _guard = lock_settings();
+        write_settings_atomic(&path, "{}").map_err(|e| e.to_string())?;
+    }
     crate::utils::replace_settings_cache(HashMap::new());
     Ok(())
 }
@@ -4278,7 +4317,10 @@ pub fn import_settings(app: AppHandle, settings: String) -> Result<(), String> {
     }
 
     let content = serde_json::to_string_pretty(&imported).map_err(|e| e.to_string())?;
-    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    {
+        let _guard = lock_settings();
+        write_settings_atomic(&path, &content).map_err(|e| e.to_string())?;
+    }
 
     crate::utils::replace_settings_cache(imported.clone());
 

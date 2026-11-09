@@ -959,7 +959,9 @@ function App() {
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
-        if (attempts > 50 && attempts % 10 !== 0) return;
+        // Back off to one check every 5s after the first 5s so a notch window
+        // that never becomes visible cannot keep waking the runtime at 1Hz.
+        if (attempts > 50 && attempts % 50 !== 0) return;
         if (await checkVisibility()) clearInterval(interval);
       }, 100);
 
@@ -1613,10 +1615,18 @@ function App() {
   // Battery API
   useEffect(() => {
     let battery: any = null;
+    let disposed = false;
+    // The cleanup has to run against the same handler references that were
+    // added, so keep them here instead of returning them from an async
+    // function that the effect never sees.
+    let detach: (() => void) | null = null;
 
     const initBattery = async () => {
       try {
         battery = await (navigator as any).getBattery();
+        // The component can unmount while getBattery() is still pending; in
+        // that case the listeners must never be attached.
+        if (disposed) return;
 
         const updateBattery = () => {
           setBatteryLevel(Math.round(battery.level * 100));
@@ -1632,7 +1642,7 @@ function App() {
         battery.addEventListener("chargingtimechange", updateBattery);
         battery.addEventListener("dischargingtimechange", updateBattery);
 
-        return () => {
+        detach = () => {
           battery.removeEventListener("levelchange", updateBattery);
           battery.removeEventListener("chargingchange", updateBattery);
           battery.removeEventListener("chargingtimechange", updateBattery);
@@ -1644,6 +1654,11 @@ function App() {
     };
 
     initBattery();
+
+    return () => {
+      disposed = true;
+      detach?.();
+    };
   }, []);
 
   // Listen for Volume Changes

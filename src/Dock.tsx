@@ -455,12 +455,14 @@ const Dock = memo(function Dock() {
       return false;
     };
 
-    // Keep polling until visible — no time cap, since the dock can be
+    // Poll until visible. There is no hard cap because the dock can be turned
+    // on later, but the cadence backs off hard: one IPC check every 5s after
+    // the first few seconds instead of an uncapped 1s wakeup for the session.
     let attempts = 0;
     const interval = setInterval(async () => {
       if (cleared) return;
       attempts++;
-      if (attempts > 25 && attempts % 5 !== 0) return;
+      if (attempts > 25 && attempts % 25 !== 0) return;
       if (await checkVisibility()) {
         clearInterval(interval);
         cleared = true;
@@ -1824,18 +1826,6 @@ const Dock = memo(function Dock() {
                   })()}
                 </>
               )}
-              <div className="menu-divider" />
-              <div className="menu-item" onClick={() => { setShowAddPopup(true); closeMenu(); }}>
-                {t("dockmenu.addApp")}
-              </div>
-              <div className="menu-divider" />
-              <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
-              <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
-              <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
-              <div className="menu-item" onClick={() => invoke('restart_kiro')}>{t("general.restart")}</div>
-              <div className="menu-item" onClick={() => { handleClearIconCache(); closeMenu(); }}>{t("dockmenu.clearIconCache")}</div>
-              <div className="menu-divider" />
-              <div className="menu-item quit" onClick={() => invoke('quit_kiro')}>{t("general.quit")}</div>
               {contextMenu.app.is_running && (
                 <>
                   <div className="menu-divider" />
@@ -1852,6 +1842,18 @@ const Dock = memo(function Dock() {
                   </div>
                 </>
               )}
+              <div className="menu-divider" />
+              <div className="menu-item" onClick={() => { setShowAddPopup(true); closeMenu(); }}>
+                {t("dockmenu.addApp")}
+              </div>
+              <div className="menu-divider" />
+              <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
+              <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
+              <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
+              <div className="menu-item" onClick={() => invoke('restart_kiro')}>{t("general.restart")}</div>
+              <div className="menu-item" onClick={() => { handleClearIconCache(); closeMenu(); }}>{t("dockmenu.clearIconCache")}</div>
+              <div className="menu-divider" />
+              <div className="menu-item quit" onClick={() => invoke('quit_kiro')}>{t("general.quit")}</div>
             </>
           ) : (
             <>

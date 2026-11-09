@@ -17,6 +17,11 @@ const SETTING: &str = "kiro-agent-api";
 static ACTIVE: AtomicUsize = AtomicUsize::new(0);
 static NEXT_ASK: AtomicU64 = AtomicU64::new(1);
 static PENDING: Mutex<Option<HashMap<u64, mpsc::Sender<bool>>>> = Mutex::new(None);
+/// `start` and a settings change both call `set_hooks`, and both read-modify-
+/// write ~/.claude/settings.json. Without this the two can overwrite each
+/// other's edits (one of them drops the other's hook entries, or re-reads a
+/// half-written file and gives up).
+static HOOK_SYNC: Mutex<()> = Mutex::new(());
 
 #[derive(Deserialize)]
 struct Incoming {
@@ -346,6 +351,7 @@ pub fn set_hooks(enable: bool) {
     if enable && !std::env::var_os("USERPROFILE").is_some_and(|d| PathBuf::from(d).join(".claude").is_dir()) {
         return;
     }
+    let _guard = HOOK_SYNC.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     sync_claude_hooks(enable);
 }
 
