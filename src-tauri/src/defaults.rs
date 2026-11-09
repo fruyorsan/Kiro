@@ -87,8 +87,14 @@ pub fn apply(app: &tauri::AppHandle) -> Vec<&'static str> {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
+        // Same temp-file swap `save_setting` uses: the watcher and every window
+        // read this file right after startup, and a plain write can expose a
+        // half-written document (or truncate everything if the process dies).
         if let Ok(content) = serde_json::to_string(&settings) {
-            let _ = std::fs::write(&path, content);
+            let temp = path.with_extension("json.tmp");
+            if std::fs::write(&temp, &content).is_ok() && std::fs::rename(&temp, &path).is_err() {
+                let _ = std::fs::remove_file(&temp);
+            }
         }
     }
 

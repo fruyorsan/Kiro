@@ -4,8 +4,19 @@ import { listen } from "@tauri-apps/api/event";
 function convertSettingValue(value: any): any {
   if (value === "true") return true;
   if (value === "false") return false;
-  if (typeof value === "string" && !isNaN(Number(value))) return Number(value);
+  // An empty field (a cleared API key, a model box the user emptied) must stay
+  // an empty string. Number("") is 0, which used to turn it into a numeric 0
+  // and break every text setting that was allowed to be blank.
+  if (typeof value === "string" && value.trim() !== "" && !isNaN(Number(value))) {
+    return Number(value);
+  }
   return value;
+}
+
+/** Same serialization the settings snapshot uses, so an object value does not
+ * become "[object Object]" in this window's localStorage copy. */
+function storageText(value: any): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
 }
 
 /**
@@ -41,7 +52,7 @@ export function useSettingsSync(
           // in-memory copy: the notch reading localStorage (theme, AI key, dock
           // delay, ...) could otherwise keep the stale value until a restart and
           // ignore the change the user just made in Settings.
-          localStorage.setItem(key, String(value));
+          localStorage.setItem(key, storageText(value));
         }
         const handler = handlersRef.current[key];
         if (handler && value !== null && value !== undefined) {
@@ -56,7 +67,7 @@ export function useSettingsSync(
         const { key, value } = event.payload;
 
         if (value !== null) {
-          localStorage.setItem(key, String(value));
+          localStorage.setItem(key, storageText(value));
         } else {
           localStorage.removeItem(key);
         }

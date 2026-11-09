@@ -754,15 +754,19 @@ function OverlayApp() {
         localStorage.setItem("kiro-notch-scroll-volume", String(settings["kiro-notch-scroll-volume"]));
       }
       if (settings && settings["kiro-scale"] !== undefined) {
-        setScale(parseFloat(settings["kiro-scale"]));
+        // parseFloat("") is NaN and an empty field would blank the overlay.
+        const parsedScale = parseFloat(String(settings["kiro-scale"]));
+        if (Number.isFinite(parsedScale)) setScale(parsedScale);
       }
       if (settings && settings["kiro-brightness-overlay-enabled"] !== undefined) {
-        setBrightnessOverlayEnabled(settings["kiro-brightness-overlay-enabled"] === "true");
+        // settings.json may store a boolean (imported profile, older build);
+        // `=== "true"` turned a real `true` into "off".
+        setBrightnessOverlayEnabled(settings["kiro-brightness-overlay-enabled"] !== false && settings["kiro-brightness-overlay-enabled"] !== "false");
       }
       if (settings && settings["kiro-volume-side"] !== undefined) setVolumeSide(asSide(String(settings["kiro-volume-side"]), "left"));
       if (settings && settings["kiro-brightness-side"] !== undefined) setBrightnessSide(asSide(String(settings["kiro-brightness-side"]), "right"));
       if (settings && settings["kiro-volume-overlay-enabled"] !== undefined) {
-        setVolumeOverlayEnabled(settings["kiro-volume-overlay-enabled"] === "true");
+        setVolumeOverlayEnabled(settings["kiro-volume-overlay-enabled"] !== false && settings["kiro-volume-overlay-enabled"] !== "false");
       }
     }).catch(console.error);
   }, []);

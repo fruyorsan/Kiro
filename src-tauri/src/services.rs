@@ -2515,13 +2515,23 @@ fn in_show_desktop_corner(x: i32, y: i32) -> bool {
     if CURRENT_FOREGROUND_FULLSCREEN.load(Ordering::Relaxed) {
         return false;
     }
-    let setting = |key: &str| {
+    // settings.json can hold a real boolean (imported profile, older build or a
+    // hand edit). `as_str()` returned None for those, which made the corner
+    // look disabled and turned off the feature for no visible reason.
+    let flag = |key: &str| {
         crate::state::SETTINGS_CACHE
             .get()
             .and_then(|cache| cache.lock().ok())
-            .and_then(|guard| guard.get(key).and_then(|v| v.as_str().map(|s| s.to_string())))
+            .and_then(|guard| {
+                guard.get(key).map(|v| match v {
+                    serde_json::Value::Bool(b) => *b,
+                    serde_json::Value::String(s) => s == "true",
+                    serde_json::Value::Number(n) => n.as_f64().is_some_and(|n| n != 0.0),
+                    _ => false,
+                })
+            })
     };
-    if setting("kiro-dock-show-desktop-corner").as_deref() != Some("true") || setting("kiro-dock-enabled").as_deref() == Some("false") {
+    if !flag("kiro-dock-show-desktop-corner").unwrap_or(false) || flag("kiro-dock-enabled") == Some(false) {
         return false;
     }
     let (Some((mx, my)), Some((mw, mh))) = (

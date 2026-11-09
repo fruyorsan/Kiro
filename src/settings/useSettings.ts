@@ -20,6 +20,14 @@ function readBool(val: string | null): boolean {
   return val === "true";
 }
 
+/** Numeric setting reader that never yields NaN: an empty field or a corrupt
+ * value falls back to the default instead of poisoning a slider (NaN opacity
+ * and zoom produce invalid CSS and blank the surface). */
+function readNumber(val: string | null, fallback: number): number {
+  const parsed = parseFloat(val ?? "");
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function parseDrives(val: string | null): string[] {
   try {
     const parsed = JSON.parse(val ?? "[]");
@@ -220,18 +228,15 @@ export function useSettings() {
   const [themeColor, setThemeColor] = useState(
     () => localStorage.getItem("kiro-theme-color") || "#007aff"
   );
-  const [themeOpacity, setThemeOpacity] = useState(() => {
-    const val = localStorage.getItem("kiro-theme-opacity");
-    return val !== null ? parseFloat(val) : 0.8;
-  });
-  const [themeSaturation, setThemeSaturation] = useState(() => {
-    const val = localStorage.getItem("kiro-theme-saturation");
-    return val !== null ? parseFloat(val) : 0.5;
-  });
-  const [themeBrightness, setThemeBrightness] = useState(() => {
-    const val = localStorage.getItem("kiro-theme-brightness");
-    return val !== null ? parseFloat(val) : 0.15;
-  });
+  const [themeOpacity, setThemeOpacity] = useState(() =>
+    readNumber(localStorage.getItem("kiro-theme-opacity"), 0.6)
+  );
+  const [themeSaturation, setThemeSaturation] = useState(() =>
+    readNumber(localStorage.getItem("kiro-theme-saturation"), 0.5)
+  );
+  const [themeBrightness, setThemeBrightness] = useState(() =>
+    readNumber(localStorage.getItem("kiro-theme-brightness"), 0.15)
+  );
   const [themeStyle, setThemeStyle] = useState(() => localStorage.getItem("kiro-theme-style") || "liquid");
   const [themeAccent, setThemeAccent] = useState(() => localStorage.getItem("kiro-theme-accent") || "mono");
   const [themeAccentColor, setThemeAccentColor] = useState(
@@ -317,8 +322,8 @@ export function useSettings() {
       apply(getVal("kiro-dock-mixed-reorder"), setDockMixedReorder, readBool);
 
       apply(getVal("kiro-temp-unit"), setTempUnitFahrenheit, (v) => v === "fahrenheit");
-      apply(getVal("kiro-scale"), setScale, parseFloat);
-      apply(getVal("kiro-low-battery-threshold"), setLowBatteryThreshold, parseInt);
+      apply(getVal("kiro-scale"), setScale, (v) => readNumber(v, 1));
+      apply(getVal("kiro-low-battery-threshold"), setLowBatteryThreshold, (v) => readNumber(v, 20));
 
       apply(getVal("kiro-notch-mode"), setNotchMode, (v) => (v === "auto-hide" ? "smart" : v));
       apply(getVal("kiro-dock-mode"), setDockMode, (v) => (v === "auto-hide" ? "smart" : v));
@@ -345,9 +350,9 @@ export function useSettings() {
 
       apply(getVal("kiro-theme-mode"), setThemeMode, (v) => v);
       apply(getVal("kiro-theme-color"), setThemeColor, (v) => v);
-      apply(getVal("kiro-theme-opacity"), setThemeOpacity, parseFloat);
-      apply(getVal("kiro-theme-saturation"), setThemeSaturation, parseFloat);
-      apply(getVal("kiro-theme-brightness"), setThemeBrightness, parseFloat);
+      apply(getVal("kiro-theme-opacity"), setThemeOpacity, (v) => readNumber(v, 0.6));
+      apply(getVal("kiro-theme-saturation"), setThemeSaturation, (v) => readNumber(v, 0.5));
+      apply(getVal("kiro-theme-brightness"), setThemeBrightness, (v) => readNumber(v, 0.15));
       apply(getVal("kiro-theme-style"), setThemeStyle, (v) => v);
       apply(getVal("kiro-theme-accent"), setThemeAccent, (v) => v);
       apply(getVal("kiro-theme-accent-color"), setThemeAccentColor, (v) => v);

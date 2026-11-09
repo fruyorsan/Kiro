@@ -228,19 +228,25 @@ export async function applyTheme(
   root.classList.remove(...THEME_STYLES.map((s) => `style-${s}`));
   root.classList.add(`style-${(THEME_STYLES as readonly string[]).includes(style) ? style : "solid"}`);
 
-  if (opacity === undefined || opacity === null) {
-    const cachedOpacity = localStorage.getItem('kiro-theme-opacity');
-    opacity = cachedOpacity !== null ? parseFloat(cachedOpacity) : 0.80;
+  // A cleared field or an imported profile can leave "" or garbage in these
+  // keys. parseFloat("") is NaN, and an NaN opacity produced an invalid
+  // `rgba(..., NaN)` that browsers drop, leaving a fully transparent notch.
+  const cachedNumber = (key: string, fallback: number) => {
+    const raw = localStorage.getItem(key);
+    const parsed = raw === null ? NaN : parseFloat(raw);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  if (opacity === undefined || opacity === null || !Number.isFinite(opacity)) {
+    opacity = cachedNumber('kiro-theme-opacity', 0.6);
   }
 
-  if (saturation === undefined || saturation === null) {
-    const cachedSaturation = localStorage.getItem('kiro-theme-saturation');
-    saturation = cachedSaturation !== null ? parseFloat(cachedSaturation) : 0.50;
+  if (saturation === undefined || saturation === null || !Number.isFinite(saturation)) {
+    saturation = cachedNumber('kiro-theme-saturation', 0.5);
   }
 
-  if (brightness === undefined || brightness === null) {
-    const cachedBrightness = localStorage.getItem('kiro-theme-brightness');
-    brightness = cachedBrightness !== null ? parseFloat(cachedBrightness) : 0.15;
+  if (brightness === undefined || brightness === null || !Number.isFinite(brightness)) {
+    brightness = cachedNumber('kiro-theme-brightness', 0.15);
   }
 
   const op = opacity;
@@ -406,9 +412,13 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
   const applyThemeFromStorage = () => {
     const mode = localStorage.getItem('kiro-theme-mode') || 'dark';
     const color = localStorage.getItem('kiro-theme-color') || '#007aff';
-    const opacity = parseFloat(localStorage.getItem('kiro-theme-opacity') || '0.80');
-    const saturation = parseFloat(localStorage.getItem('kiro-theme-saturation') || '0.50');
-    const brightness = parseFloat(localStorage.getItem('kiro-theme-brightness') || '0.15');
+    const num = (key: string, fallback: number) => {
+      const parsed = parseFloat(localStorage.getItem(key) ?? '');
+      return Number.isFinite(parsed) ? parsed : fallback;
+    };
+    const opacity = num('kiro-theme-opacity', 0.6);
+    const saturation = num('kiro-theme-saturation', 0.5);
+    const brightness = num('kiro-theme-brightness', 0.15);
     applyTheme(mode, color, opacity, saturation, brightness);
   };
 
@@ -474,6 +484,8 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
     if (kiroThemeKeys.includes(key)) {
       if (value !== null && value !== undefined) {
         try { localStorage.setItem(key, String(value)); } catch { /* storage unavailable */ }
+      } else {
+        try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
       }
       applyThemeFromStorage();
     }

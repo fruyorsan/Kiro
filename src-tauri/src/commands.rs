@@ -4352,11 +4352,9 @@ pub fn setup_settings_watcher(app: AppHandle) {
         use windows::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
         use windows::Win32::Storage::FileSystem::{
             CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_LIST_DIRECTORY,
-            FILE_NOTIFY_CHANGE_LAST_WRITE,
-            OPEN_EXISTING, ReadDirectoryChangesW,
+            FILE_NOTIFY_CHANGE_FILE_NAME, FILE_NOTIFY_CHANGE_LAST_WRITE,
+            FILE_NOTIFY_CHANGE_SIZE, OPEN_EXISTING, ReadDirectoryChangesW,
         };
-        use windows::Win32::System::IO::OVERLAPPED;
-        use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject, INFINITE};
 
         unsafe {
             let dir_path: Vec<u16> = config_dir.to_string_lossy()
@@ -4379,36 +4377,32 @@ pub fn setup_settings_watcher(app: AppHandle) {
                 _ => return,
             };
 
-            let h_event = match CreateEventW(None, false, false, None) {
-                Ok(e) => e,
-                Err(_) => {
-                    let _ = CloseHandle(dir_handle);
-                    return;
-                }
-            };
-
             let mut notify_buffer = [0u8; 4096];
             let mut bytes_returned = 0u32;
-            let mut overlapped = OVERLAPPED::default();
-            overlapped.hEvent = h_event;
 
             loop {
-                let success = ReadDirectoryChangesW(
+                // A synchronous read blocks this dedicated thread until the
+                // directory changes. The previous version passed an OVERLAPPED
+                // structure on a handle that was not opened with
+                // FILE_FLAG_OVERLAPPED: the call stayed synchronous and then
+                // waited forever on an event that never gets signalled, so the
+                // watcher stopped after the first notification.
+                let watched = ReadDirectoryChangesW(
                     dir_handle,
                     notify_buffer.as_mut_ptr() as *mut _,
                     notify_buffer.len() as u32,
                     false,
-                    FILE_NOTIFY_CHANGE_LAST_WRITE,
+                    FILE_NOTIFY_CHANGE_LAST_WRITE
+                        | FILE_NOTIFY_CHANGE_FILE_NAME
+                        | FILE_NOTIFY_CHANGE_SIZE,
                     Some(&mut bytes_returned),
-                    Some(&mut overlapped),
+                    None,
                     None,
                 );
 
-                if success.is_err() {
+                if watched.is_err() {
                     break;
                 }
-
-                WaitForSingleObject(h_event, INFINITE);
 
                 std::thread::sleep(std::time::Duration::from_millis(200));
 
@@ -4454,7 +4448,6 @@ pub fn setup_settings_watcher(app: AppHandle) {
                 }
             }
 
-            let _ = CloseHandle(h_event);
             let _ = CloseHandle(dir_handle);
         }
     });

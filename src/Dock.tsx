@@ -300,6 +300,12 @@ function DockClock() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // The `storage` event does not fire reliably between WebView2 windows, so a
+  // format switch in Settings left this clock on the old format until restart.
+  useSettingsSync({
+    "kiro-time-format-24h": (v) => setUse24h(v !== false && v !== "false"),
+  });
+
   const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !use24h });
   const date = now.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
 
@@ -366,6 +372,11 @@ const Dock = memo(function Dock() {
   const [contextMenuWidth, setContextMenuWidth] = useState(0);
   const [activeOrder, setActiveOrder] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  // The app poll reads this instead of closing over the state, so starting or
+  // ending a drag no longer tears down and re-registers the whole poll effect
+  // (settings reload + listeners + IPC warm-up on every drag).
+  const isDraggingRef = useRef(isDragging);
+  isDraggingRef.current = isDragging;
   const [hoveredApp, setHoveredApp] = useState<string | null>(null);
   const [pressedApp, setPressedApp] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -438,6 +449,7 @@ const Dock = memo(function Dock() {
 
   useEffect(() => {
     let cleared = false;
+    const startupTimers: ReturnType<typeof setTimeout>[] = [];
 
     const checkVisibility = async (): Promise<boolean> => {
       try {
@@ -446,9 +458,11 @@ const Dock = memo(function Dock() {
         if (visible) {
           setStartupAnimating(true);
           setIsReady(true);
-          setTimeout(() => setIsImpacted(true), 280);
-          setTimeout(() => setIsExpanded(true), 350);
-          setTimeout(() => setStartupAnimating(false), 1500);
+          startupTimers.push(
+            setTimeout(() => setIsImpacted(true), 280),
+            setTimeout(() => setIsExpanded(true), 350),
+            setTimeout(() => setStartupAnimating(false), 1500),
+          );
           return true;
         }
       } catch (_) {}
@@ -472,7 +486,11 @@ const Dock = memo(function Dock() {
     // Also attempt immediately
     checkVisibility().then(ok => { if (ok) { clearInterval(interval); cleared = true; } });
 
-    return () => { clearInterval(interval); cleared = true; };
+    return () => {
+      clearInterval(interval);
+      startupTimers.forEach(clearTimeout);
+      cleared = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -513,6 +531,7 @@ const Dock = memo(function Dock() {
   };
 
   useEffect(() => {
+    let warmTimer: ReturnType<typeof setTimeout> | undefined;
     const init = async () => {
       const settings: any = await invoke('load_settings').catch(() => ({}));
       hydrateStorageFromSettings(settings);
@@ -539,7 +558,7 @@ const Dock = memo(function Dock() {
 
       // Warm the launcher's app list while the user is still doing something
       // else, so the first magnifier click is instant.
-      setTimeout(() => { loadInstalledApps().ready.catch(() => {}); }, 2500);
+      warmTimer = setTimeout(() => { loadInstalledApps().ready.catch(() => {}); }, 2500);
 
       const calendarEnabled = getVal("kiro-dock-calendar-enabled", "true");
       setDockCalendarEnabled(calendarEnabled === "true");
@@ -567,7 +586,12 @@ const Dock = memo(function Dock() {
       setDockMixedReorder(mixedReorder === "true");
 
       const scaleVal = getVal("kiro-scale");
-      if (scaleVal !== null) setScale(parseFloat(scaleVal));
+      // Keep a blank/corrupt value from becoming NaN: `zoom: NaN` is invalid
+      // CSS and makes the dock disappear.
+      if (scaleVal !== null) {
+        const parsedScale = parseFloat(scaleVal);
+        if (Number.isFinite(parsedScale)) setScale(parsedScale);
+      }
 
       // With the notch parked at the bottom it already shows date + time, so the
       // dock must not draw a second clock right next to it.
@@ -616,6 +640,7 @@ const Dock = memo(function Dock() {
     const unlistenMonitors = listen("monitors-changed", refreshDockMode);
 
     return () => {
+      clearTimeout(warmTimer);
       unlistenOverlap.then(f => f());
       unlistenEdgeHover.then(f => f());
       unlistenFullscreen.then(f => f());
@@ -657,7 +682,7 @@ const Dock = memo(function Dock() {
     let pollSeq = 0;
 
     const poll = async () => {
-      if (isDragging) return;
+      if (isDraggingRef.current) return;
       const seq = ++pollSeq;
       const running = await invoke<AppInfo[]>('get_active_windows');
       // Drop out-of-order responses, an old poll must not bring back closed apps.
@@ -711,7 +736,7 @@ const Dock = memo(function Dock() {
       unlistenSettingsReset.then(f => f());
       unlistenIconCache.then(f => f());
     };
-  }, [isDragging]);
+  }, []);
 
   const fetchIcon = async (path: string, name?: string, hwnd?: number, retryCount = 0) => {
     const isHost = isBrowserHost(path);

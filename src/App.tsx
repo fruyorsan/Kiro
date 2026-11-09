@@ -431,12 +431,25 @@ function TimeDisplay({ hour12 }: { hour12: boolean }) {
 
   useEffect(() => {
     let timer: number;
-    const tick = () => {
-      setText(format());
-      timer = window.setTimeout(tick, 1000 - (Date.now() % 1000));
+    // The display only has hour and minute, so there is nothing to repaint
+    // until the next minute boundary. Ticking once a second kept the renderer
+    // awake 60x more than needed. A reveal after the window was hidden also
+    // refreshes, otherwise the first frame shows a stale minute.
+    const schedule = () => {
+      timer = window.setTimeout(() => {
+        setText(format());
+        schedule();
+      }, 60_000 - (Date.now() % 60_000) + 50);
     };
-    timer = window.setTimeout(tick, 1000 - (Date.now() % 1000));
-    return () => clearTimeout(timer);
+    schedule();
+    const onVisibility = () => {
+      if (!document.hidden) setText(format());
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [hour12]);
 
   return <>{text}</>;
@@ -632,6 +645,10 @@ function App() {
   const aiInputRef = useRef<HTMLInputElement>(null);
   const aiFileRef = useRef<HTMLInputElement>(null);
   const aiBodyRef = useRef<HTMLDivElement>(null);
+  // Answers arrive asynchronously. If the panel was closed (or the provider was
+  // switched) while a request was in flight, the late reply must not repopulate
+  // the answer we just dropped for memory, or show up under a different provider.
+  const aiRequestRef = useRef(0);
   const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem("kiro-dock-enabled") !== "false");
   const [isNotchHovered, setIsNotchHovered] = useState(false);
   const [agentActivity, setAgentActivity] = useState<AgentActivity | null>(null);
@@ -780,15 +797,18 @@ function App() {
     setAiBusy(true);
     setAiError(null);
     setAiAnswer("");
+    const request = ++aiRequestRef.current;
     try {
       const answer = await invoke<string>("ai_ask", {
         prompt,
         images: images.map((image) => image.dataUrl),
       });
+      if (request !== aiRequestRef.current) return;
       setAiAnswer(answer);
       setAiPrompt("");
       setAiImages([]);
     } catch (error) {
+      if (request !== aiRequestRef.current) return;
       const message = typeof error === "string" ? error : String(error);
       setAiError(message);
       // A missing key or a retired model id both need the setup panel, not a
@@ -797,7 +817,7 @@ function App() {
         openAiSetup(aiProvider);
       }
     } finally {
-      setAiBusy(false);
+      if (request === aiRequestRef.current) setAiBusy(false);
     }
   }, [aiPrompt, aiImages, aiBusy, aiImageBusy, aiProvider, openAiSetup, t]);
 
@@ -836,6 +856,10 @@ function App() {
   }, []);
 
   const closeAi = useCallback(() => {
+    // Invalidate an in-flight request: its answer would otherwise land in the
+    // state we are about to clear and be shown the next time the panel opens.
+    aiRequestRef.current += 1;
+    setAiBusy(false);
     setAiOpen(false);
     setAiSetup(false);
     setAiError(null);
@@ -849,6 +873,9 @@ function App() {
   const chooseAiProvider = useCallback(
     (provider: string) => {
       setAiProvider(provider);
+      // A reply for the previous provider must not appear under the new one.
+      aiRequestRef.current += 1;
+      setAiBusy(false);
       localStorage.setItem("kiro-ai-provider", provider);
       invoke("save_setting", { key: "kiro-ai-provider", value: provider }).catch(() => {});
       setAiError(null);
@@ -1202,7 +1229,12 @@ function App() {
       }
 
       const scaleVal = getVal("kiro-scale");
-      if (scaleVal !== null) setScale(parseFloat(scaleVal));
+      // An empty or corrupt value must not become NaN: `zoom: NaN` is invalid
+      // CSS and blanks the whole notch surface.
+      if (scaleVal !== null) {
+        const parsedScale = parseFloat(scaleVal);
+        if (Number.isFinite(parsedScale)) setScale(parsedScale);
+      }
 
       const widgetsVal = getVal("kiro-status-widgets");
       if (widgetsVal) {
@@ -1735,6 +1767,12 @@ function App() {
       net_down: number;
     }
 
+    // The CPU/RAM/disk/network widgets only exist while the notch is open, so
+    // an idle notch does not need a metrics IPC every three seconds. Poll only
+    // while hovered and take one fresh sample on open so the first frame is
+    // never stale.
+    if (!isHovered) return;
+
     const fetchMetrics = () => {
       invoke<SystemMetrics>("get_system_metrics").then((m) => {
         setCpuUsage(m.cpu);
@@ -1747,7 +1785,7 @@ function App() {
     fetchMetrics();
     const interval = setVisibleInterval(fetchMetrics, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isHovered]);
 
   // Listen for brightness changes
   useEffect(() => {

@@ -564,11 +564,23 @@ pub fn get_kiro_scale(_app: &tauri::AppHandle) -> f64 {
         .unwrap_or(1.0)
 }
 
-/// Read any string value from the settings cache. Returns None if the key is absent.
+/// Read any scalar value from the settings cache as a string. Returns None if
+/// the key is absent.
+///
+/// settings.json can hold a boolean or a number: an imported profile, an older
+/// build or a hand edit may store `false` instead of `"false"`. Returning None
+/// for those made every `get_setting_str(...) == "false"` check silently fall
+/// back to the default, so a toggle like "automatic performance mode" could not
+/// be turned off.
 pub fn get_setting_str(_app: &tauri::AppHandle, key: &str) -> Option<String> {
     let cache = crate::state::SETTINGS_CACHE.get()?;
     let guard = cache.lock().ok()?;
-    guard.get(key)?.as_str().map(|s| s.to_string())
+    match guard.get(key)? {
+        serde_json::Value::String(s) => Some(s.clone()),
+        serde_json::Value::Bool(b) => Some(b.to_string()),
+        serde_json::Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
 }
 
 /// Re-assert HWND_TOPMOST without activating the window.
