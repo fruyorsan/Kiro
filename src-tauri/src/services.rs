@@ -198,7 +198,12 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: windows::Win32::
 fn handle_volume_key_event(vk_code: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY) {
     use std::sync::atomic::AtomicU64;
     static LAST_TIME: AtomicU64 = AtomicU64::new(0);
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+    // A machine whose clock sits before 1970 would make duration_since() fail;
+    // this runs inside the keyboard hook, so it must never panic.
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
     let last = LAST_TIME.load(std::sync::atomic::Ordering::Relaxed);
     if now - last < 50 { return; }
     LAST_TIME.store(now, std::sync::atomic::Ordering::Relaxed);
@@ -1918,6 +1923,13 @@ static MH_CACHED_DOCK_MON_POS: Mutex<Option<(i32, i32)>> = Mutex::new(None);
 static MH_CACHED_DOCK_MON_SIZE: Mutex<Option<(u32, u32)>> = Mutex::new(None);
 static MH_CACHED_NOTCH_MON_POS: Mutex<Option<(i32, i32)>> = Mutex::new(None);
 static MH_CACHED_NOTCH_MON_SIZE: Mutex<Option<(u32, u32)>> = Mutex::new(None);
+
+/// These caches are read and written from the low-level mouse hook. A panic
+/// there tears down the hook (and can take the app with it), so a poisoned
+/// mutex is recovered instead of unwrapped.
+fn lock_cached<T>(cache: &Mutex<Option<T>>) -> std::sync::MutexGuard<'_, Option<T>> {
+    cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 static CAPTURE_UI_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CAPTURE_RECHECK: AtomicBool = AtomicBool::new(true);
 static CAPTURE_LAST_SCAN_MS: AtomicI64 = AtomicI64::new(0);
@@ -2568,39 +2580,39 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                 if let Ok(Some(monitor)) = app_handle.primary_monitor() {
                     let pos = *monitor.position();
                     let size = *monitor.size();
-                    *MH_CACHED_MON_POS.lock().unwrap() = Some((pos.x, pos.y));
-                    *MH_CACHED_MON_SIZE.lock().unwrap() = Some((size.width, size.height));
+                    *lock_cached(&MH_CACHED_MON_POS) = Some((pos.x, pos.y));
+                    *lock_cached(&MH_CACHED_MON_SIZE) = Some((size.width, size.height));
                 }
                 if let Some(monitor) = crate::monitors::monitor_for_window_label(app_handle, crate::types::WindowKind::Dock, "dock") {
                     let pos = *monitor.position();
                     let size = *monitor.size();
-                    *MH_CACHED_DOCK_MON_POS.lock().unwrap() = Some((pos.x, pos.y));
-                    *MH_CACHED_DOCK_MON_SIZE.lock().unwrap() = Some((size.width, size.height));
+                    *lock_cached(&MH_CACHED_DOCK_MON_POS) = Some((pos.x, pos.y));
+                    *lock_cached(&MH_CACHED_DOCK_MON_SIZE) = Some((size.width, size.height));
                 }
                 if let Some(monitor) = crate::monitors::monitor_for_window_label(app_handle, crate::types::WindowKind::Notch, "main") {
                     let pos = *monitor.position();
                     let size = *monitor.size();
-                    *MH_CACHED_NOTCH_MON_POS.lock().unwrap() = Some((pos.x, pos.y));
-                    *MH_CACHED_NOTCH_MON_SIZE.lock().unwrap() = Some((size.width, size.height));
+                    *lock_cached(&MH_CACHED_NOTCH_MON_POS) = Some((pos.x, pos.y));
+                    *lock_cached(&MH_CACHED_NOTCH_MON_SIZE) = Some((size.width, size.height));
                 }
                 refresh_mouse_caches(app_handle);
                 MH_LAST_MONITOR_UPDATE_MS.store(now, Ordering::Relaxed);
             }
 
-            let cached_pos = MH_CACHED_MON_POS.lock().unwrap().unwrap_or((0, 0));
-            let cached_size = MH_CACHED_MON_SIZE.lock().unwrap().unwrap_or((1920, 1080));
+            let cached_pos = lock_cached(&MH_CACHED_MON_POS).unwrap_or((0, 0));
+            let cached_size = lock_cached(&MH_CACHED_MON_SIZE).unwrap_or((1920, 1080));
             let mon_x = cached_pos.0;
             let mon_y = cached_pos.1;
             let mon_w = cached_size.0 as i32;
             let mon_h = cached_size.1 as i32;
 
-            let dock_cached_pos = MH_CACHED_DOCK_MON_POS.lock().unwrap().unwrap_or((mon_x, mon_y));
-            let dock_cached_size = MH_CACHED_DOCK_MON_SIZE.lock().unwrap().unwrap_or((mon_w as u32, mon_h as u32));
+            let dock_cached_pos = lock_cached(&MH_CACHED_DOCK_MON_POS).unwrap_or((mon_x, mon_y));
+            let dock_cached_size = lock_cached(&MH_CACHED_DOCK_MON_SIZE).unwrap_or((mon_w as u32, mon_h as u32));
             let (dock_mon_x, dock_mon_y) = dock_cached_pos;
             let (dock_mon_w, dock_mon_h) = (dock_cached_size.0 as i32, dock_cached_size.1 as i32);
 
-            let notch_cached_pos = MH_CACHED_NOTCH_MON_POS.lock().unwrap().unwrap_or((mon_x, mon_y));
-            let notch_cached_size = MH_CACHED_NOTCH_MON_SIZE.lock().unwrap().unwrap_or((mon_w as u32, mon_h as u32));
+            let notch_cached_pos = lock_cached(&MH_CACHED_NOTCH_MON_POS).unwrap_or((mon_x, mon_y));
+            let notch_cached_size = lock_cached(&MH_CACHED_NOTCH_MON_SIZE).unwrap_or((mon_w as u32, mon_h as u32));
             let (notch_mon_x, notch_mon_y) = notch_cached_pos;
             let (notch_mon_w, notch_mon_h) = (notch_cached_size.0 as i32, notch_cached_size.1 as i32);
 
@@ -3339,7 +3351,10 @@ fn collect_shortcuts(dir: &std::path::Path, apps: &mut Vec<AppInfo>, depth: i32)
             if path.is_dir() {
                 collect_shortcuts(&path, apps, depth + 1);
             } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk")) {
-                let name = path.file_stem().unwrap().to_string_lossy().to_string();
+                // `file_stem()` is None for a path that ends in `..`, so a
+                // weird shortcut folder must not panic the whole app scan.
+                let Some(stem) = path.file_stem() else { continue };
+                let name = stem.to_string_lossy().to_string();
                 if is_helper_name(&name) || name.starts_with("Install") { continue; }
 
                 // Keep the .lnk itself, its args identify PWAs and must be passed on launch.
@@ -3391,7 +3406,7 @@ pub fn register_appbar(window: tauri::WebviewWindow) {
     if let Some(monitor) = crate::monitors::monitor_for_window_label(window.app_handle(), crate::types::WindowKind::Notch, &label) {
         let m_size = monitor.size();
         let m_pos = monitor.position();
-        let hwnd = window.hwnd().unwrap();
+        let Ok(hwnd) = window.hwnd() else { return };
         let scale = monitor.scale_factor();
         let kiro_scale = crate::utils::get_kiro_scale(window.app_handle());
         let ph = ((420.0 * kiro_scale) * scale) as i32;
@@ -3474,7 +3489,7 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
     if let Some(monitor) = crate::monitors::monitor_for_window_label(window.app_handle(), crate::types::WindowKind::Dock, &label) {
         let m_size = monitor.size();
         let m_pos = monitor.position();
-        let hwnd = window.hwnd().unwrap();
+        let Ok(hwnd) = window.hwnd() else { return };
         let scale = monitor.scale_factor();
         let kiro_scale = crate::utils::get_kiro_scale(window.app_handle());
         

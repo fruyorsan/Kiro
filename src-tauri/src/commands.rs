@@ -149,7 +149,7 @@ pub async fn init_dock(app: AppHandle, mode: String) {
 pub async fn init_dock_window(app: &AppHandle, dock_win: tauri::WebviewWindow, mode: &str) {
     let label = dock_win.label().to_string();
 
-    // 1. Always show first â€” idempotent, required before any positioning
+    // 1. Always show first - idempotent, required before any positioning
     if !dock_win.is_visible().unwrap_or(false) {
         let _ = dock_win.set_position(tauri::PhysicalPosition::new(-32000, -32000));
     }
@@ -176,7 +176,7 @@ pub async fn init_dock_window(app: &AppHandle, dock_win: tauri::WebviewWindow, m
                 if hwnd_val != 0 {
                     if let Some((m_size, m_pos)) = monitor_info {
                         if ph <= 10 {
-                            // outer_size() not ready yet â€” retry next tick
+                            // outer_size() not ready yet - retry next tick
                             if attempt < 19 {
                                 tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                             }
@@ -1881,12 +1881,15 @@ pub async fn get_app_icon(app: AppHandle, path: String, name: Option<String>, hw
                         || (match_by_name && lookup_name.as_deref().is_some_and(|n| a.name.eq_ignore_ascii_case(n))))
             });
             if let Some(scanned) = scanned {
-                let icon = scanned.icon.clone().unwrap();
-                if let Ok(mut c) = cache.lock() {
-                    c.insert(cache_key.clone(), icon.clone());
+                // `find` already required `icon.is_some()`, but cloning through
+                // the Option keeps this panic-free if that filter ever changes.
+                if let Some(icon) = scanned.icon.clone() {
+                    if let Ok(mut c) = cache.lock() {
+                        c.insert(cache_key.clone(), icon.clone());
+                    }
+                    schedule_icon_cache_save(app.clone());
+                    return Ok(Some(icon));
                 }
-                schedule_icon_cache_save(app.clone());
-                return Ok(Some(icon));
             }
         }
     }
@@ -2040,7 +2043,7 @@ pub async fn get_app_icon(app: AppHandle, path: String, name: Option<String>, hw
             }
 
             if let Some(icon) = icon_data {
-                if let Ok(mut lock) = ICON_CACHE.get().unwrap().lock() { lock.insert(ck_clone, icon.clone()); }
+                if let Some(cache) = ICON_CACHE.get() { if let Ok(mut lock) = cache.lock() { lock.insert(ck_clone, icon.clone()); } }
                 CoUninitialize();
                 return Some(icon);
             }
@@ -2077,7 +2080,7 @@ pub async fn get_app_icon(app: AppHandle, path: String, name: Option<String>, hw
 
             if actual_path.to_lowercase().starts_with("shell:") {
                 if let Some(icon) = crate::utils::icon_from_parsing_name(&actual_path) {
-                    if let Ok(mut lock) = ICON_CACHE.get().unwrap().lock() { lock.insert(ck_clone, icon.clone()); }
+                    if let Some(cache) = ICON_CACHE.get() { if let Ok(mut lock) = cache.lock() { lock.insert(ck_clone, icon.clone()); } }
                     CoUninitialize();
                     return Some(icon);
                 }
@@ -2095,7 +2098,7 @@ pub async fn get_app_icon(app: AppHandle, path: String, name: Option<String>, hw
                     base64_icon = icon_from_exe_neighbourhood(&actual_path);
                 }
                 if let Some(ref base64) = base64_icon {
-                    if let Ok(mut lock) = ICON_CACHE.get().unwrap().lock() { lock.insert(ck_clone, base64.clone()); }
+                    if let Some(cache) = ICON_CACHE.get() { if let Ok(mut lock) = cache.lock() { lock.insert(ck_clone, base64.clone()); } }
                 }
                 Some(base64_icon)
             } else { None }
@@ -3563,7 +3566,7 @@ pub async fn capture_window_thumbnail(hwnd: isize, max_width: u32, max_height: u
 }
 
 
-// â”€â”€ Radio helpers â€” Windows Runtime Windows.Devices.Radios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Radio helpers: Windows Runtime Windows.Devices.Radios ---
 // Replaces PowerShell -ExecutionPolicy Bypass scripts for WiFi/Bluetooth state.
 
 fn get_radio_state_sync(kind: windows::Devices::Radios::RadioKind) -> Result<bool, String> {
@@ -3746,7 +3749,7 @@ pub async fn set_bluetooth_state(enabled: bool) -> Result<(), String> {
     }).await.map_err(|e| e.to_string())?
 }
 
-// Settings openers â€” use ShellExecuteA directly instead of spawning powershell
+// Settings openers - use ShellExecuteA directly instead of spawning powershell
 
 #[tauri::command]
 pub fn open_bluetooth_settings() {
@@ -3818,7 +3821,7 @@ pub async fn get_battery_saver_state() -> Result<bool, String> {
     if active_overlay_guid().as_deref() == Some(OVERLAY_BEST_EFFICIENCY) {
         return Ok(true);
     }
-    // Uses Windows Runtime PowerManager â€” no PowerShell required.
+    // Uses Windows Runtime PowerManager - no PowerShell required.
     tauri::async_runtime::spawn_blocking(|| {
         unsafe {
             let _ = windows::Win32::System::Com::CoInitializeEx(
@@ -4411,12 +4414,13 @@ pub fn setup_settings_watcher(app: AppHandle) {
 
                 if let Ok(new_content) = std::fs::read_to_string(&settings_path) {
                     if let Ok(new_settings) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&new_content) {
-                        // Collect diffs while holding the lock, then drop before emitting
+                        // Collect diffs while holding the lock, then drop before emitting.
+                        // A poisoned lock must not kill the watcher thread: recover it.
                         let (changed, removed) = {
                             let mut cache = crate::state::SETTINGS_CACHE
                                 .get_or_init(|| std::sync::Mutex::new(HashMap::new()))
                                 .lock()
-                                .unwrap();
+                                .unwrap_or_else(|poisoned| poisoned.into_inner());
 
                             let mut changed = Vec::new();
                             for (key, value) in &new_settings {
@@ -4433,7 +4437,7 @@ pub fn setup_settings_watcher(app: AppHandle) {
                             *cache = new_settings.clone();
                             (changed, removed)
                         };
-                        // Lock dropped â€” safe to emit without blocking save_setting
+                        // Lock dropped - safe to emit without blocking save_setting
                         for (key, value) in &changed {
                             let _ = app.emit(
                                 "settings-external-changed",
