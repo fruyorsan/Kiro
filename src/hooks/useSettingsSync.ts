@@ -35,6 +35,14 @@ export function useSettingsSync(
       "settings-changed",
       (event) => {
         const { key, value } = event.payload;
+        if (value !== null && value !== undefined) {
+          // Mirror the write into this window's localStorage. The sender already
+          // persisted the same value, but WebView2 windows each keep their own
+          // in-memory copy: the notch reading localStorage (theme, AI key, dock
+          // delay, ...) could otherwise keep the stale value until a restart and
+          // ignore the change the user just made in Settings.
+          localStorage.setItem(key, String(value));
+        }
         const handler = handlersRef.current[key];
         if (handler && value !== null && value !== undefined) {
           handler(convertSettingValue(value));

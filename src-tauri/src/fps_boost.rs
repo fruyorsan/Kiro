@@ -353,6 +353,22 @@ fn profile_allowed(exe: &str) -> bool {
     boostable(exe)
 }
 
+/// Foreground check shared by the automatic performance mode and the native
+/// game boost. They used to trigger on *any* fullscreen window that was not a
+/// video player, so shell surfaces (the notification view, for example) hid the
+/// dock/notch and dropped Kiro's priority while the user was just reading a
+/// toast. Only boost an executable we would also boost.
+///
+/// If the owning process cannot be resolved (protected game process), keep the
+/// old behaviour: a real game must not lose its FPS because Windows refused to
+/// hand us the path.
+pub fn perf_boostable(hwnd: HWND) -> bool {
+    match exe_path_for_pid(foreground_pid(hwnd)) {
+        Some(exe) => boostable(&exe),
+        None => true,
+    }
+}
+
 fn set_process_boost(pid: u32) -> Option<SavedProcess> {
     unsafe {
         let process = OpenProcess(

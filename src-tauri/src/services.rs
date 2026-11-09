@@ -1480,7 +1480,11 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                 CURRENT_FOREGROUND_FULLSCREEN.store(current_is_fs, Ordering::Relaxed);
                 // Video playback is not a game: keep the automatic performance
                 // mode (priority drop, renderer trims, blur off) out of it.
-                let perf_fullscreen = current_is_fs && !is_video_window(hwnd);
+                // Same for shell surfaces and other non-game executables, which
+                // go fullscreen all the time (notification view, lock screen).
+                let perf_fullscreen = current_is_fs
+                    && !is_video_window(hwnd)
+                    && crate::fps_boost::perf_boostable(hwnd);
                 crate::perf::update(&handle_visibility, perf_fullscreen, &fg_title);
                 // Native-hide the dock/notch on the game's monitor so DWM can
                 // hand the swapchain back to independent flip. Uses the same

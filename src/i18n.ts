@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import en from "./locales/en.json";
 
 type Messages = Record<string, string>;
@@ -29,6 +30,30 @@ function loadIfNeeded(lang: string) {
 
 const STORAGE_KEY = "kiro-language";
 const listeners = new Set<() => void>();
+
+// The settings window writes the language through save_setting, which emits a
+// Tauri event. Windows do not share WebView2's in-memory localStorage, so the
+// `storage` event alone leaves the notch/dock in the old language until a
+// restart. Follow the event here and re-render every subscribed component.
+function applyExternalLanguage(value: unknown) {
+  if (value === null || value === undefined) return;
+  try {
+    const next = String(value);
+    if (localStorage.getItem(STORAGE_KEY) === next) return;
+    localStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    return;
+  }
+  loadIfNeeded(resolve(String(value)));
+  listeners.forEach((l) => l());
+}
+
+listen<{ key: string; value: unknown }>("settings-changed", (event) => {
+  if (event.payload?.key === STORAGE_KEY) applyExternalLanguage(event.payload.value);
+}).catch(() => {});
+listen<{ key: string; value: unknown }>("settings-external-changed", (event) => {
+  if (event.payload?.key === STORAGE_KEY) applyExternalLanguage(event.payload.value);
+}).catch(() => {});
 
 function readPreference(): string {
   try {

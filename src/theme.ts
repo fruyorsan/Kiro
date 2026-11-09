@@ -429,8 +429,15 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
   // Listen to setting changes broadcasted from settings window
   // (localStorage sync is handled by saveAndLocal in Settings.tsx; we just apply the theme)
   const settingsPromise = listen<{ key: string; value: any }>('settings-changed', (event) => {
-    const { key } = event.payload;
+    const { key, value } = event.payload;
     if (kiroThemeKeys.includes(key)) {
+      // WebView2 windows keep separate in-memory localStorage copies, so this
+      // listener may run before the one in useSettingsSync mirrors the value.
+      // Write it here first, then apply: otherwise the theme reads the old
+      // localStorage and a style/accent change does nothing until restart.
+      if (value !== null && value !== undefined) {
+        try { localStorage.setItem(key, String(value)); } catch { /* storage unavailable */ }
+      }
       applyThemeFromStorage();
     }
   });
@@ -463,8 +470,11 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
   // Listen to external edits (e.g. settings.json edited outside the app)
   // localStorage sync is handled by useSettingsSync hook; we just apply the theme
   const externalPromise = listen<{ key: string; value: any }>('settings-external-changed', (event) => {
-    const { key } = event.payload;
+    const { key, value } = event.payload;
     if (kiroThemeKeys.includes(key)) {
+      if (value !== null && value !== undefined) {
+        try { localStorage.setItem(key, String(value)); } catch { /* storage unavailable */ }
+      }
       applyThemeFromStorage();
     }
   });
