@@ -70,9 +70,7 @@ pub fn apply(app: &tauri::AppHandle) -> Vec<&'static str> {
         return Vec::new();
     };
 
-    let mut settings: HashMap<String, Value> = std::fs::read_to_string(&path)
-        .ok()
-        .and_then(|c| serde_json::from_str(&c).ok())
+    let mut settings: HashMap<String, Value> = crate::utils::read_settings_map(&path)
         .unwrap_or_default();
 
     let mut added = Vec::new();

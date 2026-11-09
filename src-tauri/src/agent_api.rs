@@ -289,7 +289,11 @@ fn is_ours(group: &serde_json::Value) -> bool {
 
 fn sync_claude_hooks(enable: bool) {
     let Some(path) = std::env::var_os("USERPROFILE").map(|d| PathBuf::from(d).join(".claude").join("settings.json")) else { return };
-    let text = std::fs::read_to_string(&path).ok();
+    let text = std::fs::read_to_string(&path)
+        .ok()
+        // Claude Code's own settings may be saved with a BOM by an editor; keep
+        // the existing values instead of aborting the hook sync.
+        .map(|t| t.strip_prefix('\u{feff}').map(str::to_string).unwrap_or(t));
     let mut root: serde_json::Value = match text.as_deref().map(str::trim) {
         Some(t) if !t.is_empty() => match serde_json::from_str(t) {
             Ok(value) => value,

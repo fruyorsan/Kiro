@@ -3415,7 +3415,9 @@ pub fn save_setting(app: AppHandle, key: String, value: serde_json::Value) -> Re
     let settings = {
         let _guard = lock_settings();
         let mut settings = HashMap::new();
-        if let Ok(content) = std::fs::read_to_string(&path) { if let Ok(existing) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) { settings = existing; } }
+        // Settings may have been hand-edited with a UTF-8 BOM; the helper strips
+        // it before parsing so a save does not reset every other key.
+        if let Some(existing) = crate::utils::read_settings_map(&path) { settings = existing; }
         settings.insert(key.clone(), value);
         let content = serde_json::to_string(&settings).map_err(|e| e.to_string())?;
         write_settings_atomic(&path, &content).map_err(|e| e.to_string())?;
@@ -3491,7 +3493,7 @@ pub fn load_settings(app: AppHandle) -> Result<HashMap<String, serde_json::Value
         Ok(p) => p.join("settings.json"),
         Err(_) => return Ok(HashMap::new()),
     };
-    if let Ok(content) = std::fs::read_to_string(path) { if let Ok(settings) = serde_json::from_str(&content) { return Ok(settings); } }
+    if let Some(settings) = crate::utils::read_settings_map(&path) { return Ok(settings); }
     Ok(HashMap::new())
 }
 
@@ -4249,7 +4251,10 @@ pub fn get_system_accent_color() -> Result<String, String> {
 #[tauri::command]
 pub fn export_settings(app: AppHandle) -> Result<String, String> {
     let path = app.path().app_config_dir().map_err(|e| e.to_string())?.join("settings.json");
-    if let Ok(content) = std::fs::read_to_string(&path) {
+    if let Ok(raw) = std::fs::read_to_string(&path) {
+        // Export a clean document even if the stored file has a BOM: the BOM
+        // made `from_str` fail, so a hand-edited file could not be exported.
+        let content = raw.strip_prefix('\u{feff}').unwrap_or(&raw).to_string();
         // Validate it's valid JSON before returning
         let _settings: HashMap<String, serde_json::Value> =
             serde_json::from_str(&content).map_err(|e| format!("Invalid settings file: {}", e))?;
@@ -4311,8 +4316,11 @@ pub async fn import_settings_dialog(app: AppHandle) -> Result<bool, String> {
 
 #[tauri::command]
 pub fn import_settings(app: AppHandle, settings: String) -> Result<(), String> {
+    // A profile saved by Notepad / an editor with a BOM would otherwise be
+    // rejected as invalid JSON.
+    let settings = settings.strip_prefix('\u{feff}').unwrap_or(&settings);
     let imported: HashMap<String, serde_json::Value> =
-        serde_json::from_str(&settings).map_err(|e| format!("Invalid JSON: {}", e))?;
+        serde_json::from_str(settings).map_err(|e| format!("Invalid JSON: {}", e))?;
 
     let path = app.path().app_config_dir().map_err(|e| e.to_string())?.join("settings.json");
     if let Some(parent) = path.parent() {
@@ -4406,44 +4414,42 @@ pub fn setup_settings_watcher(app: AppHandle) {
 
                 std::thread::sleep(std::time::Duration::from_millis(200));
 
-                if let Ok(new_content) = std::fs::read_to_string(&settings_path) {
-                    if let Ok(new_settings) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&new_content) {
-                        // Collect diffs while holding the lock, then drop before emitting.
-                        // A poisoned lock must not kill the watcher thread: recover it.
-                        let (changed, removed) = {
-                            let mut cache = crate::state::SETTINGS_CACHE
-                                .get_or_init(|| std::sync::Mutex::new(HashMap::new()))
-                                .lock()
-                                .unwrap_or_else(|poisoned| poisoned.into_inner());
+                if let Some(new_settings) = crate::utils::read_settings_map(&settings_path) {
+                    // Collect diffs while holding the lock, then drop before emitting.
+                    // A poisoned lock must not kill the watcher thread: recover it.
+                    let (changed, removed) = {
+                        let mut cache = crate::state::SETTINGS_CACHE
+                            .get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-                            let mut changed = Vec::new();
-                            for (key, value) in &new_settings {
-                                if cache.get(key) != Some(value) {
-                                    changed.push((key.clone(), value.clone()));
-                                }
+                        let mut changed = Vec::new();
+                        for (key, value) in &new_settings {
+                            if cache.get(key) != Some(value) {
+                                changed.push((key.clone(), value.clone()));
                             }
-
-                            let removed: Vec<String> = cache.keys()
-                                .filter(|k| !new_settings.contains_key(*k))
-                                .cloned()
-                                .collect();
-
-                            *cache = new_settings.clone();
-                            (changed, removed)
-                        };
-                        // Lock dropped - safe to emit without blocking save_setting
-                        for (key, value) in &changed {
-                            let _ = app.emit(
-                                "settings-external-changed",
-                                serde_json::json!({ "key": key, "value": value }),
-                            );
                         }
-                        for key in removed {
-                            let _ = app.emit(
-                                "settings-external-changed",
-                                serde_json::json!({ "key": key, "value": null }),
-                            );
-                        }
+
+                        let removed: Vec<String> = cache.keys()
+                            .filter(|k| !new_settings.contains_key(*k))
+                            .cloned()
+                            .collect();
+
+                        *cache = new_settings.clone();
+                        (changed, removed)
+                    };
+                    // Lock dropped - safe to emit without blocking save_setting
+                    for (key, value) in &changed {
+                        let _ = app.emit(
+                            "settings-external-changed",
+                            serde_json::json!({ "key": key, "value": value }),
+                        );
+                    }
+                    for key in removed {
+                        let _ = app.emit(
+                            "settings-external-changed",
+                            serde_json::json!({ "key": key, "value": null }),
+                        );
                     }
                 }
             }

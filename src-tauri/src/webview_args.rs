@@ -40,10 +40,9 @@ fn settings_file() -> Option<std::path::PathBuf> {
 
 fn read_setting(key: &str) -> Option<serde_json::Value> {
     let path = settings_file()?;
-    let content = std::fs::read_to_string(path).ok()?;
-    let map: std::collections::HashMap<String, serde_json::Value> =
-        serde_json::from_str(&content).ok()?;
-    map.get(key).cloned()
+    // Shared reader: tolerates a UTF-8 BOM written by Notepad/PowerShell. A
+    // parse failure here silently dropped the GPU/memory flags at startup.
+    crate::utils::read_settings_map(&path)?.get(key).cloned()
 }
 
 fn flag_enabled(key: &str) -> bool {

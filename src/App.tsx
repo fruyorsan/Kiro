@@ -441,6 +441,9 @@ function TimeDisplay({ hour12 }: { hour12: boolean }) {
         schedule();
       }, 60_000 - (Date.now() % 60_000) + 50);
     };
+    // Repaint immediately: this effect also runs when the 24-hour setting
+    // changes, and waiting for the next minute left the old format on screen.
+    setText(format());
     schedule();
     const onVisibility = () => {
       if (!document.hidden) setText(format());

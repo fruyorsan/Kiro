@@ -70,7 +70,10 @@ pub fn rename_settings_keys(dir: &Path) {
     let Ok(content) = std::fs::read_to_string(&path) else {
         return;
     };
-    let Ok(mut settings) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&content)
+    // Tolerate a UTF-8 BOM: an editor-saved file otherwise failed to parse and
+    // the legacy `nectar-*` keys stayed unmigrated, resetting every setting.
+    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+    let Ok(mut settings) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(content)
     else {
         return;
     };

@@ -537,15 +537,28 @@ fn settings_cache() -> &'static std::sync::Mutex<std::collections::HashMap<Strin
     crate::state::SETTINGS_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
 }
 
+/// Read settings.json as a settings map.
+///
+/// Notepad, PowerShell's `Set-Content -Encoding UTF8` and several Android/cloud
+/// sync tools write a UTF-8 BOM. `serde_json` rejects the leading U+FEFF, so the
+/// whole file used to be treated as empty: every setting silently reverted to
+/// its default (theme, position, AI keys, ...) even though the JSON was valid.
+/// Strip the BOM before parsing so a hand-edited file keeps working.
+pub fn read_settings_map(
+    path: &std::path::Path,
+) -> Option<std::collections::HashMap<String, serde_json::Value>> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+    serde_json::from_str(content).ok()
+}
+
 /// Load settings.json into the in-memory cache. Call once at startup.
 pub fn init_settings_cache(app: &tauri::AppHandle) {
     use tauri::Manager;
     if let Some(path) = app.path().app_config_dir().ok().map(|p| p.join("settings.json")) {
-        if let Ok(content) = std::fs::read_to_string(path) {
-            if let Ok(settings) = serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(&content) {
-                if let Ok(mut cache) = settings_cache().lock() {
-                    *cache = settings;
-                }
+        if let Some(settings) = read_settings_map(&path) {
+            if let Ok(mut cache) = settings_cache().lock() {
+                *cache = settings;
             }
         }
     }
