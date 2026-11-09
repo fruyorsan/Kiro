@@ -2429,6 +2429,46 @@ pub fn open_calendar_window(app: AppHandle) {
 }
 
 #[tauri::command]
+pub fn open_notepad_window(app: AppHandle) {
+    crate::on_demand_windows::open(&app, crate::on_demand_windows::NOTEPAD);
+}
+
+fn notes_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("notes.json"))
+}
+
+/// Notepad notes live in one JSON file next to settings.json. Missing file is an empty notebook.
+#[tauri::command]
+pub fn notes_load(app: AppHandle) -> Result<String, String> {
+    let path = notes_path(&app)?;
+    match std::fs::read_to_string(&path) {
+        Ok(text) => Ok(text),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Atomic write (temp file + rename) so a crash mid-save never truncates the notebook.
+#[tauri::command]
+pub fn notes_save(app: AppHandle, content: String) -> Result<(), String> {
+    let path = notes_path(&app)?;
+    let temp = path.with_extension("json.tmp");
+    std::fs::write(&temp, content).map_err(|e| e.to_string())?;
+    std::fs::rename(&temp, &path).map_err(|e| {
+        let _ = std::fs::remove_file(&temp);
+        e.to_string()
+    })
+}
+
+/// "Save as": writes one note to a location the user picked in the save dialog.
+#[tauri::command]
+pub fn notes_export(path: String, content: String) -> Result<(), String> {
+    std::fs::write(path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn open_tray_at_cursor() {
     use windows::Win32::Foundation::POINT;
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;

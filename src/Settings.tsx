@@ -260,6 +260,8 @@ function SettingsApp() {
               legacyMode={settings.legacyMode}
               dockTray={settings.dockTray}
               toggleDockTray={settings.toggleDockTray}
+              dockNotepad={settings.dockNotepad}
+              toggleDockNotepad={settings.toggleDockNotepad}
               dockTaskView={settings.dockTaskView}
               toggleDockTaskView={settings.toggleDockTaskView}
               dockShowDesktop={settings.dockShowDesktop}

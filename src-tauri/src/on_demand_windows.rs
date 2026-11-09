@@ -5,9 +5,11 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder}
 
 pub const SETTINGS: &str = "settings";
 pub const CALENDAR: &str = "calendar";
+pub const NOTEPAD: &str = "notepad";
 
 static SETTINGS_BUILDING: AtomicBool = AtomicBool::new(false);
 static CALENDAR_BUILDING: AtomicBool = AtomicBool::new(false);
+static NOTEPAD_BUILDING: AtomicBool = AtomicBool::new(false);
 
 struct Spec {
     label: &'static str,
@@ -39,10 +41,21 @@ const CALENDAR_SPEC: Spec = Spec {
     min_height: 480.0,
 };
 
+const NOTEPAD_SPEC: Spec = Spec {
+    label: NOTEPAD,
+    url: "notepad.html",
+    title: "Notepad",
+    width: 760.0,
+    height: 560.0,
+    min_width: 480.0,
+    min_height: 360.0,
+};
+
 fn spec_for(label: &str) -> Option<&'static Spec> {
     match label {
         SETTINGS => Some(&SETTINGS_SPEC),
         CALENDAR => Some(&CALENDAR_SPEC),
+        NOTEPAD => Some(&NOTEPAD_SPEC),
         _ => None,
     }
 }
@@ -51,6 +64,7 @@ fn building_flag(label: &str) -> Option<&'static AtomicBool> {
     match label {
         SETTINGS => Some(&SETTINGS_BUILDING),
         CALENDAR => Some(&CALENDAR_BUILDING),
+        NOTEPAD => Some(&NOTEPAD_BUILDING),
         _ => None,
     }
 }

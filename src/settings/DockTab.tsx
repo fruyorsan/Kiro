@@ -123,6 +123,8 @@ interface DockTabProps {
   legacyMode: boolean;
   dockTray: boolean;
   toggleDockTray: () => void;
+  dockNotepad: boolean;
+  toggleDockNotepad: () => void;
   dockTaskView: boolean;
   toggleDockTaskView: () => void;
   dockShowDesktop: boolean;
@@ -175,6 +177,8 @@ export function DockTab({
   legacyMode,
   dockTray,
   toggleDockTray,
+  dockNotepad,
+  toggleDockNotepad,
   dockTaskView,
   toggleDockTaskView,
   dockShowDesktop,
@@ -387,6 +391,13 @@ export function DockTab({
                 <SettingRow icon={ChevronUp} label={t("dock.tray")} desc={t("dock.tray.desc")}>
                   <label className="toggle-switch">
                     <input type="checkbox" checked={dockTray} onChange={toggleDockTray} />
+                    <span className="slider"></span>
+                  </label>
+                </SettingRow>
+
+                <SettingRow icon={LayoutGrid} label={t("dock.notepad")} desc={t("dock.notepad.desc")}>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={dockNotepad} onChange={toggleDockNotepad} />
                     <span className="slider"></span>
                   </label>
                 </SettingRow>

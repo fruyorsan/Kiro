@@ -158,6 +158,9 @@ export function useSettings() {
   const [panelShelf, setPanelShelf] = useState(
     () => localStorage.getItem("kiro-panel-shelf-enabled") !== "false"
   );
+  const [dockNotepad, setDockNotepad] = useState(
+    () => localStorage.getItem("kiro-dock-notepad-enabled") !== "false"
+  );
   const [dockTaskView, setDockTaskView] = useState(
     () => localStorage.getItem("kiro-dock-taskview-enabled") === "true"
   );
@@ -305,6 +308,7 @@ export function useSettings() {
       apply(getVal("kiro-dock-search-shortcut"), setDockSearchShortcut, (v) => v);
       apply(getVal("kiro-dock-calendar-enabled"), setDockCalendarEnabled, readBool);
       apply(getVal("kiro-dock-tray-enabled"), setDockTray, (v) => v !== "false");
+      apply(getVal("kiro-dock-notepad-enabled"), setDockNotepad, (v) => v !== "false");
       apply(getVal("kiro-dock-taskview-enabled"), setDockTaskView, readBool);
       apply(getVal("kiro-dock-show-desktop-corner"), setDockShowDesktop, readBool);
       apply(getVal("kiro-panel-control-center-enabled"), setPanelControlCenter, (v) => v !== "false");
@@ -414,6 +418,7 @@ export function useSettings() {
     "kiro-notch-mode-by-monitor": (v) => { try { setNotchModeByMonitor(JSON.parse(v)); } catch {} },
     "kiro-dock-enabled": setDockEnabled,
     "kiro-dock-tray-enabled": (v) => setDockTray(v !== false && v !== "false"),
+    "kiro-dock-notepad-enabled": setDockNotepad,
     "kiro-dock-taskview-enabled": setDockTaskView,
     "kiro-dock-show-desktop-corner": setDockShowDesktop,
     "kiro-panel-control-center-enabled": (v) => setPanelControlCenter(v !== false && v !== "false"),
@@ -879,6 +884,12 @@ export function useSettings() {
     const next = !panelShelf;
     setPanelShelf(next);
     saveSetting("kiro-panel-shelf-enabled", String(next));
+  };
+
+  const toggleDockNotepad = () => {
+    const next = !dockNotepad;
+    setDockNotepad(next);
+    saveSetting("kiro-dock-notepad-enabled", String(next));
   };
 
   const toggleDockTaskView = () => {
@@ -1359,6 +1370,8 @@ export function useSettings() {
     toggleDockCalendar,
     dockTray,
     toggleDockTray,
+    dockNotepad,
+    toggleDockNotepad,
     dockTaskView,
     toggleDockTaskView,
     dockShowDesktop,

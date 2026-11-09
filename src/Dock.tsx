@@ -199,6 +199,16 @@ function ChevronUpIcon() {
   );
 }
 
+function NotepadIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 3.5h9l3.5 3.5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-15.5a1 1 0 0 1 1-1z" />
+      <path d="M14.5 3.5V7.5h4" />
+      <path d="M8.5 12h7M8.5 15.5h7" />
+    </svg>
+  );
+}
+
 function TaskViewIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -346,6 +356,7 @@ const Dock = memo(function Dock() {
   const [dockCalendarEnabled, setDockCalendarEnabled] = useState(() => localStorage.getItem("kiro-dock-calendar-enabled") !== "false");
   const [legacyMode, setLegacyMode] = useState(() => localStorage.getItem("kiro-legacy-mode") === "true");
   const [dockTray, setDockTray] = useState(() => localStorage.getItem("kiro-dock-tray-enabled") !== "false");
+  const [dockNotepad, setDockNotepad] = useState(() => localStorage.getItem("kiro-dock-notepad-enabled") !== "false");
   const [dockTaskView, setDockTaskView] = useState(() => localStorage.getItem("kiro-dock-taskview-enabled") === "true");
   const [dockShowDesktop, setDockShowDesktop] = useState(() => localStorage.getItem("kiro-dock-show-desktop-corner") === "true");
   const [dockRecycle, setDockRecycle] = useState(() => localStorage.getItem("kiro-dock-recycle-enabled") === "true");
@@ -565,6 +576,7 @@ const Dock = memo(function Dock() {
 
       setLegacyMode(getVal("kiro-legacy-mode", "false") === "true");
       setDockTray(getVal("kiro-dock-tray-enabled", "true") !== "false");
+      setDockNotepad(getVal("kiro-dock-notepad-enabled", "true") !== "false");
       setDockTaskView(getVal("kiro-dock-taskview-enabled", "false") === "true");
       setDockShowDesktop(getVal("kiro-dock-show-desktop-corner", "false") === "true");
       // Keep the dock parked on the desktop unless the user explicitly turned
@@ -664,6 +676,7 @@ const Dock = memo(function Dock() {
       "kiro-dock-calendar-enabled": setDockCalendarEnabled,
       "kiro-legacy-mode": setLegacyMode,
       "kiro-dock-tray-enabled": (v) => setDockTray(v !== false && v !== "false"),
+      "kiro-dock-notepad-enabled": (v) => setDockNotepad(v !== false && v !== "false"),
       "kiro-dock-taskview-enabled": setDockTaskView,
       "kiro-dock-show-desktop-corner": setDockShowDesktop,
       "kiro-dock-recycle-enabled": setDockRecycle,
@@ -1450,6 +1463,12 @@ const Dock = memo(function Dock() {
                   dy: (rect.top - e.clientY) * window.devicePixelRatio,
                 }).catch((err) => console.error('Failed to open tray:', err)),
                 <ChevronUpIcon />
+              )}
+
+              {!legacyMode && dockNotepad && renderShortcut(
+                'notepad', t('dockmenu.notepad'), 0.215,
+                () => invoke('open_notepad_window').catch((err) => console.error('Failed to open notepad:', err)),
+                <NotepadIcon />
               )}
 
               {!legacyMode && dockTaskView && renderShortcut(

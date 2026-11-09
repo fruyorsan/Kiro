@@ -30,6 +30,10 @@ fn defaults() -> Vec<(&'static str, Value)> {
         ("kiro-dock-desktop-persist", json!("true")),
         ("kiro-dock-adaptive", json!("false")),
         ("kiro-dock-icon-only", json!("false")),
+        // Dock shortcuts every fresh install gets: search, hidden icons, notepad.
+        ("kiro-dock-search-enabled", json!("true")),
+        ("kiro-dock-tray-enabled", json!("true")),
+        ("kiro-dock-notepad-enabled", json!("true")),
         ("kiro-dock-calendar-enabled", json!("false")),
         ("kiro-dock-taskview-enabled", json!("false")),
         ("kiro-dock-show-desktop-corner", json!("true")),

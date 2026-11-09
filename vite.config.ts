@@ -47,6 +47,7 @@ export default defineConfig(async () => ({
         overlay: "overlay.html",
         settings: "settings.html",
         calendar: "calendar.html",
+        notepad: "notepad.html",
         dock: "dock.html",
       },
     },
