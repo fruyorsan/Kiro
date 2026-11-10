@@ -745,8 +745,10 @@ fn resolve_helper_target(path: &str) -> Option<String> {
 
 /// Opens a path, shortcut or shell app id through the shell.
 fn launch_path(path: &str, args: Option<&str>) {
-    let resolved = resolve_helper_target(path);
-    let path = resolved.as_deref().unwrap_or(path);
+    // Shell ids can carry a known-folder prefix ({6D809377-...}\App\app.exe).
+    let path = crate::utils::expand_known_folder_prefix(path);
+    let resolved = resolve_helper_target(&path);
+    let path = resolved.as_deref().unwrap_or(path.as_str());
     unsafe {
         use windows::Win32::UI::Shell::ShellExecuteW;
         use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;

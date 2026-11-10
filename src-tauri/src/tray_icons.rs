@@ -442,6 +442,11 @@ pub fn schedule_taskbar_layout_refresh() {
         return;
     }
     std::thread::spawn(|| {
+        // A dev session that keeps the taskbar must not get it hidden here either,
+        // since this path hides it without going through set_taskbar_visibility.
+        if crate::utils::keep_taskbar_unhidden() {
+            return;
+        }
         std::thread::sleep(std::time::Duration::from_millis(2500));
         let Ok(_guard) = AUTOMATION_LOCK.try_lock() else { return };
         if !crate::state::NATIVE_TASKBAR_HIDDEN.swap(false, Ordering::SeqCst) {

@@ -199,7 +199,20 @@ pub fn is_windows_11() -> bool {
     windows_build() >= 22000
 }
 
+/// Development switch: `KIRO_KEEP_TASKBAR=1` keeps the Windows taskbar in place
+/// while the dock runs, so working on Kiro never leaves you without a taskbar.
+/// Debug builds only — a release build ignores the variable entirely.
+pub fn keep_taskbar_unhidden() -> bool {
+    cfg!(debug_assertions) && std::env::var_os("KIRO_KEEP_TASKBAR").is_some()
+}
+
 pub fn set_taskbar_visibility(visible: bool, always_on_top: bool) {
+    // Never touch the taskbar in a dev session that asked to keep it. Nothing is
+    // hidden, so the shutdown path has nothing to undo and stays untouched.
+    if !visible && keep_taskbar_unhidden() {
+        return;
+    }
+
     if visible {
         crate::state::NATIVE_TASKBAR_HIDDEN.store(false, std::sync::atomic::Ordering::SeqCst);
     }
@@ -806,6 +819,52 @@ fn expand_env_vars(input: &str) -> String {
     result
 }
 
+fn parse_guid(text: &str) -> Option<windows::core::GUID> {
+    let body = text.trim().trim_start_matches('{').trim_end_matches('}');
+    let mut parts = body.split('-');
+    let data1 = u32::from_str_radix(parts.next()?, 16).ok()?;
+    let data2 = u16::from_str_radix(parts.next()?, 16).ok()?;
+    let data3 = u16::from_str_radix(parts.next()?, 16).ok()?;
+    let tail1 = u16::from_str_radix(parts.next()?, 16).ok()?;
+    let tail2 = u64::from_str_radix(parts.next()?, 16).ok()?;
+    if parts.next().is_some() { return None; }
+    Some(windows::core::GUID {
+        data1,
+        data2,
+        data3,
+        data4: [
+            (tail1 >> 8) as u8,
+            tail1 as u8,
+            (tail2 >> 40) as u8,
+            (tail2 >> 32) as u8,
+            (tail2 >> 24) as u8,
+            (tail2 >> 16) as u8,
+            (tail2 >> 8) as u8,
+            tail2 as u8,
+        ],
+    })
+}
+
+/// The shell lists apps that live inside a known folder as
+/// `{6D809377-...}\Mem Reduct\memreduct.exe` instead of a drive path, which
+/// neither launching nor icon extraction can use. Swap the GUID prefix for the
+/// real folder so the entry behaves like any other exe.
+pub fn expand_known_folder_prefix(path: &str) -> String {
+    if !path.starts_with('{') { return path.to_string(); }
+    let Some(end) = path.find('}') else { return path.to_string() };
+    let rest = &path[end + 1..];
+    if !rest.is_empty() && !rest.starts_with('\\') { return path.to_string(); }
+    let Some(guid) = parse_guid(&path[..=end]) else { return path.to_string() };
+    unsafe {
+        use windows::Win32::System::Com::CoTaskMemFree;
+        use windows::Win32::UI::Shell::{KF_FLAG_DEFAULT, SHGetKnownFolderPath};
+        let Ok(dir_ptr) = SHGetKnownFolderPath(&guid, KF_FLAG_DEFAULT, None) else { return path.to_string() };
+        let dir = dir_ptr.to_string().unwrap_or_default();
+        CoTaskMemFree(Some(dir_ptr.0 as *const _));
+        if dir.is_empty() { return path.to_string(); }
+        format!("{}{}", dir.trim_end_matches('\\'), rest)    }
+}
+
 /// Reads an image file and returns it as a base64 PNG data URI.
 pub fn image_file_to_base64(path: &str) -> Option<String> {
     let bytes = std::fs::read(path).ok()?;
@@ -1019,7 +1078,33 @@ unsafe fn wic_bitmap_to_base64(factory: &IWICImagingFactory, bitmap: &windows::W
 
 #[cfg(test)]
 mod tests {
-    use super::expand_env_vars;
+    use super::{expand_env_vars, expand_known_folder_prefix, parse_guid};
+
+    #[test]
+    fn known_folder_prefix_is_expanded() {
+        // {6D809377-...} is FOLDERID_ProgramFiles.
+        let out = expand_known_folder_prefix("{6D809377-6AF0-444B-8957-A3773F02200E}\\Mem Reduct\\memreduct.exe");
+        assert!(!out.starts_with('{'), "got {out}");
+        assert!(out.to_lowercase().ends_with("\\mem reduct\\memreduct.exe"), "got {out}");
+        assert!(!out.contains('}'), "got {out}");
+    }
+
+    #[test]
+    fn non_guid_paths_pass_through() {
+        assert_eq!(expand_known_folder_prefix("C:\\plain\\app.exe"), "C:\\plain\\app.exe");
+        assert_eq!(expand_known_folder_prefix("shell:AppsFolder\\Foo!App"), "shell:AppsFolder\\Foo!App");
+        assert_eq!(expand_known_folder_prefix("{not-a-guid}\\x"), "{not-a-guid}\\x");
+    }
+
+    #[test]
+    fn guid_parsing_round_trips() {
+        let g = parse_guid("{6D809377-6AF0-444B-8957-A3773F02200E}").expect("valid guid");
+        assert_eq!(g.data1, 0x6D809377);
+        assert_eq!(g.data2, 0x6AF0);
+        assert_eq!(g.data3, 0x444B);
+        assert_eq!(g.data4, [0x89, 0x57, 0xA3, 0x77, 0x3F, 0x02, 0x20, 0x0E]);
+        assert!(parse_guid("{6D809377-6AF0-444B-8957}").is_none());
+    }
 
     #[test]
     fn env_expansion() {

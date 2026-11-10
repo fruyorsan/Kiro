@@ -147,6 +147,7 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: windows::Win32::
                     } else if is_down && win_key_physically_down()
                         && NATIVE_TASKBAR_HIDDEN.load(Ordering::Relaxed)
                         && !legacy_mode()
+                        && !crate::utils::keep_taskbar_unhidden()
                     {
                         if !WIN_B_HELD.swap(true, Ordering::Relaxed) {
                             send_start_menu_mask();
@@ -167,6 +168,7 @@ unsafe extern "system" fn keyboard_hook_proc(code: i32, wparam: windows::Win32::
                             WIN_NUMBER_HELD.store(0, Ordering::Relaxed);
                         } else if NATIVE_TASKBAR_HIDDEN.load(Ordering::Relaxed)
                             && dock_win_number_enabled()
+                            && !crate::utils::keep_taskbar_unhidden()
                         {
                             if WIN_NUMBER_HELD.swap(slot, Ordering::Relaxed) != slot {
                                 send_start_menu_mask();
@@ -3271,6 +3273,8 @@ pub fn trigger_app_scan() {
                                             CoTaskMemFree(Some(p_ptr.0 as *const _));
                                             s
                                         } else { name.clone() };
+                                        // Known-folder items arrive as {GUID}\App\app.exe.
+                                        let path = crate::utils::expand_known_folder_prefix(&path);
 
                                         if is_launchable_entry(&name, &path) {
                                             let icon = if abs_item.is_null() { None } else { crate::utils::icon_from_absolute_pidl(abs_item) };

@@ -1228,15 +1228,31 @@ const Dock = memo(function Dock() {
   }, [isDragging]);
 
   useEffect(() => {
+    let blurTimer = 0;
     const handleBlur = () => {
-      closeMenu();
-      closePopup();
-      setShowSearch(false);
-      // Never leave the keyboard borrowed by an always-on-top surface.
-      invoke('set_window_keyboard_focus', { enabled: false }).catch(() => {});
+      window.clearTimeout(blurTimer);
+      // Taking the keyboard for the launcher (set_window_keyboard_focus) moves
+      // focus onto the dock and fires a transient blur. Closing on that killed
+      // the panel a few milliseconds after it opened: it stayed on screen but
+      // the native hitbox was already reported closed, so every click fell
+      // through to the window behind. Only close when focus really left us.
+      blurTimer = window.setTimeout(() => {
+        if (document.hasFocus()) return;
+        closeMenu();
+        closePopup();
+        setShowSearch(false);
+        // Never leave the keyboard borrowed by an always-on-top surface.
+        invoke('set_window_keyboard_focus', { enabled: false }).catch(() => {});
+      }, 350);
     };
+    const handleFocus = () => window.clearTimeout(blurTimer);
     window.addEventListener('blur', handleBlur);
-    return () => window.removeEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.clearTimeout(blurTimer);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   useEffect(() => {
@@ -2231,7 +2247,13 @@ function AddAppPopup({
         onClose();
       }
     };
-    const handleBlur = () => onClose();
+    const handleBlur = () => {
+      // Same transient blur as the launcher: borrowing the keyboard moves focus
+      // to the dock, so only dismiss when the focus actually stayed elsewhere.
+      window.setTimeout(() => {
+        if (!document.hasFocus()) onClose();
+      }, 350);
+    };
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("blur", handleBlur);
     document.addEventListener("mousedown", handleMouseDown, true);

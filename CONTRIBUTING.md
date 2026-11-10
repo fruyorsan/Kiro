@@ -27,7 +27,21 @@ npx tsc --noEmit
 cd src-tauri && cargo test --bin kiro
 ```
 
-To try a release build, run `bun run tauri build --no-bundle`. The exe is `src-tauri/target/release/kiro.exe`.
+To try a release build, run `bun run tauri build --no-bundle`. The exe is `src-tauri/target/debug/kiro.exe` for dev and `src-tauri/target/release/kiro.exe` for a release build.
+
+### Working on Kiro without losing your taskbar
+
+Kiro's dock replaces the taskbar, so a dev session normally hides it too. In a
+debug build, set `KIRO_KEEP_TASKBAR=1` to leave the taskbar alone:
+
+```powershell
+$env:KIRO_KEEP_TASKBAR="1"; bun run tauri dev
+```
+
+Nothing is hidden in that mode, so the shutdown and crash-recovery paths have
+nothing to undo and behave exactly as in a normal run. A release build ignores
+the variable.
+
 
 ## Pull requests
 
