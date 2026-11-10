@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { applyBackdrop, enableBackdrop, usesBackdrop } from "./backdrop";
 import { hydrateStorageFromSettings } from "./migrate";
+import { applyGpuOffMode } from "./perfMode";
 
 // Convert a hex color string to rgba with a specified alpha
 function hexToRgba(hex: string, alpha: number): string {
@@ -361,6 +362,9 @@ export async function applyTheme(
 // `backdrop`: this window draws the notch or dock, which show the wallpaper in the glass styles.
 export function initTheme(options: { backdrop?: boolean } = {}) {
   if (options.backdrop) enableBackdrop();
+  // GPU-less compositing (kiro-ram-ultra) needs the cheap surfaces from the
+  // first paint; waiting for load_settings would flash the blurred version.
+  applyGpuOffMode(localStorage.getItem('kiro-ram-ultra') === 'true');
   const syncMode = localStorage.getItem('kiro-theme-mode') || 'dark';
   const syncColor = localStorage.getItem('kiro-theme-color') || '#007aff';
   const syncOpacityVal = localStorage.getItem('kiro-theme-opacity');
@@ -376,6 +380,8 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
   // Sync settings.json in background to avoid flickers
   invoke<Record<string, any>>('load_settings').then((settings) => {
     hydrateStorageFromSettings(settings);
+    const ramUltra = settings['kiro-ram-ultra'];
+    applyGpuOffMode(ramUltra === true || ramUltra === 'true');
     const mode = settings['kiro-theme-mode'] ? String(settings['kiro-theme-mode']) : syncMode;
     const color = settings['kiro-theme-color'] ? String(settings['kiro-theme-color']) : syncColor;
     const opacityVal = settings['kiro-theme-opacity'] ? parseFloat(String(settings['kiro-theme-opacity'])) : syncOpacity;

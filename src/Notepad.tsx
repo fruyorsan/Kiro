@@ -1,5 +1,5 @@
 import "./migrate";
-import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
+import { StrictMode, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Effect, EffectState } from "@tauri-apps/api/window";
@@ -263,8 +263,23 @@ function NotepadWindow() {
 
   const words = active ? (active.text.trim() ? active.text.trim().split(/\s+/).length : 0) : 0;
 
+  // The note colour paints a soft wash from the top-left corner, so picking a
+  // tag changes the whole page instead of only adding a dot to the list. Two
+  // alphas of the same hex keep it cheap: a static gradient, no filter, no
+  // animation beyond a single fade-in when the colour changes.
+  const noteColor = active?.color;
+  const pageStyle = noteColor
+    ? ({
+        "--np-accent": noteColor,
+        "--np-glow-a": `${noteColor}59`,
+        "--np-glow-b": `${noteColor}14`,
+      } as CSSProperties)
+    : undefined;
+
   return (
-    <div className="np">
+    <div className={`np${noteColor ? " has-color" : ""}`} style={pageStyle}>
+      {noteColor && <span className="np-glow" key={noteColor} aria-hidden />}
+
       <div className="np-titlebar" data-tauri-drag-region>
         <span className="np-title-text" data-tauri-drag-region>
           {t("notepad.title")}

@@ -13,14 +13,20 @@ use windows::Win32::System::Threading::{
     PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION, PROCESS_SET_QUOTA,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetClassNameA, GetForegroundWindow, GetWindowThreadProcessId,
+};
 
 // EmptyWorkingSet pushes pages out to the pagefile. Doing that every couple of
 // seconds keeps the always-on dock/notch renderers and the GPU process at a
 // near-zero working set, so the first hover after idle has to fault hundreds of
 // megabytes back in. That shows up as an input stutter, so trim once the app is
 // properly idle and then leave it alone for a while.
-const SETTLE_MS: i64 = 10_000;
+//
+// 20 s (was 10 s): a short break -- reading a page, checking the desktop with
+// Win+D -- used to be long enough for a trim, and the return to the notch then
+// paid for it in page faults.
+const SETTLE_MS: i64 = 20_000;
 
 // 45 s (was 2 min): the renderers grow back quickly from timers and small
 // polls, so the old interval let the task-manager number sit ~100 MB above the
@@ -104,6 +110,25 @@ fn foreground_is_ours() -> bool {
         let mut pid = 0u32;
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
         pid == std::process::id()
+    }
+}
+
+/// The desktop (or the taskbar) owns the screen right after Win+D. That is the
+/// moment the user is most likely to come straight back to the dock, so paging
+/// its renderers out now would only turn the return into a page-fault stall.
+fn foreground_is_desktop() -> bool {
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.0.is_null() {
+            return false;
+        }
+        let mut class = [0u8; 64];
+        let len = GetClassNameA(hwnd, &mut class).max(0) as usize;
+        let name = std::str::from_utf8(&class[..len.min(class.len())]).unwrap_or("");
+        matches!(
+            name,
+            "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd"
+        )
     }
 }
 
@@ -319,6 +344,13 @@ pub fn start_reclaim_worker(app: tauri::AppHandle) {
 
                 let forced = TRIM_SOON.swap(false, Ordering::Relaxed);
                 if !forced && foreground_is_ours() {
+                    mark_interaction();
+                    continue;
+                }
+
+                // Win+D: the desktop is in front, the dock is still on screen
+                // and one mouse move away. Do not trim under it.
+                if !forced && foreground_is_desktop() {
                     mark_interaction();
                     continue;
                 }

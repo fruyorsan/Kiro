@@ -48,6 +48,48 @@ export function applyPerfMode(on: boolean) {
   document.documentElement.classList.toggle("perf-lite", on);
 }
 
+let gpuStyleEl: HTMLStyleElement | null = null;
+
+/**
+ * Software-rendering mode.
+ *
+ * "Maximum memory saving" (`kiro-ram-ultra`) starts WebView2 with
+ * `--disable-gpu`. That removes the GPU process (~150 MB) but moves every
+ * composite to the CPU. The glass surfaces and the ambient album glow then
+ * cost far more than the GPU they replaced: opening a panel, switching apps or
+ * pressing Win+D repaints them from scratch and the whole app feels laggy.
+ *
+ * Dropping the blurred layers keeps the flat tint and the layout, so the app
+ * stays fast without giving the memory back.
+ */
+function ensureGpuStyle() {
+  if (gpuStyleEl) return;
+  gpuStyleEl = document.createElement("style");
+  gpuStyleEl.id = "kiro-gpu-off";
+  gpuStyleEl.textContent = `
+    html.gpu-off *,
+    html.gpu-off *::before,
+    html.gpu-off *::after {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    /* A 360x220 bitmap blurred by 52px, repainted on every frame while the
+       music panel animates. Nearly free on the GPU, a stall without one. */
+    html.gpu-off .notch-ambient-glow {
+      display: none !important;
+    }
+    html.gpu-off .album-art-glow-bg {
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(gpuStyleEl);
+}
+
+export function applyGpuOffMode(on: boolean) {
+  ensureGpuStyle();
+  document.documentElement.classList.toggle("gpu-off", on);
+}
+
 /**
  * Auto performance mode listener. A fullscreen game makes the backend send
  * `perf-mode`; while it is on we drop the blur work the compositor would

@@ -28,7 +28,7 @@
   "general.ramSaver": "Memory Saver",
   "general.ramSaver.desc": "Hands unused memory back to Windows a few seconds after you stop interacting. Does not change how the app looks",
   "general.ramUltra": "Maximum Memory Saving",
-  "general.ramUltra.desc": "Turns off GPU acceleration: about 140-170 MB less RAM. Blur and animations get slower; needs a restart",
+  "general.ramUltra.desc": "Turns off GPU acceleration: about 140-170 MB less RAM. Blur effects turn themselves off in this mode; needs a restart",
   "general.notchPosition": "Notch position",
   "general.notchPosition.desc": "Top centre (default) or a floating pill in the bottom-right corner",
   "general.notchPosition.top": "Top centre (default)",

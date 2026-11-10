@@ -49,11 +49,20 @@ fn http_client() -> Result<&'static reqwest::Client, String> {
     let client = reqwest::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .pool_max_idle_per_host(1)
-        .pool_idle_timeout(Duration::from_secs(20))
+        // Keep the TLS connection warm between questions. Re-handshaking for
+        // every short prompt added a visible delay before the model even
+        // started, and an idle notch does not keep the socket alive by itself.
+        .pool_idle_timeout(Duration::from_secs(300))
         .build()
         .map_err(|e| e.to_string())?;
     Ok(HTTP_CLIENT.get_or_init(|| client))
 }
+
+/// The Gemini model id that last answered successfully. Google retires ids
+/// every few months, so the first question after an upgrade can cost three
+/// failed round-trips. Remembering the winner makes every later question go
+/// straight to a model that works.
+static GEMINI_MODEL: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Provider {
@@ -762,12 +771,18 @@ async fn ask_provider(
     match provider {
         Provider::OpenAI => ask_openai(&key, &model, &prompt, &images).await,
         Provider::Gemini => {
-            // Google retires ids without notice. Try the configured model, then
-            // follow the id Google suggests, then fall back to a small list of
-            // stable Flash ids. A newer key sees a 404 immediately instead of
-            // leaving the notch on "thinking" forever.
-            let mut candidates = vec![model];
-            for fallback in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"] {
+            // Google retires ids without notice. Try the model that answered
+            // last time first (a retired id costs two failed round-trips on
+            // every question otherwise), then the configured one, then follow
+            // the id Google suggests and finally a small list of stable ids.
+            let remembered = GEMINI_MODEL.lock().ok().and_then(|slot| slot.clone());
+            let mut candidates: Vec<String> = Vec::new();
+            for candidate in remembered.into_iter().chain(std::iter::once(model.clone())) {
+                if !candidates.contains(&candidate) {
+                    candidates.push(candidate);
+                }
+            }
+            for fallback in ["gemini-3.5-flash", "gemini-flash-latest", "gemini-2.5-flash"] {
                 if !candidates.iter().any(|c| c == fallback) {
                     candidates.push(fallback.to_string());
                 }
@@ -776,7 +791,16 @@ async fn ask_provider(
             loop {
                 let current = candidates[index].clone();
                 match ask_gemini(&key, &current, &prompt, &images).await {
-                    Ok(answer) => return Ok(answer),
+                    Ok(answer) => {
+                        // Remember the winner so the next question skips the
+                        // fallback chain entirely.
+                        if let Ok(mut slot) = GEMINI_MODEL.lock() {
+                            if slot.as_deref() != Some(current.as_str()) {
+                                *slot = Some(current);
+                            }
+                        }
+                        return Ok(answer);
+                    }
                     Err(error) => {
                         // Retired/unknown ids and overloaded models can be
                         // retried; a bad key or a quota error cannot.
