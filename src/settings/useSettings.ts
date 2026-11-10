@@ -37,6 +37,30 @@ function parseDrives(val: string | null): string[] {
   }
 }
 
+export type DockMenuShortcut = { id: string; label: string; path: string };
+
+function parseStringList(val: string | null): string[] {
+  try {
+    const parsed = JSON.parse(val ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseMenuShortcuts(val: string | null): DockMenuShortcut[] {
+  try {
+    const parsed = JSON.parse(val ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (d): d is DockMenuShortcut =>
+        d && typeof d.id === "string" && typeof d.label === "string" && typeof d.path === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
 export function useSettings() {
   const [autostart, setAutostart] = useState(false);
   const [weatherEnabled, setWeatherEnabled] = useState(true);
@@ -168,6 +192,12 @@ export function useSettings() {
     () => localStorage.getItem("kiro-dock-recycle-enabled") === "true"
   );
   const [dockDrives, setDockDrives] = useState<string[]>(() => parseDrives(localStorage.getItem("kiro-dock-drives")));
+  const [dockMenuHidden, setDockMenuHidden] = useState<string[]>(
+    () => parseStringList(localStorage.getItem("kiro-dock-menu-hidden"))
+  );
+  const [dockMenuShortcuts, setDockMenuShortcuts] = useState<DockMenuShortcut[]>(
+    () => parseMenuShortcuts(localStorage.getItem("kiro-dock-menu-shortcuts"))
+  );
   const [dockIconOnly, setDockIconOnly] = useState(
     () => localStorage.getItem("kiro-dock-icon-only") === "true"
   );
@@ -317,6 +347,8 @@ export function useSettings() {
       apply(getVal("kiro-cc-layout"), setCcLayout, (v) => parseCcLayout(v));
       apply(getVal("kiro-dock-recycle-enabled"), setDockRecycle, readBool);
       apply(getVal("kiro-dock-drives"), setDockDrives, parseDrives);
+      apply(getVal("kiro-dock-menu-hidden"), setDockMenuHidden, parseStringList);
+      apply(getVal("kiro-dock-menu-shortcuts"), setDockMenuShortcuts, parseMenuShortcuts);
       apply(getVal("kiro-dock-icon-only"), setDockIconOnly, readBool);
       apply(getVal("kiro-start-icon"), setStartIcon, (v) => v);
       apply(getVal("kiro-dock-adaptive"), setDockAdaptive, readBool);
@@ -910,6 +942,29 @@ export function useSettings() {
     saveSetting("kiro-dock-drives", JSON.stringify(next));
   };
 
+  const toggleDockMenuItem = (id: string) => {
+    const next = dockMenuHidden.includes(id)
+      ? dockMenuHidden.filter((item) => item !== id)
+      : [...dockMenuHidden, id];
+    setDockMenuHidden(next);
+    saveSetting("kiro-dock-menu-hidden", JSON.stringify(next));
+  };
+
+  const addDockMenuShortcut = (label: string, path: string) => {
+    const next = [
+      ...dockMenuShortcuts,
+      { id: `shortcut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, label, path },
+    ];
+    setDockMenuShortcuts(next);
+    saveSetting("kiro-dock-menu-shortcuts", JSON.stringify(next));
+  };
+
+  const removeDockMenuShortcut = (id: string) => {
+    const next = dockMenuShortcuts.filter((item) => item.id !== id);
+    setDockMenuShortcuts(next);
+    saveSetting("kiro-dock-menu-shortcuts", JSON.stringify(next));
+  };
+
   const toggleDockCalendar = () => {
     const next = !dockCalendarEnabled;
     setDockCalendarEnabled(next);
@@ -1390,6 +1445,11 @@ export function useSettings() {
     toggleDockRecycle,
     dockDrives,
     toggleDockDrive,
+    dockMenuHidden,
+    toggleDockMenuItem,
+    dockMenuShortcuts,
+    addDockMenuShortcut,
+    removeDockMenuShortcut,
     dockIconOnly,
     toggleDockIconOnly,
     startIcon,

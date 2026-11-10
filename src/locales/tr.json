@@ -717,5 +717,14 @@
   "appearance.logo.error": "Bu görsel kullanılamadı. PNG, JPG veya WEBP dene.",
   "appearance.logo.saved": "Logo güncellendi",
   "ai.stop": "Durdur",
-  "dockmenu.openError": "{name} açılamadı"
+  "dockmenu.openError": "{name} açılamadı",
+  "dock.section.menu": "Sağ tık menüsü",
+  "dock.menu.desc": "Dock'un sağ tık menüsünde ne görüneceğini seç. Bir öğeyi kapatınca menüden kalkar, açınca geri gelir.",
+  "dock.menu.shortcuts": "Kendi kısayolların",
+  "dock.menu.shortcuts.desc": "Dock menüsüne kendi uygulamanı veya dosyanı ekle",
+  "dock.menu.add": "Kısayol ekle",
+  "dock.menu.empty": "Henüz kısayol yok. Eklediğinde dock menüsünde görünür.",
+  "dock.menu.remove": "Kısayolu kaldır",
+  "dock.menu.apps": "Uygulamalar ve kısayollar",
+  "dockmenu.customize": "Bu menüyü düzenle…"
 }

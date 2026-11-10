@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Monitor, Eye, EyeOff, BellDot, Square, Search, Shuffle, MonitorCheck, CalendarDays, Maximize2, Keyboard, Sparkles, RotateCcw, LayoutGrid, Trash2, HardDrive, ChevronUp, TextSearch } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Monitor, Eye, EyeOff, BellDot, Square, Search, Shuffle, MonitorCheck, CalendarDays, Maximize2, Keyboard, Sparkles, RotateCcw, LayoutGrid, Trash2, HardDrive, ChevronUp, TextSearch, Settings, ListChecks, Power, Plus, X } from "lucide-react";
 import { SettingRow } from "./SettingRow";
 import { SettingSection } from "./SettingSection";
 import { Dropdown } from "./Dropdown";
@@ -9,10 +10,21 @@ import type { MonitorInfo, MonitorMode } from "./types";
 import { usePerMonitor } from "./usePerMonitor";
 import { useT } from "../i18n";
 import { useKiroLogo } from "../kiroLogo";
+import type { DockMenuShortcut } from "./useSettings";
 import { HideDelay } from "./HideDelay";
 import { PreviewDelay } from "./PreviewDelay";
 
 const SEARCH_PROVIDERS = ["windows", "cmdpal", "ptrun", "raycast", "shortcut"];
+
+const DOCK_MENU_ITEMS: { id: string; labelKey: string; icon: typeof Monitor }[] = [
+  { id: "addApp", labelKey: "dockmenu.addApp", icon: Plus },
+  { id: "calendar", labelKey: "dockmenu.openCalendar", icon: CalendarDays },
+  { id: "settings", labelKey: "dockmenu.openSettings", icon: Settings },
+  { id: "taskManager", labelKey: "dockmenu.taskManager", icon: ListChecks },
+  { id: "restart", labelKey: "general.restart", icon: RotateCcw },
+  { id: "clearIcons", labelKey: "dockmenu.clearIconCache", icon: Trash2 },
+  { id: "quit", labelKey: "general.quit", icon: Power },
+];
 
 const SHORTCUT_MODIFIERS: Record<string, string> = {
   ctrl: "Ctrl",
@@ -134,6 +146,11 @@ interface DockTabProps {
   toggleDockRecycle: () => void;
   dockDrives: string[];
   toggleDockDrive: (letter: string) => void;
+  dockMenuHidden: string[];
+  toggleDockMenuItem: (id: string) => void;
+  dockMenuShortcuts: DockMenuShortcut[];
+  addDockMenuShortcut: (label: string, path: string) => void;
+  removeDockMenuShortcut: (id: string) => void;
   dockIconOnly: boolean;
   toggleDockIconOnly: () => void;
   dockAdaptive: boolean;
@@ -188,6 +205,11 @@ export function DockTab({
   toggleDockRecycle,
   dockDrives,
   toggleDockDrive,
+  dockMenuHidden,
+  toggleDockMenuItem,
+  dockMenuShortcuts,
+  addDockMenuShortcut,
+  removeDockMenuShortcut,
   dockIconOnly,
   toggleDockIconOnly,
   dockAdaptive,
@@ -216,6 +238,21 @@ export function DockTab({
   const multiMonitor = dockMonitorMode === "all" && monitors.length > 1;
   const showPerMonitor = multiMonitor && perMonitor.enabled;
   const [drives, setDrives] = useState<DriveInfo[]>([]);
+
+  const pickMenuShortcut = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters: [{ name: t("dock.menu.apps"), extensions: ["exe", "lnk", "bat", "cmd"] }],
+      });
+      if (typeof selected !== "string") return;
+      const label = selected.split(/[\\/]/).pop()?.replace(/\.(exe|lnk|bat|cmd)$/i, "") || selected;
+      addDockMenuShortcut(label, selected);
+    } catch (e) {
+      console.error("Could not add dock menu shortcut:", e);
+    }
+  };
 
   useEffect(() => {
     invoke<DriveInfo[]>("get_drives").then(setDrives).catch(() => {});
@@ -442,6 +479,83 @@ export function DockTab({
               </>
             )}
 
+          </SettingSection>
+
+          <SettingSection id="dock-menu" title={t("dock.section.menu")}>
+            <div className="setting-item" style={{ alignItems: "flex-start" }}>
+              <div className="setting-info">
+                <span className="setting-desc">{t("dock.menu.desc")}</span>
+              </div>
+            </div>
+
+            {DOCK_MENU_ITEMS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <SettingRow key={item.id} icon={Icon} label={t(item.labelKey)}>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={!dockMenuHidden.includes(item.id)}
+                      onChange={() => toggleDockMenuItem(item.id)}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </SettingRow>
+              );
+            })}
+
+            <SettingRow
+              icon={Plus}
+              label={t("dock.menu.shortcuts")}
+              desc={t("dock.menu.shortcuts.desc")}
+            >
+              <button
+                type="button"
+                onClick={pickMenuShortcut}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "inherit",
+                  borderRadius: 8,
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                {t("dock.menu.add")}
+              </button>
+            </SettingRow>
+
+            {dockMenuShortcuts.length === 0 ? (
+              <div className="setting-item">
+                <div className="setting-info">
+                  <span className="setting-desc">{t("dock.menu.empty")}</span>
+                </div>
+              </div>
+            ) : (
+              dockMenuShortcuts.map((shortcut) => (
+                <SettingRow key={shortcut.id} icon={LayoutGrid} label={shortcut.label} desc={shortcut.path}>
+                  <button
+                    type="button"
+                    onClick={() => removeDockMenuShortcut(shortcut.id)}
+                    title={t("dock.menu.remove")}
+                    style={{
+                      width: 26,
+                      height: 26,
+                      display: "grid",
+                      placeItems: "center",
+                      border: "1px solid rgba(255,255,255,0.14)",
+                      background: "rgba(255,255,255,0.04)",
+                      color: "inherit",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <X size={13} />
+                  </button>
+                </SettingRow>
+              ))
+            )}
           </SettingSection>
 
           <SettingSection id="dock-style" title={t("dock.section.style")}>

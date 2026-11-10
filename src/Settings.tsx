@@ -34,15 +34,30 @@ function SettingsApp() {
   const t = useT();
   const kiroLogo = useKiroLogo();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const settings = useSettings();
 
   useEffect(() => {
     return initTheme();
   }, []);
 
+  // A dock menu entry deep-links here; wait for the tab to paint, then scroll.
+  useEffect(() => {
+    if (!scrollTarget) return;
+    const id = window.setTimeout(() => {
+      document.getElementById(scrollTarget)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setScrollTarget(null);
+    }, 180);
+    return () => window.clearTimeout(id);
+  }, [scrollTarget, activeTab]);
+
   useEffect(() => {
     const unlisten = listen<string>("settings-navigate", (e) => {
       if (e.payload === "calendar-sync") setActiveTab("calendar-sync");
+      if (e.payload === "dock-menu") {
+        setActiveTab("dock");
+        setScrollTarget("dock-menu");
+      }
     });
     return () => {
       unlisten.then((fn) => fn());
@@ -272,6 +287,11 @@ function SettingsApp() {
               toggleDockRecycle={settings.toggleDockRecycle}
               dockDrives={settings.dockDrives}
               toggleDockDrive={settings.toggleDockDrive}
+              dockMenuHidden={settings.dockMenuHidden}
+              toggleDockMenuItem={settings.toggleDockMenuItem}
+              dockMenuShortcuts={settings.dockMenuShortcuts}
+              addDockMenuShortcut={settings.addDockMenuShortcut}
+              removeDockMenuShortcut={settings.removeDockMenuShortcut}
               dockIconOnly={settings.dockIconOnly}
               toggleDockIconOnly={settings.toggleDockIconOnly}
               dockAdaptive={settings.dockAdaptive}

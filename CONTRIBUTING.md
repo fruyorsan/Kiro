@@ -45,4 +45,4 @@ Translations live in `src/locales/<code>.json`. To add a language, add the file,
 
 ## License
 
-Kiro is licensed under the [GPLv3](LICENSE). By sending a pull request you agree that your contribution is released under the same license. Kiro is a fork of [Bloom](https://github.com/SehajveerSingh2005/bloom) by Sehajveer Singh, and some code is adapted from it.
+Kiro is licensed under the [GPLv3](LICENSE). By sending a pull request you agree that your contribution is released under the same license. Third-party attribution is listed in [NOTICE.md](NOTICE.md).

@@ -1,26 +1,24 @@
 <div align="center">
 
-## Kiro
+<img src="docs/logo.png" width="112" alt="Kiro" />
 
-**A notch and a dock for Windows.** Physics-animated, reactive, and built to replace your taskbar.
+# Kiro
 
-<img src="docs/logo.png" width="128" alt="Kiro logo" />
+**Your Windows desktop, rebuilt around a notch and a dock.**
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/wordmark-dark.png" />
-  <img src="docs/wordmark-light.png" height="44" alt="Kiro" />
-</picture>
+A spring-animated notch. A dock that replaces the taskbar. Real work behind the
+scenes while you game, and AI one click away.
 
 [![Latest release](https://shieldcn.dev/badge/release-v1.8.2.svg?logo=lu:Tag)](https://github.com/fruyorsan/Kiro/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/fruyorsan/Kiro/total.svg)](https://github.com/fruyorsan/Kiro/releases)
 [![License](https://shieldcn.dev/github/license/fruyorsan/Kiro.svg?logo=lu:Scale)](LICENSE)
 [![Platform](https://shieldcn.dev/badge/platform-Windows.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)
 
-[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
+[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [FPS Boost](#fps-boost) &nbsp;·&nbsp; [AI](#ai-in-the-notch) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
 
 <br />
 
-<img src="docs/screenshots/desktop.webp" width="860" alt="Kiro's notch and dock on a Windows desktop" />
+<img src="docs/screenshots/desktop.webp" width="900" alt="Kiro's notch and dock on a Windows desktop" />
 
 </div>
 
@@ -28,31 +26,92 @@
 
 > **Antivirus warnings:** Windows, Avast and Kaspersky may flag Kiro because the executable is not code-signed yet. Kiro is open source, has no telemetry or tracking, and you can read every line or build it yourself from this repository.
 
+## Why Kiro
+
+Windows gives you a taskbar and a notification area. Kiro gives you a desktop
+that reacts: a notch that holds music, system controls, your calendar, notes and
+a shelf; a dock that mirrors the apps you actually use; and a performance layer
+that gets out of the way the moment a game goes fullscreen.
+
+- **One place for the small stuff.** Music, Wi-Fi, Bluetooth, volume, brightness,
+  battery, weather, calendar and timers live in the notch.
+- **A dock that behaves like a dock.** Real icons, real window previews, pinned
+  apps, running apps and notification dots, without the taskbar.
+- **Frames when they matter.** Kiro stops its own work, hides its windows and
+  boosts the game while you play, then puts everything back.
+- **Yours.** Your logo, your accent colour, your layout, your monitor.
+
 ## Features
 
-| What you get | How |
+| What you get | How it works |
 | --- | --- |
 | **A notch that does things** | Music, a Control Center you arrange yourself, status, a calendar and a file shelf in one spring-animated island. |
 | **A dock that replaces your taskbar** | Mirrors your real taskbar, same pinned apps and order, with real icons and names, and a dot on apps that want your attention. |
 | **Native where it counts** | The tray opens the real Windows flyout, and Quit ends an app like Task Manager's End task. |
 | **Out of your way** | Fixed, Smart or Peek modes, and both stay hidden over fullscreen games. |
-| **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent color. English and Turkish. Every option lives in a plain `settings.json`. |
-| **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. |
+| **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent colour. English and Turkish. Every option lives in a plain `settings.json`. |
+| **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. Memory Saver hands unused RAM back to Windows. |
 | **Ask AI from the notch** | Ask Claude, ChatGPT or Gemini a question, with screenshots attached. The panel shows elapsed time and can be stopped at any moment. |
 | **Make it yours** | Pick your own picture for the Kiro mascot; it is cropped and scaled automatically and appears on the notch, dock, splash and settings at once. |
 | **Notes with pictures** | A small notebook in the dock: name a note, give it a colour, attach up to six pictures and export it as text. Pictures are downscaled so the notebook stays light. |
 | **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, stops trimming memory, and hides its always-on-top windows at the OS level so the game keeps direct-to-screen flip. Everything returns on exit. |
-| **Kiro FPS Boost** | While a game runs: the game process gets priority, Windows' efficiency throttling is switched off for it, and notifications are muted so they cannot break the game's flip path. The second time Kiro sees the same game it pins it to the high-performance GPU and disables fullscreen optimizations for it. A hardware audit reports what is actually costing frames. Every change is reversible. |
 
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/island.png" height="130" alt="The Kiro notch" /></td>
-    <td align="center"><img src="docs/screenshots/dock.png" height="130" alt="The Kiro dock" /></td>
+    <td align="center"><img src="docs/screenshots/island.png" height="140" alt="The Kiro notch" /></td>
+    <td align="center"><img src="docs/screenshots/dock.png" height="140" alt="The Kiro dock" /></td>
   </tr>
   <tr>
     <td align="center"><sub>The notch</sub></td>
     <td align="center"><sub>The dock</sub></td>
+  </tr>
+</table>
+</div>
+
+## FPS Boost
+
+Kiro's FPS work is a capability, not a checklist you configure per game. It has
+two halves: silent, self-reverting work while a game runs, and an honest hardware
+audit that says what is actually costing frames.
+
+| While a game is fullscreen | Why it matters |
+| --- | --- |
+| Raises the game process priority | Background work cannot preempt the render thread. |
+| Clears Windows EcoQoS throttling for the game | Windows otherwise parks game threads on efficiency cores. |
+| Raises the game's memory priority | Its pages stop being the first trim candidates mid-frame. |
+| Mutes toast notifications | A toast is a new topmost window; DWM composites a frame over the game and that shows up in 1% lows. |
+| Hides Kiro's own windows at the OS level | A visible topmost window steals the game's direct-to-screen flip path. |
+
+None of it needs a reboot, none of it touches the game's files, and all of it is
+reverted when the game exits or Kiro quits. Anti-cheat protected processes are
+left alone: Kiro never injects a DLL and never opens the game's memory.
+
+After Kiro has seen the same game twice, it can also route it to the
+high-performance GPU and disable fullscreen optimizations for that executable,
+with an **Undo** button for every profile. The hardware audit reports the real
+bottleneck (GPU power limit, MUX/hybrid routing, Flex Mode RAM, refresh rate)
+instead of promising frames it cannot deliver.
+
+Read the full design in [docs/fps-boost.md](docs/fps-boost.md).
+
+## AI in the notch
+
+Open Control Center from the notch, press the AI button, and ask. Kiro supports
+Claude, ChatGPT and Gemini, keeps the last working model warm, shows how long a
+request has been running, and lets you stop it at any time. Attach a screenshot
+or an image with the paperclip; the image is sent with the question.
+
+Provider keys stay in your local settings and are only sent to the provider you
+chose.
+
+## Screenshots
+
+<div align="center">
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/island.png" width="420" alt="Notch" /><br /><sub>Notch and Control Center</sub></td>
+    <td align="center"><img src="docs/screenshots/dock.png" width="420" alt="Dock" /><br /><sub>Dock with live previews</sub></td>
   </tr>
 </table>
 </div>
@@ -102,6 +161,8 @@ In Smart and Peek both stay hidden, and click-through, while a fullscreen app is
 
 **Multiple monitors.** Under **Show On**, pick **Primary Monitor** (the default), **All Monitors** or a **Specific Monitor** for the dock and the notch separately. Each extra monitor gets its own windows, so **All Monitors** uses more memory than a single display.
 
+**Dock menu.** Right-click any icon to pin or unpin it, open a new instance, change its icon, or quit the app. Right-click the dock background to add an app, open Settings or Calendar, or restart Kiro. The menu is yours: **Settings › Dock › Right-click menu** turns any built-in entry on or off and lets you add shortcuts to your own apps and files. **Customize this menu…** at the bottom of the menu takes you straight there.
+
 ## Troubleshooting
 
 <details>
@@ -127,7 +188,7 @@ Start Kiro again; it restores the taskbar on launch even after a crash. Uninstal
 
 <br />
 
-Every window runs in its own WebView2 process, so each monitor adds a notch and a dock. Set **Show On** to one monitor to cut it down.
+Every window runs in its own WebView2 process, so each monitor adds a notch and a dock. Set **Show On** to one monitor to cut it down. **Maximum Memory Saving** in Settings › General turns off GPU acceleration for another 140–170 MB.
 
 </details>
 
@@ -184,8 +245,10 @@ See the [open issues](https://github.com/fruyorsan/Kiro/issues) for requests and
 
 ## License
 
-Kiro is open source under the [GPLv3](LICENSE).
+Kiro is open source under the [GPLv3](LICENSE). Third-party notices are listed in
+[NOTICE.md](NOTICE.md).
 
-## Credits
-
-Kiro began as a fork of [Nectar](https://github.com/kua8/Nectar) by [kua8](https://github.com/kua8), which itself began as a fork of [Bloom](https://github.com/SehajveerSingh2005/bloom) by Sehajveer Singh. The original concept and the code it grew from are theirs. Kiro is now maintained independently under the Kiro name.
+<div align="center">
+<br />
+<sub>Built for Windows 10 and 11. No telemetry. No account. No taskbar.</sub>
+</div>

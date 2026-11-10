@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { listen, emit } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import './Dock.css';
 import './surfaces.css';
@@ -103,6 +103,21 @@ function parseDrives(val: string | null): string[] {
   try {
     const parsed = JSON.parse(val ?? "[]");
     return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+type DockMenuShortcut = { id: string; label: string; path: string };
+
+function parseMenuShortcuts(val: string | null): DockMenuShortcut[] {
+  try {
+    const parsed = JSON.parse(val ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (d): d is DockMenuShortcut =>
+        d && typeof d.id === "string" && typeof d.label === "string" && typeof d.path === "string"
+    );
   } catch {
     return [];
   }
@@ -363,6 +378,8 @@ const Dock = memo(function Dock() {
   const [dockShowDesktop, setDockShowDesktop] = useState(() => localStorage.getItem("kiro-dock-show-desktop-corner") === "true");
   const [dockRecycle, setDockRecycle] = useState(() => localStorage.getItem("kiro-dock-recycle-enabled") === "true");
   const [dockDrives, setDockDrives] = useState<string[]>(() => parseDrives(localStorage.getItem("kiro-dock-drives")));
+  const [dockMenuHidden, setDockMenuHidden] = useState<string[]>(() => parseDrives(localStorage.getItem("kiro-dock-menu-hidden")));
+  const [dockMenuShortcuts, setDockMenuShortcuts] = useState<DockMenuShortcut[]>(() => parseMenuShortcuts(localStorage.getItem("kiro-dock-menu-shortcuts")));
   const [dockIconOnly, setDockIconOnly] = useState(() => localStorage.getItem("kiro-dock-icon-only") === "true");
   const [dockAdaptive, setDockAdaptive] = useState(() => localStorage.getItem("kiro-dock-adaptive") === "true");
   // Keep the dock visible on the desktop. On by default: a taskbar replacement
@@ -589,6 +606,8 @@ const Dock = memo(function Dock() {
       setDockDesktopPersist(getVal("kiro-dock-desktop-persist", "true") !== "false");
       setDockRecycle(getVal("kiro-dock-recycle-enabled", "false") === "true");
       setDockDrives(parseDrives(getVal("kiro-dock-drives", "[]")));
+      setDockMenuHidden(parseDrives(getVal("kiro-dock-menu-hidden", "[]")));
+      setDockMenuShortcuts(parseMenuShortcuts(getVal("kiro-dock-menu-shortcuts", "[]")));
 
       const iconOnly = getVal("kiro-dock-icon-only", "false");
       setDockIconOnly(iconOnly === "true");
@@ -686,6 +705,8 @@ const Dock = memo(function Dock() {
       "kiro-dock-show-desktop-corner": setDockShowDesktop,
       "kiro-dock-recycle-enabled": setDockRecycle,
       "kiro-dock-drives": (v) => setDockDrives(parseDrives(v)),
+      "kiro-dock-menu-hidden": (v) => setDockMenuHidden(parseDrives(v)),
+      "kiro-dock-menu-shortcuts": (v) => setDockMenuShortcuts(parseMenuShortcuts(v)),
       "kiro-dock-icon-only": setDockIconOnly,
       "kiro-dock-adaptive": setDockAdaptive,
       "kiro-dock-desktop-persist": (v) => setDockDesktopPersist(v !== false && v !== "false"),
@@ -1021,6 +1042,16 @@ const Dock = memo(function Dock() {
         Math.max(8, window.innerWidth - menuWidth - 8),
       )
     : 0;
+
+  const menuVisible = (id: string) => !dockMenuHidden.includes(id);
+
+  const openDockMenuSettings = () => {
+    invoke('open_settings_window').catch(() => {});
+    closeMenu();
+    setTimeout(() => {
+      emit('settings-navigate', 'dock-menu').catch(() => {});
+    }, 700);
+  };
 
   const dockItems = useMemo(() => {
     const runningMap = new Map();
@@ -1911,31 +1942,85 @@ const Dock = memo(function Dock() {
                 </>
               )}
               <div className="menu-divider" />
-              <div className="menu-item" onClick={() => { setShowAddPopup(true); closeMenu(); }}>
-                {t("dockmenu.addApp")}
-              </div>
+              {menuVisible("addApp") && (
+                <div className="menu-item" onClick={() => { setShowAddPopup(true); closeMenu(); }}>
+                  {t("dockmenu.addApp")}
+                </div>
+              )}
+              {dockMenuShortcuts.map((shortcut) => (
+                <div
+                  key={shortcut.id}
+                  className="menu-item"
+                  onClick={() => {
+                    invoke('open_app', { appName: shortcut.path }).catch(() => {});
+                    closeMenu();
+                  }}
+                >
+                  {shortcut.label}
+                </div>
+              ))}
               <div className="menu-divider" />
-              <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
-              <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
-              <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
-              <div className="menu-item" onClick={() => invoke('restart_kiro')}>{t("general.restart")}</div>
-              <div className="menu-item" onClick={() => { handleClearIconCache(); closeMenu(); }}>{t("dockmenu.clearIconCache")}</div>
+              {menuVisible("calendar") && (
+                <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
+              )}
+              {menuVisible("settings") && (
+                <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
+              )}
+              {menuVisible("taskManager") && (
+                <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
+              )}
+              {menuVisible("restart") && (
+                <div className="menu-item" onClick={() => invoke('restart_kiro')}>{t("general.restart")}</div>
+              )}
+              {menuVisible("clearIcons") && (
+                <div className="menu-item" onClick={() => { handleClearIconCache(); closeMenu(); }}>{t("dockmenu.clearIconCache")}</div>
+              )}
+              <div className="menu-item" onClick={openDockMenuSettings}>{t("dockmenu.customize")}</div>
               <div className="menu-divider" />
-              <div className="menu-item quit" onClick={() => invoke('quit_kiro')}>{t("general.quit")}</div>
+              {menuVisible("quit") && (
+                <div className="menu-item quit" onClick={() => invoke('quit_kiro')}>{t("general.quit")}</div>
+              )}
             </>
           ) : (
             <>
-              <div className="menu-item" onClick={() => { setShowAddPopup(true); closeMenu(); }}>
-                {t("dockmenu.addApp")}
-              </div>
+              {menuVisible("addApp") && (
+                <div className="menu-item" onClick={() => { setShowAddPopup(true); closeMenu(); }}>
+                  {t("dockmenu.addApp")}
+                </div>
+              )}
+              {dockMenuShortcuts.map((shortcut) => (
+                <div
+                  key={shortcut.id}
+                  className="menu-item"
+                  onClick={() => {
+                    invoke('open_app', { appName: shortcut.path }).catch(() => {});
+                    closeMenu();
+                  }}
+                >
+                  {shortcut.label}
+                </div>
+              ))}
               <div className="menu-divider" />
-              <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
-              <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
-              <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
-              <div className="menu-item" onClick={() => invoke('restart_kiro')}>{t("general.restart")}</div>
-              <div className="menu-item" onClick={() => { handleClearIconCache(); closeMenu(); }}>{t("dockmenu.clearIconCache")}</div>
+              {menuVisible("calendar") && (
+                <div className="menu-item" onClick={() => { invoke('open_calendar_window'); closeMenu(); }}>{t("dockmenu.openCalendar")}</div>
+              )}
+              {menuVisible("settings") && (
+                <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
+              )}
+              {menuVisible("taskManager") && (
+                <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
+              )}
+              {menuVisible("restart") && (
+                <div className="menu-item" onClick={() => invoke('restart_kiro')}>{t("general.restart")}</div>
+              )}
+              {menuVisible("clearIcons") && (
+                <div className="menu-item" onClick={() => { handleClearIconCache(); closeMenu(); }}>{t("dockmenu.clearIconCache")}</div>
+              )}
+              <div className="menu-item" onClick={openDockMenuSettings}>{t("dockmenu.customize")}</div>
               <div className="menu-divider" />
-              <div className="menu-item quit" onClick={() => invoke('quit_kiro')}>{t("general.quit")}</div>
+              {menuVisible("quit") && (
+                <div className="menu-item quit" onClick={() => invoke('quit_kiro')}>{t("general.quit")}</div>
+              )}
             </>
           )}
         </div>

@@ -2305,7 +2305,7 @@ input:checked + .slider:before {
 /* ======================================================================
    Kiro identity pass
    ----------------------------------------------------------------------
-   The old shell copied Nectar: an indigo radial glow, filled violet pills
+   The old shell leaned on a generic indigo radial glow, filled violet pills
    and a hard sidebar. Kiro is a notch/dock utility, so the settings window
    now reads as neutral glass with a single restrained accent: segmented
    capsule tabs, hairline borders and flat rows. No purple fallbacks left.

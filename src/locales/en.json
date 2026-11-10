@@ -717,5 +717,14 @@
   "appearance.logo.error": "That picture could not be used. Try PNG, JPG or WEBP.",
   "appearance.logo.saved": "Logo updated",
   "ai.stop": "Stop",
-  "dockmenu.openError": "{name} could not be opened"
+  "dockmenu.openError": "{name} could not be opened",
+  "dock.section.menu": "Right-click menu",
+  "dock.menu.desc": "Pick what the dock's right-click menu shows. Turn an entry off to remove it, on to bring it back.",
+  "dock.menu.shortcuts": "Your shortcuts",
+  "dock.menu.shortcuts.desc": "Add an app or file of your own to the dock menu",
+  "dock.menu.add": "Add shortcut",
+  "dock.menu.empty": "No shortcuts yet. Add one and it appears in the dock menu.",
+  "dock.menu.remove": "Remove shortcut",
+  "dock.menu.apps": "Apps and shortcuts",
+  "dockmenu.customize": "Customize this menu…"
 }
