@@ -7,7 +7,7 @@ import './Dock.css';
 import './surfaces.css';
 import { SurfaceShape } from "./components/SurfaceShape";
 import { initTheme } from './theme';
-import { hydrateStorageFromSettings } from './migrate';
+import { hydrateStorageFromSettings } from './storage';
 import { useSettingsSync } from './hooks/useSettingsSync';
 import { useT } from './i18n';
 import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon } from './icons';

@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { applyBackdrop, enableBackdrop, usesBackdrop } from "./backdrop";
-import { hydrateStorageFromSettings } from "./migrate";
+import { hydrateStorageFromSettings } from "./storage";
 import { applyGpuOffMode } from "./perfMode";
 
 // Convert a hex color string to rgba with a specified alpha

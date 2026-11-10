@@ -9,7 +9,7 @@ import { useSettingsSync } from "../hooks/useSettingsSync";
 import { hexToHsl, DEFAULT_ACCENT_COLOR, STYLE_OPACITY, type ThemePreset } from "../theme";
 import { DEFAULT_DUAL_CLOCK_ZONE } from "../dualClock";
 import type { WidgetConfig, MonitorInfo, MonitorMode } from "./types";
-import { hydrateStorageFromSettings } from "../migrate";
+import { hydrateStorageFromSettings } from "../storage";
 
 function saveSetting(key: string, value: string) {
   localStorage.setItem(key, value);

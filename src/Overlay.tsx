@@ -1,9 +1,8 @@
-﻿import "./migrate";
-import { StrictMode, useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
+﻿import { StrictMode, useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { listen, emit } from "@tauri-apps/api/event";
-import { hydrateStorageFromSettings } from "./migrate";
+import { hydrateStorageFromSettings } from "./storage";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsSync } from "./hooks/useSettingsSync";
 import { useTrailingThrottle } from "./hooks/useTrailingThrottle";

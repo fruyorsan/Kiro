@@ -7,7 +7,7 @@ import type { UpdateCheckResult } from "./updater";
 import "./App.css";
 import "./surfaces.css";
 import { initTheme } from "./theme";
-import { hydrateStorageFromSettings } from "./migrate";
+import { hydrateStorageFromSettings } from "./storage";
 import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon, VolumeLowIcon, VolumeHighIcon, MusicNoteIcon } from "./icons";
 import { CompactMediaPlayer } from "./CompactMediaPlayer";
 import { artTheme, FALLBACK_THEME, type ArtTheme } from "./music/palette";

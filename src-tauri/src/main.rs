@@ -28,7 +28,6 @@ mod memory_saver;
 mod webview_args;
 mod on_demand_windows;
 mod wallpaper;
-mod migrate;
 mod defaults;
 mod perf;
 mod game_boost;
@@ -56,10 +55,6 @@ unsafe extern "system" fn ctrl_handler(ctrl_type: u32) -> BOOL {
 }
 
 fn main() {
-    // Bring the user's Kiro settings over on the very first launch, before
-    // anything reads the config folder.
-    migrate::run();
-
     let args: Vec<String> = std::env::args().collect();
     if let Some(code) = agent_api::run_cli(&args) {
         std::process::exit(code);

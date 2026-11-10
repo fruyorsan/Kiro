@@ -34,5 +34,3 @@ DEGISIKLIKLER.html
 # Marketing site — hosted separately (Apache, own domain), not part of this repo
 /website/
 
-# Promo video render output (frames are regenerated; only the MP4/GIF ships)
-/docs/promo/frames/
