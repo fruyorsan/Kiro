@@ -79,6 +79,14 @@ With **All Monitors** and more than one display, the **Per-Monitor Behavior** to
 | `kiro-dock-mode-by-monitor` | JSON string | `"{}"` | Per-monitor dock behavior: a JSON object mapping each Windows display name (as in `kiro-dock-monitor-id`) to `"fixed"`, `"smart"` or `"peek"`. A monitor without an entry uses `kiro-dock-mode`. |
 | `kiro-notch-mode-by-monitor` | JSON string | `"{}"` | Same as above for the notch, falling back to `kiro-notch-mode`. |
 
+### Dock right-click menu
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `kiro-dock-menu-hidden` | JSON array | `[]` | Ids of the built-in dock menu entries to hide: `addApp`, `calendar`, `settings`, `taskManager`, `restart`, `clearIcons`, `quit`. An empty array shows all of them. Set from Settings > Dock > Right-click menu. |
+| `kiro-dock-menu-shortcuts` | JSON array | `[]` | Your own dock menu entries, each `{"id":"…","label":"…","path":"C:\\…"}`. Clicking one opens its `path`. Added with the file picker in Settings > Dock > Right-click menu. |
+
+
 ### Weather
 
 | Key | Type | Default | Description |
