@@ -539,8 +539,12 @@ async fn ask_gemini(
         });
         let response = client
             .post(&url)
-            .query(&[("key", key)])
+            // Header auth works for both classic `AIza…` keys and the newer
+            // keys AI Studio hands out; the query parameter is deprecated for
+            // some key formats and failed silently as a slow 403.
+            .header("x-goog-api-key", key)
             .header("content-type", "application/json")
+            .timeout(Duration::from_secs(45))
             .body(body.to_string())
             .send()
             .await
@@ -758,23 +762,43 @@ async fn ask_provider(
     match provider {
         Provider::OpenAI => ask_openai(&key, &model, &prompt, &images).await,
         Provider::Gemini => {
-            let mut current = model;
-            let mut attempt = ask_gemini(&key, &current, &prompt, &images).await;
-            // Google retires ids without notice and sometimes answers "high
-            // demand" for the newest model. Its own error text names the
-            // replacement, so follow that and retry instead of failing.
-            for _ in 0..2 {
-                let next = match &attempt {
-                    Ok(_) => None,
-                    Err(error) => next_gemini_model(error, &current),
-                };
-                let Some(next) = next else {
-                    break;
-                };
-                current = next;
-                attempt = ask_gemini(&key, &current, &prompt, &images).await;
+            // Google retires ids without notice. Try the configured model, then
+            // follow the id Google suggests, then fall back to a small list of
+            // stable Flash ids. A newer key sees a 404 immediately instead of
+            // leaving the notch on "thinking" forever.
+            let mut candidates = vec![model];
+            for fallback in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"] {
+                if !candidates.iter().any(|c| c == fallback) {
+                    candidates.push(fallback.to_string());
+                }
             }
-            attempt
+            let mut index = 0;
+            loop {
+                let current = candidates[index].clone();
+                match ask_gemini(&key, &current, &prompt, &images).await {
+                    Ok(answer) => return Ok(answer),
+                    Err(error) => {
+                        // Retired/unknown ids and overloaded models can be
+                        // retried; a bad key or a quota error cannot.
+                        let retryable = is_retired_model_error(&error)
+                            || error.to_ascii_lowercase().contains("high demand")
+                            || error.to_ascii_lowercase().contains("bağlantı hatası");
+                        if !retryable {
+                            return Err(error);
+                        }
+                        // Google sometimes names the exact replacement id.
+                        if let Some(next) = next_gemini_model(&error, &current) {
+                            if !candidates.iter().any(|c| c == &next) {
+                                candidates.insert(index + 1, next);
+                            }
+                        }
+                        if index + 1 >= candidates.len() {
+                            return Err(error);
+                        }
+                        index += 1;
+                    }
+                }
+            }
         }
         Provider::Claude => unreachable!(),
     }
@@ -803,7 +827,6 @@ fn next_gemini_model(error: &str, current: &str) -> Option<String> {
     }
     None
 }
-
 fn is_retired_model_error(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
     lower.contains("no longer available")

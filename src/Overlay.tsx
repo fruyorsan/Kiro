@@ -1,4 +1,4 @@
-import "./migrate";
+﻿import "./migrate";
 import { StrictMode, useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,8 +18,9 @@ import { SurfaceShape } from "./components/SurfaceShape";
 import { initTheme } from "./theme";
 import { setVisibleInterval } from "./hooks/visibleInterval";
 import { initPerfMode } from "./perfMode";
+import { useKiroLogo } from "./kiroLogo";
 
-// ─── App Volume Mixer ───────────────────────────────────────────────────────
+// â”€â”€â”€ App Volume Mixer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface AudioSession {
   pid: number;
@@ -119,7 +120,7 @@ function MixerTile({
           const newVol = Math.max(0, Math.min(1, Math.round((session.volume + change) * 100) / 100));
           onVolumeChange(session.pid, newVol);
         }}
-        title={`${session.name} — ${percentage}%`}
+        title={`${session.name} â€” ${percentage}%`}
         style={{ cursor: "pointer" }}
       >
         <motion.div
@@ -149,7 +150,7 @@ function MixerTile({
   );
 }
 
-// ─── Volume Notch ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Volume Notch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Mixer panel size. The card grows with the app count (one column each) up to a max.
 // MIXER_PANEL_PADDING must match the padding on .volume-mixer-list.
@@ -606,7 +607,7 @@ function VolumeNotch({
   );
 }
 
-// ─── Brightness Notch ───────────────────────────────────────────────────────
+// â”€â”€â”€ Brightness Notch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SunIcon = ({ brightness }: { brightness: number }) => (
   <motion.div
@@ -697,16 +698,25 @@ function BrightnessNotch({
   );
 }
 
-// ─── Main Overlay Component ─────────────────────────────────────────────────
+// â”€â”€â”€ Main Overlay Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function OverlayApp() {
   const t = useT();
+  // Splash and update screens use the same picture as the dock, so a custom
+  // logo never flashes the bundled one first.
+  const kiroLogo = useKiroLogo();
   useEffect(() => {
     return initTheme();
   }, []);
 
   type Mode = 'idle' | 'volume' | 'brightness' | 'splash' | 'updating';
   const [mode, setMode] = useState<Mode>('idle');
+  // Game boost notice: a fullscreen game just took over, so the notch/dock are
+  // hidden at the OS level and this full-screen overlay is the only surface a
+  // player can still see. It is drawn without backdrop blur on purpose: a
+  // blurred layer would re-read the game frame every tick.
+  const [perfNotice, setPerfNotice] = useState(false);
+  const perfNoticeTimerRef = useRef<any>(null);
   const [updateStatus, setUpdateStatus] = useState<string>('checking');
   const [updateProgress, setUpdateProgress] = useState(0);
 
@@ -775,6 +785,30 @@ function OverlayApp() {
     invoke<number>("get_brightness").then((value) => setBrightness(value)).catch(() => {});
   }, []);
 
+  // Game boost banner. `perf-mode` only fires when the automatic performance
+  // mode engages, which is gated on a real game going fullscreen (video and
+  // browsers never trigger it), so the banner cannot appear while watching a
+  // movie or browsing. It shows once on engage and disappears after a moment.
+  useEffect(() => {
+    let alive = true;
+    const unlisten = listen<boolean>("perf-mode", (event) => {
+      if (!alive) return;
+      if (!event.payload) {
+        setPerfNotice(false);
+        if (perfNoticeTimerRef.current) clearTimeout(perfNoticeTimerRef.current);
+        return;
+      }
+      setPerfNotice(true);
+      if (perfNoticeTimerRef.current) clearTimeout(perfNoticeTimerRef.current);
+      perfNoticeTimerRef.current = setTimeout(() => setPerfNotice(false), 5200);
+    });
+    return () => {
+      alive = false;
+      unlisten.then((off) => off()).catch(() => {});
+      if (perfNoticeTimerRef.current) clearTimeout(perfNoticeTimerRef.current);
+    };
+  }, []);
+
   // Seed the HUD with the live volume, the worker's first event fires before we can listen.
   useEffect(() => {
     invoke<{ volume: number; is_muted: boolean }>("get_volume_state")
@@ -785,7 +819,7 @@ function OverlayApp() {
       .catch(() => {});
   }, []);
 
-  // ── Splash Detection ──
+  // â”€â”€ Splash Detection â”€â”€
   useEffect(() => {
     const showSplash = async () => {
       splashActiveRef.current = true;
@@ -821,7 +855,7 @@ function OverlayApp() {
   }, []);
   onSplashCompleteRef.current = onSplashComplete;
 
-  // ── Event Listeners ──
+  // â”€â”€ Event Listeners â”€â”€
   useEffect(() => {
     const preventContext = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('contextmenu', preventContext);
@@ -935,7 +969,7 @@ function OverlayApp() {
     if (!brightnessOverlayEnabled && mode === 'brightness') setMode('idle');
   }, [brightnessOverlayEnabled, mode]);
 
-  // ── Window Visibility Management ──
+  // â”€â”€ Window Visibility Management â”€â”€
   useEffect(() => {
     const syncWindow = async () => {
       try {
@@ -960,7 +994,7 @@ function OverlayApp() {
       }
     };
 
-    // Don't manage window visibility during splash — Rust handles it
+    // Don't manage window visibility during splash â€” Rust handles it
     if (mode !== 'splash' && !splashActiveRef.current) {
       syncWindow();
     }
@@ -970,7 +1004,7 @@ function OverlayApp() {
     };
   }, [mode]);
 
-  // ── Volume Controls ──
+  // â”€â”€ Volume Controls â”€â”€
   const sendVolume = useTrailingThrottle((newVol: number) => {
     invoke("set_volume", { volume: newVol }).catch(() => {});
   }, 50);
@@ -1009,7 +1043,7 @@ function OverlayApp() {
     }
   }, [mode, mixerExpanded, collapseMixer]);
 
-  // ── Brightness Controls ──
+  // â”€â”€ Brightness Controls â”€â”€
   const sendBrightness = useTrailingThrottle((newBrightness: number) => {
     invoke("set_brightness", { brightness: Math.round(newBrightness) }).catch(() => {});
   }, 50);
@@ -1024,6 +1058,32 @@ function OverlayApp() {
 
   return (
     <div className="overlay-container">
+      {/* Game boost banner â€” no backdrop-filter on purpose: it would force a
+          blur pass over the game frame every tick. */}
+      <AnimatePresence>
+        {perfNotice && mode !== 'splash' && mode !== 'updating' && (
+          <motion.div
+            className="perf-notice"
+            initial={{ opacity: 0, y: -18, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+          >
+            <div className="perf-notice-glow" />
+            <div className="perf-notice-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2 4.5 13.2h5.3L9.6 22 19 10.4h-5.6L13 2Z" />
+              </svg>
+            </div>
+            <div className="perf-notice-copy">
+              <span className="perf-notice-title">{t("perf.notice.title")}</span>
+              <span className="perf-notice-sub">{t("perf.notice.sub")}</span>
+            </div>
+            <span className="perf-notice-live" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Splash Screen */}
       <AnimatePresence>
         {mode === 'splash' && (
@@ -1034,7 +1094,7 @@ function OverlayApp() {
             transition={{ duration: 0.3 }}
           >
             <motion.img
-              src="/kiro.png?v=2"
+              src={kiroLogo}
               className="splash-logo"
               draggable={false}
               initial={{ scale: 0, opacity: 0, rotate: 0 }}
@@ -1065,7 +1125,7 @@ function OverlayApp() {
             transition={{ duration: 0.3 }}
           >
             <div className="update-splash-card">
-              <img src="/kiro.png?v=2" className="update-splash-logo" alt="Kiro" />
+              <img src={kiroLogo} className="update-splash-logo" alt="Kiro" />
               <p className="update-splash-text">
                 {updateStatus === 'checking' && t("overlay.update.checking")}
                 {updateStatus === 'downloading' && t("overlay.update.downloading", { percent: updateProgress })}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from 'react';
+﻿import { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -14,6 +14,7 @@ import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon } from './icons';
 import { setVisibleInterval } from "./hooks/visibleInterval";
 import { appAttention } from "./attention";
 import { DockSearch, loadInstalledApps } from "./components/DockSearch";
+import { useKiroLogo } from "./kiroLogo";
 
 interface AppInfo {
   name: string;
@@ -141,10 +142,11 @@ function DockAppIcon({ src, alt, kiro }: { src: string | undefined; alt: string;
 }
 
 // Start button icon: a public asset, or the data URI of an uploaded icon ("custom:" prefix).
-function resolveStartIcon(startIcon: string): string {
+// "default" follows the user's custom Kiro logo.
+function resolveStartIcon(startIcon: string, kiroLogo: string): string {
   if (startIcon === "windows") return "/windows.svg";
   if (startIcon.startsWith("custom:")) return startIcon.slice("custom:".length);
-  return "/kiro.png?v=2";
+  return kiroLogo;
 }
 
 // Stable module-level constants so object references never change between renders,
@@ -368,6 +370,9 @@ const Dock = memo(function Dock() {
   const [dockDesktopPersist, setDockDesktopPersist] = useState(() => localStorage.getItem("kiro-dock-desktop-persist") !== "false");
   const [notchAtBottom, setNotchAtBottom] = useState(() => (localStorage.getItem("kiro-notch-position") || "bottom-right").startsWith("bottom"));
   const [startIcon, setStartIcon] = useState(() => localStorage.getItem("kiro-start-icon") || "default");
+  // The user's own picture, shared by the notch, dock and settings. Falls back
+  // to the bundled mark when they have not picked one.
+  const kiroLogo = useKiroLogo();
   const [dockMixedReorder, setDockMixedReorder] = useState(() => localStorage.getItem("kiro-dock-mixed-reorder") === "true");
   const [mixedOrder, setMixedOrder] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<{ id: string, previews: { hwnd: number, title: string, image: string }[] } | null>(null);
@@ -856,13 +861,29 @@ const Dock = memo(function Dock() {
       } else if (app.all_hwnds && app.all_hwnds.length > 1) {
         // Several windows: bring the most recent forward, then cycle.
         await invoke('focus_app_windows', { hwnds: app.all_hwnds.map(([hwnd]) => hwnd) });
-      } else if (app.hwnd) {
-        await invoke('focus_window', { hwnd: app.hwnd });
       } else {
-        await invoke('open_app', { appName: app.path, args: app.args ?? null });
+        // Let the backend decide: a live window is focused, a stale handle
+        // (Chrome's background processes) falls back to launching by path.
+        // Previously a dead handle made the icon look like it did nothing.
+        await invoke('activate_app', {
+          app: {
+            name: app.name,
+            path: app.path,
+            icon: null,
+            is_running: !!app.is_running,
+            hwnd: app.hwnd ?? null,
+            executable: app.executable ?? null,
+            all_hwnds: app.all_hwnds ?? null,
+            args: app.args ?? null,
+          },
+        });
       }
     } catch (e) {
       console.error(`Failed to interact with ${app.name}:`, e);
+      const message = typeof e === 'string' ? e : t('dockmenu.openError', { name: app.name });
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      setToast(message);
+      toastTimerRef.current = setTimeout(() => setToast(null), 4000);
     }
   };
 
@@ -887,7 +908,10 @@ const Dock = memo(function Dock() {
   const togglePin = async (app: AppInfo) => {
     let newPinned;
     if (app.is_pinned) {
-      newPinned = pinnedApps.filter(a => itemKey(a) !== itemKey(app));
+      // itemKey is exact: a pin stored as a .lnk/AUMID and a running window
+      // pointing at the .exe have different keys, so "Dock'tan Kaldır" did
+      // nothing and the icon stayed. Remove every entry that is the same app.
+      newPinned = pinnedApps.filter(a => itemKey(a) !== itemKey(app) && !isSameApp(a, app));
     } else {
       // Same app pinned under another entry shape (running window vs shortcut) must not duplicate.
       if (pinnedApps.some(a => isSameApp(a, app))) return;
@@ -1385,7 +1409,7 @@ const Dock = memo(function Dock() {
                       handleAppClick(startItem);
                     }}
                   >
-                    <img src={resolveStartIcon(startIcon)} alt="Start" className={startIcon === "default" ? "kiro-icon-img" : "kiro-icon-img start-img"} style={startIcon.startsWith("custom:") ? { borderRadius: "8px" } : undefined} draggable={false} />
+                    <img src={resolveStartIcon(startIcon, kiroLogo)} alt="Start" className={startIcon === "default" ? "kiro-icon-img" : "kiro-icon-img start-img"} style={startIcon.startsWith("custom:") ? { borderRadius: "8px" } : undefined} draggable={false} />
                   </motion.div>
                 </motion.div>
               )}
@@ -1580,7 +1604,7 @@ const Dock = memo(function Dock() {
                     const isKiroOrSettings = isKiroWindow(app);
                     
                     return (icon || isKiroOrSettings) ? (
-                      <DockAppIcon src={isKiroOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
+                      <DockAppIcon src={isKiroOrSettings ? kiroLogo : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
                     ) : (
                       <div className="fallback-icon">{app.name[0]}</div>
                     );
@@ -1682,7 +1706,7 @@ const Dock = memo(function Dock() {
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                           const isKiroOrSettings = isKiroWindow(app);
                           return (icon || isKiroOrSettings) ? (
-                            <DockAppIcon src={isKiroOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
+                            <DockAppIcon src={isKiroOrSettings ? kiroLogo : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -1782,7 +1806,7 @@ const Dock = memo(function Dock() {
                     const icon = customIcons[cacheKey] || (allowPathFallback && customIcons[app.path]) || iconsRef.current[cacheKey] || (allowPathFallback && iconsRef.current[app.path]) || app.icon;
                           const isKiroOrSettings = isKiroWindow(app);
                           return (icon || isKiroOrSettings) ? (
-                            <DockAppIcon src={isKiroOrSettings ? "/kiro.png?v=2" : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
+                            <DockAppIcon src={isKiroOrSettings ? kiroLogo : (icon ?? undefined)} alt={app.name} kiro={isKiroOrSettings} />
                           ) : (
                             <div className="fallback-icon">{app.name[0]}</div>
                           );
@@ -2242,7 +2266,7 @@ function AddAppPopup({
                         )}
                       </div>
                       <span className="popup-app-name">{app.name}</span>
-                      <span className="popup-app-pin">{alreadyPinned ? "✓" : "+"}</span>
+                      <span className="popup-app-pin">{alreadyPinned ? "âœ“" : "+"}</span>
                     </div>
                   );
                 })}

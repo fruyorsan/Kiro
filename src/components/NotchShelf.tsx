@@ -7,10 +7,13 @@ import { useT } from "../i18n";
 
 export type ShelfItem = {
   id: string;
-  kind: "file" | "text";
+  /** "image" items are pictures dragged out of a browser (Pinterest etc.). */
+  kind: "file" | "text" | "image";
   path?: string;
   name: string;
   text?: string;
+  /** Data URI of a dragged-in picture. */
+  src?: string;
   thumb?: string | null;
   preview?: string | null;
 };
@@ -46,7 +49,20 @@ export function useShelf(windowLabel: string, enabled: boolean, persist: boolean
       try { localStorage.removeItem(STORAGE_KEY); } catch { /* storage unavailable */ }
       return;
     }
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(({ thumb, preview, ...rest }) => rest))); } catch { /* storage unavailable */ }
+    try {
+      // localStorage is only a few megabytes: a 10 MB picture would throw and
+      // wipe every saved item. Large pictures stay in memory for this session
+      // and come back as their link instead.
+      const light = items.map((item) => {
+        const { thumb, preview, ...rest } = item;
+        if (rest.kind === "image" && (rest.src?.length ?? 0) > 300_000) {
+          const { src, ...noSrc } = rest;
+          return noSrc;
+        }
+        return rest;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(light));
+    } catch { /* storage unavailable */ }
   }, [items, persist]);
 
   useEffect(() => {
@@ -80,14 +96,26 @@ export function useShelf(windowLabel: string, enabled: boolean, persist: boolean
     items.forEach((i) => { if (i.kind === "file" && i.path && !i.thumb && !i.preview) loadThumb(i.id, i.path); });
   }, []);
 
-  const add = useCallback((paths?: string[], text?: string) => {
+  const add = useCallback((paths?: string[], text?: string, image?: string | null, name?: string) => {
     const fresh: ShelfItem[] = [];
-    if (paths) {
+    if (paths && paths.length) {
       for (const path of paths) {
         fresh.push({ id: `f-${Date.now()}-${fresh.length}-${path}`, kind: "file", path, name: baseName(path) });
       }
-    } else if (text) {
-      fresh.push({ id: `t-${Date.now()}`, kind: "text", name: text.trim().slice(0, 40), text });
+    } else if (image || text) {
+      if (image) {
+        // A real picture from the browser: show the thumbnail, keep the source
+        // link so a click still copies something useful.
+        fresh.push({
+          id: `i-${Date.now()}`,
+          kind: "image",
+          name: (name && name.trim()) || text?.split("/").pop()?.slice(0, 40) || "Image",
+          text,
+          src: image,
+        });
+      } else if (text) {
+        fresh.push({ id: `t-${Date.now()}`, kind: "text", name: text.trim().slice(0, 40), text });
+      }
     }
     if (fresh.length === 0) return;
     setItems((prev) => {
@@ -117,10 +145,13 @@ export function useShelf(windowLabel: string, enabled: boolean, persist: boolean
           cbRef.current.onDragLeave();
         }
       }),
-      listen<{ label: string; paths?: string[]; text?: string }>("shelf-drag-drop", (e) => {
-        add(e.payload.paths, e.payload.text);
+      listen<{ label: string; paths?: string[]; text?: string; image?: string | null; name?: string }>("shelf-drag-drop", (e) => {
+        // Every notch window receives the event; only the one under the cursor
+        // may add the item, otherwise a multi-monitor setup stores duplicates.
+        if (e.payload.label !== windowLabel) return;
+        add(e.payload.paths, e.payload.text, e.payload.image, e.payload.name);
         setDropActive(false);
-        if (e.payload.label === windowLabel) cbRef.current.onDrop();
+        cbRef.current.onDrop();
       }),
     ];
     return () => { unlistens.forEach((u) => u.then((fn) => fn())); };
@@ -162,6 +193,9 @@ export function NotchShelf({ items, dropActive, onReorder, onRemove, onClear, on
   }, []);
 
   const beginDrag = async (item: ShelfItem) => {
+    // A picture dragged in from a browser has no file on disk; exporting it
+    // would mean writing a temp file for every drag, so it stays click-to-copy.
+    if (item.kind === "image") return;
     const icon = item.thumb ?? dragIcon.current;
     if (!icon) return;
     const path = item.kind === "file" ? item.path : await invoke<string | null>("shelf_text_file", { text: item.text ?? "" });
@@ -204,7 +238,7 @@ export function NotchShelf({ items, dropActive, onReorder, onRemove, onClear, on
                     as="div"
                     value={item}
                     className={`shelf-item ${item.kind}`}
-                    title={item.kind === "text" ? item.text : item.path}
+                    title={item.kind === "file" ? item.path : item.text}
                     initial={{ opacity: 0, scale: 0.5, y: -10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.12 } }}
@@ -225,12 +259,14 @@ export function NotchShelf({ items, dropActive, onReorder, onRemove, onClear, on
                     onTap={() => activate(item)}
                   >
                     <div className="shelf-thumb">
-                      {item.thumb ? (
+                      {item.src ? (
+                        <img src={item.src} alt="" draggable={false} />
+                      ) : item.thumb ? (
                         <img src={item.thumb} alt="" draggable={false} />
                       ) : text ? (
                         <pre className={`shelf-preview${text.length < 24 ? " short" : ""}`}>{text}</pre>
                       ) : (
-                        <span className="shelf-glyph">{item.kind === "text" ? "T" : "▤"}</span>
+                        <span className="shelf-glyph">{item.kind === "text" ? "T" : item.kind === "image" ? "◫" : "▤"}</span>
                       )}
                       {ext && !item.thumb && <span className="shelf-ext">{ext}</span>}
                     </div>

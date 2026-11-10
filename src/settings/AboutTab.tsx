@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { Compass, Download, FlaskConical, RefreshCw, FileDown, Upload, RotateCcw, Trash2, ClipboardCopy, FolderOpen, Crosshair, Image as ImageIcon } from "lucide-react";
 import { SettingRow } from "./SettingRow";
 import { useT } from "../i18n";
+import { useKiroLogo } from "../kiroLogo";
 
 interface AboutTabProps {
   appVersion: string;
@@ -47,6 +48,7 @@ export function AboutTab({
   handleUninstallKiro,
 }: AboutTabProps) {
   const t = useT();
+  const kiroLogo = useKiroLogo();
   const [diagStatus, setDiagStatus] = useState<"idle" | "working" | "copied" | "error">("idle");
   const [hitboxLogging, setHitboxLogging] = useState(false);
   const [iconStatus, setIconStatus] = useState<"idle" | "working" | "done" | "error">("idle");
@@ -179,9 +181,9 @@ export function AboutTab({
   return (
     <div className="about-tab-container">
       <div className="about-header">
-        <img src="/kiro.png?v=2" className="about-logo" alt="Kiro Logo" />
+        <img src={kiroLogo} className="about-logo" alt="Kiro Logo" />
         <h1 className="about-title">Kiro</h1>
-        <p className="about-version">{t("about.version", { version: appVersion || "—" })}</p>
+        <p className="about-version">{t("about.version", { version: appVersion || "â€”" })}</p>
         <button
           className={`update-pill update-pill--${updateStatus || "idle"}`}
           disabled={pillBusy}

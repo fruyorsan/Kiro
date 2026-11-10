@@ -1,10 +1,12 @@
-import { Palette, Droplet, Contrast, Droplets, Sun, Square, Maximize2, Layers, SwatchBook, Highlighter } from "lucide-react";
+import { Palette, Droplet, Contrast, Droplets, Sun, Square, Maximize2, Layers, SwatchBook, Highlighter, ImagePlus } from "lucide-react";
+import { useState } from "react";
 import { SettingRow } from "./SettingRow";
 import { SettingSection } from "./SettingSection";
 import { Dropdown } from "./Dropdown";
 import { useT } from "../i18n";
 import { GlassWallpaper } from "./GlassWallpaper";
 import { THEME_PRESETS, hexToHsl, hslToHex, type ThemePreset } from "../theme";
+import { prepareKiroLogo, resetKiroLogo, setKiroLogoSrc, useKiroLogo } from "../kiroLogo";
 
 const STYLES = ["solid", "frosted", "liquid", "material"];
 
@@ -62,6 +64,9 @@ export function AppearanceTab({
   legacyMode,
 }: AppearanceTabProps) {
   const t = useT();
+  const kiroLogo = useKiroLogo();
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState("");
   const isMaterial = !legacyMode && themeStyle === "material";
   const showCustomColor = themeMode === "custom";
   // Material You builds the whole palette from the accent, so these don't apply there.
@@ -71,6 +76,21 @@ export function AppearanceTab({
     themeColor.toLowerCase() === preset.color.toLowerCase() &&
     Math.abs(themeSaturation - preset.saturation) < 0.01 &&
     Math.abs(themeBrightness - preset.brightness) < 0.01;
+
+  const pickLogo = async (file: File | undefined) => {
+    if (!file) return;
+    setLogoError("");
+    setLogoBusy(true);
+    try {
+      // Validated and squared by the backend so a huge photo or an odd format
+      // cannot break the dock, notch or splash.
+      setKiroLogoSrc(await prepareKiroLogo(file));
+    } catch {
+      setLogoError(t("appearance.logo.error"));
+    } finally {
+      setLogoBusy(false);
+    }
+  };
 
   return (
     <>
@@ -107,6 +127,35 @@ export function AppearanceTab({
             </div>
             <div className="setting-divider" />
             {(themeStyle === "frosted" || themeStyle === "liquid") && <GlassWallpaper />}
+
+            <SettingRow
+              icon={ImagePlus}
+              label={t("appearance.logo")}
+              desc={logoError || t("appearance.logo.desc")}
+              stacked
+            >
+              <div className="logo-picker">
+                <span className="logo-picker-preview">
+                  <img src={kiroLogo} alt="" draggable={false} />
+                </span>
+                <label className={`logo-picker-btn${logoBusy ? " busy" : ""}`}>
+                  {logoBusy ? t("notepad.images.adding") : t("appearance.logo.choose")}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    disabled={logoBusy}
+                    onChange={(e) => {
+                      void pickLogo(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <button type="button" className="logo-picker-reset" onClick={() => resetKiroLogo()}>
+                  {t("appearance.logo.reset")}
+                </button>
+              </div>
+              <span className="logo-picker-hint">{t("appearance.logo.hint")}</span>
+            </SettingRow>
           </>
         )}
 

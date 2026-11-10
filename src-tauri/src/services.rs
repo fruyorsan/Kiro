@@ -1485,6 +1485,7 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                 let perf_fullscreen = current_is_fs
                     && !is_video_window(hwnd)
                     && crate::fps_boost::perf_boostable(hwnd);
+                crate::state::CURRENT_FOREGROUND_GAME_FULLSCREEN.store(perf_fullscreen, Ordering::Relaxed);
                 crate::perf::update(&handle_visibility, perf_fullscreen, &fg_title);
                 // Native-hide the dock/notch on the game's monitor so DWM can
                 // hand the swapchain back to independent flip. Uses the same
@@ -2956,7 +2957,11 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
 
             // --- Overlay cursor passthrough ---
             if let Some(ov_win) = app_handle.get_webview_window("overlay") {
-                if fg_fs {
+                // Only a real game owns the screen completely. For fullscreen
+                // video (browser, VLC, ...) the volume/brightness cards stay
+                // hoverable, otherwise the user could not drag them at all.
+                let game_fs = crate::state::CURRENT_FOREGROUND_GAME_FULLSCREEN.load(Ordering::Relaxed);
+                if game_fs {
                     let prev = MH_LAST_OV_IGNORE.load(Ordering::Relaxed);
                     if prev != 1 {
                         if let Ok(hwnd) = ov_win.hwnd() { re_assert_topmost(hwnd); }

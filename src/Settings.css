@@ -2228,3 +2228,308 @@ input:checked + .slider:before {
 .ai-settings-input::placeholder {
   color: var(--kiro-text-muted, rgba(255, 255, 255, 0.3));
 }
+
+/* ---- Custom Kiro logo picker ------------------------------------------ */
+.logo-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.logo-picker-preview {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.logo-picker-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.logo-picker-btn {
+  position: relative;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9px;
+  cursor: pointer;
+  color: #fff;
+  background: var(--accent, #0a84ff);
+  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 2px 10px rgba(10, 132, 255, 0.28);
+  overflow: hidden;
+}
+
+.logo-picker-btn:hover { filter: brightness(1.08); }
+.logo-picker-btn.busy { opacity: 0.6; cursor: default; }
+
+.logo-picker-btn input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.logo-picker-reset {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.65));
+  background: transparent;
+  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.logo-picker-reset:hover {
+  color: var(--text-main, #fff);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.logo-picker-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+/* ======================================================================
+   Kiro identity pass
+   ----------------------------------------------------------------------
+   The old shell copied Nectar: an indigo radial glow, filled violet pills
+   and a hard sidebar. Kiro is a notch/dock utility, so the settings window
+   now reads as neutral glass with a single restrained accent: segmented
+   capsule tabs, hairline borders and flat rows. No purple fallbacks left.
+   ====================================================================== */
+
+.settings-container {
+  position: relative;
+  background:
+    radial-gradient(80% 55% at 50% -18%, rgba(255, 255, 255, 0.06), transparent 62%),
+    linear-gradient(180deg, #141419 0%, #0b0b0f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+
+/* A one-pixel accent hairline under the title bar ties the window to the
+   notch without painting a gradient over the whole shell. */
+.settings-container::after {
+  content: "";
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--kiro-highlight, #c9c9d4) 55%, transparent) 22%, transparent 78%);
+  opacity: 0.5;
+}
+
+.title-bar {
+  background: transparent;
+  border-bottom: 0;
+  padding-left: 18px;
+}
+
+.title-mark {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.title-text {
+  font-size: 12.5px;
+  font-weight: 680;
+  letter-spacing: 0.01em;
+}
+
+.title-divider {
+  width: 1px;
+  height: 11px;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.title-section {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+/* Segmented capsule instead of a row of loose, filled pills. */
+.settings-tabbar {
+  padding: 13px 22px 4px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.tabbar-tabs {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.032);
+  border: 0.5px solid rgba(255, 255, 255, 0.055);
+}
+
+.top-tab {
+  padding: 6px 12px;
+  border-radius: 9px;
+  color: var(--text-muted);
+  font-weight: 520;
+}
+
+.top-tab:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text-color);
+}
+
+.top-tab.active,
+.light-mode .top-tab.active {
+  color: var(--kiro-text, #f2f2f5);
+  background: rgba(255, 255, 255, 0.095);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.13),
+    0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.top-tab.active svg {
+  color: var(--kiro-highlight, #e8e8ef);
+}
+
+/* A tiny accent dot marks the active tab, like the notch's live indicator. */
+.top-tab.active::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  margin-left: 1px;
+  border-radius: 50%;
+  background: var(--kiro-highlight, #e8e8ef);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--kiro-highlight, #e8e8ef) 70%, transparent);
+}
+
+.tabbar-version {
+  font-variant-numeric: tabular-nums;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 0.5px solid rgba(255, 255, 255, 0.055);
+  opacity: 0.6;
+}
+
+.settings-page-head {
+  padding: 20px 0 12px;
+  background: linear-gradient(180deg, rgba(18, 18, 23, 0.96) 0%, rgba(18, 18, 23, 0.86) 72%, rgba(18, 18, 23, 0) 100%);
+}
+
+.settings-page-head h1 {
+  font-size: 21px;
+  font-weight: 680;
+  letter-spacing: -0.028em;
+}
+
+.settings-page-head p {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.72;
+}
+
+/* Flat cards: one hairline, no inner glow stack, tighter radius. */
+.setting-group {
+  background: rgba(255, 255, 255, 0.028);
+  border: 0.5px solid rgba(255, 255, 255, 0.075);
+  border-radius: 13px;
+  box-shadow: none;
+}
+
+.setting-item {
+  padding: 11px 14px;
+}
+
+.setting-item:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.setting-icon-bg {
+  width: 26px;
+  height: 26px;
+  margin-right: 12px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.setting-divider {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.setting-label {
+  font-size: 13.5px;
+  font-weight: 520;
+}
+
+/* ---- Light mode ------------------------------------------------------- */
+.light-mode .settings-container {
+  background:
+    radial-gradient(80% 55% at 50% -18%, rgba(0, 0, 0, 0.045), transparent 62%),
+    linear-gradient(180deg, #f7f7fa 0%, #ececf1 100%);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.light-mode .settings-container::after {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--kiro-highlight, #3a3a44) 45%, transparent) 22%, transparent 78%);
+}
+
+.light-mode .title-divider {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.light-mode .tabbar-tabs {
+  background: rgba(0, 0, 0, 0.035);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.light-mode .top-tab.active {
+  color: var(--kiro-text, #1c1c1e);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+
+.light-mode .top-tab.active::after {
+  background: var(--kiro-highlight, #3a3a44);
+  box-shadow: none;
+}
+
+.light-mode .tabbar-version {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.07);
+}
+
+.light-mode .settings-page-head {
+  background: linear-gradient(180deg, rgba(247, 247, 250, 0.97) 0%, rgba(247, 247, 250, 0.88) 72%, rgba(247, 247, 250, 0) 100%);
+}
+
+.light-mode .setting-group {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.light-mode .setting-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.light-mode .setting-icon-bg {
+  background: rgba(0, 0, 0, 0.045);
+}
+
+.light-mode .setting-divider {
+  background: rgba(0, 0, 0, 0.07);
+}

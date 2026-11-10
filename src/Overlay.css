@@ -787,3 +787,85 @@ body,
     radial-gradient(circle at 13px 13px, transparent 12px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 12.7px, var(--kiro-border, rgba(255, 255, 255, 0.1)) 13.3px, transparent 14px),
     var(--kiro-bg, rgba(0, 0, 0, 0.8));
 }
+
+/* ============ Game boost banner ============ */
+/* Opaque, blur-free card: it sits on top of a running game, and any
+   backdrop-filter here would cost frames. */
+.perf-notice {
+    position: absolute;
+    top: 44px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 20px 13px 14px;
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(30, 32, 44, 0.97), rgba(16, 17, 24, 0.985));
+    border: 0.5px solid rgba(255, 255, 255, 0.11);
+    box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.55),
+        0 0 0 0.5px rgba(120, 150, 255, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    pointer-events: none;
+    overflow: hidden;
+    min-width: 330px;
+}
+
+.perf-notice-glow {
+    position: absolute;
+    inset: -60% -10% auto -10%;
+    height: 140%;
+    background: radial-gradient(60% 100% at 20% 0%, rgba(96, 165, 250, 0.30), transparent 70%),
+                radial-gradient(50% 100% at 90% 10%, rgba(167, 139, 250, 0.24), transparent 72%);
+    pointer-events: none;
+}
+
+.perf-notice-icon {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: #eaf2ff;
+    background: linear-gradient(160deg, rgba(96, 165, 250, 0.34), rgba(167, 139, 250, 0.22));
+    border: 0.5px solid rgba(147, 197, 253, 0.38);
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.28);
+    flex: 0 0 auto;
+}
+
+.perf-notice-icon svg { width: 19px; height: 19px; }
+
+.perf-notice-copy {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.perf-notice-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    color: #fff;
+}
+
+.perf-notice-sub {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.56);
+    letter-spacing: 0.1px;
+}
+
+.perf-notice-live {
+    position: relative;
+    margin-left: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.16);
+    flex: 0 0 auto;
+}

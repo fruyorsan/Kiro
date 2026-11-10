@@ -5,7 +5,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Effect, EffectState } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { FilePlus2, Save, Trash2 } from "lucide-react";
+import { FilePlus2, ImagePlus, Save, Trash2, X } from "lucide-react";
 import { WindowControls } from "./components/WindowControls";
 import { initTheme } from "./theme";
 import { useT } from "./i18n";
@@ -15,11 +15,17 @@ interface Note {
   id: string;
   text: string;
   updated: number;
+  /** Optional user-given name. Falls back to the first line of the text. */
+  title?: string;
   /** Optional label colour; absent on notes saved before tags existed. */
   color?: string;
+  /** Images attached to the note, stored as small data URIs. */
+  images?: string[];
 }
 
 const TAG_COLORS = ["#ffd60a", "#0a84ff", "#30d158", "#ff375f", "#bf5af2"];
+/** Six pictures per note keeps the shared notes.json a sane size. */
+const MAX_IMAGES = 6;
 
 interface Notebook {
   notes: Note[];
@@ -53,17 +59,20 @@ function parseNotebook(raw: string): Notebook {
   return { notes: [first], active: first.id };
 }
 
-const titleOf = (text: string, fallback: string) => text.split("\n").find((l) => l.trim())?.trim().slice(0, 48) || fallback;
+const firstLine = (text: string) => text.split("\n").find((l) => l.trim())?.trim().slice(0, 48) || "";
+const titleOf = (note: Note, fallback: string) => note.title?.trim() || firstLine(note.text) || fallback;
 
 function NotepadWindow() {
   const t = useT();
   const [book, setBook] = useState<Notebook | null>(null);
   const [status, setStatus] = useState("");
+  const [imageBusy, setImageBusy] = useState(false);
   const bookRef = useRef<Notebook | null>(null);
   const dirty = useRef(false);
   const timer = useRef<number | undefined>(undefined);
   const statusTimer = useRef<number | undefined>(undefined);
   const editor = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => initTheme(), []);
 
@@ -128,15 +137,24 @@ function NotepadWindow() {
 
   const active = book?.notes.find((n) => n.id === book.active);
 
-  const edit = (text: string) => {
+  const patchActive = (patch: Partial<Note>) => {
     if (!book || !active) return;
-    update({ ...book, notes: book.notes.map((n) => (n.id === active.id ? { ...n, text, updated: Date.now() } : n)) });
+    update({
+      ...book,
+      notes: book.notes.map((n) => (n.id === active.id ? { ...n, ...patch, updated: Date.now() } : n)),
+    });
+  };
+
+  const edit = (text: string) => patchActive({ text });
+
+  const rename = (title: string) => {
+    // An empty box means "go back to the first line", so clearing it works.
+    patchActive({ title: title.trim() ? title : undefined });
   };
 
   const tag = (color: string) => {
-    if (!book || !active) return;
-    const next = active.color === color ? undefined : color;
-    update({ ...book, notes: book.notes.map((n) => (n.id === active.id ? { ...n, color: next } : n)) });
+    if (!active) return;
+    patchActive({ color: active.color === color ? undefined : color });
   };
 
   const add = useCallback(() => {
@@ -158,12 +176,60 @@ function NotepadWindow() {
     }
   };
 
+  const addImages = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      const current = bookRef.current;
+      const note = current?.notes.find((n) => n.id === current.active);
+      if (!current || !note) return;
+      const room = MAX_IMAGES - (note.images?.length ?? 0);
+      if (room <= 0) {
+        flash(t("notepad.images.full", { max: MAX_IMAGES }));
+        return;
+      }
+      setImageBusy(true);
+      const added: string[] = [];
+      for (const file of Array.from(files).slice(0, room)) {
+        if (!file.type.startsWith("image/")) continue;
+        try {
+          const dataUri = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("read"));
+            reader.readAsDataURL(file);
+          });
+          // The backend downscales; a raw phone photo would blow up notes.json.
+          added.push(await invoke<string>("prepare_note_image", { iconData: dataUri }));
+        } catch {
+          flash(t("notepad.images.error"));
+        }
+      }
+      setImageBusy(false);
+      if (added.length === 0) return;
+      // Re-read the book: the user may have typed while a large file decoded.
+      const latest = bookRef.current;
+      if (!latest) return;
+      update({
+        ...latest,
+        notes: latest.notes.map((n) =>
+          n.id === current.active ? { ...n, images: [...(n.images ?? []), ...added], updated: Date.now() } : n,
+        ),
+      });
+    },
+    [flash, t, update],
+  );
+
+  const removeImage = (index: number) => {
+    if (!active) return;
+    patchActive({ images: (active.images ?? []).filter((_, i) => i !== index) });
+  };
+
   const saveAs = useCallback(async () => {
     const current = bookRef.current;
     const note = current?.notes.find((n) => n.id === current.active);
     if (!note) return;
     try {
-      const safe = titleOf(note.text, t("notepad.untitled")).replace(/[\\/:*?"<>|]/g, "_");
+      const safe = titleOf(note, t("notepad.untitled")).replace(/[\\/:*?"<>|]/g, "_");
       const path = await save({
         defaultPath: `${safe}.txt`,
         filters: [
@@ -226,9 +292,12 @@ function NotepadWindow() {
                 >
                   <span className="np-item-title">
                     {n.color && <span className="np-dot" style={{ background: n.color }} />}
-                    {titleOf(n.text, t("notepad.untitled"))}
+                    {titleOf(n, t("notepad.untitled"))}
                   </span>
-                  <span className="np-item-time">{new Date(n.updated).toLocaleDateString()}</span>
+                  <span className="np-item-time">
+                    {new Date(n.updated).toLocaleDateString()}
+                    {!!n.images?.length && <span className="np-item-badge"> · {n.images.length} 🖼</span>}
+                  </span>
                 </button>
               </li>
             ))}
@@ -236,6 +305,14 @@ function NotepadWindow() {
         </aside>
 
         <main className="np-main">
+          <input
+            className="np-name"
+            value={active?.title ?? ""}
+            onChange={(e) => rename(e.target.value)}
+            placeholder={titleOf(active ?? newNote(), t("notepad.untitled"))}
+            spellCheck={false}
+            aria-label={t("notepad.name")}
+          />
           <div className="np-toolbar">
             <div className="np-tags">
               {TAG_COLORS.map((c) => (
@@ -248,6 +325,15 @@ function NotepadWindow() {
                 />
               ))}
             </div>
+            <button
+              className="np-icon-btn"
+              onClick={() => fileInput.current?.click()}
+              disabled={imageBusy}
+              title={t("notepad.addImage")}
+            >
+              <ImagePlus size={15} />
+              <span>{imageBusy ? t("notepad.images.adding") : t("notepad.addImage")}</span>
+            </button>
             <button className="np-icon-btn" onClick={() => void saveAs()} title={`${t("notepad.saveAs")} (Ctrl+S)`}>
               <Save size={15} />
               <span>{t("notepad.saveAs")}</span>
@@ -255,7 +341,32 @@ function NotepadWindow() {
             <button className="np-icon-btn danger" onClick={remove} title={t("notepad.delete")}>
               <Trash2 size={15} />
             </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                void addImages(e.target.files);
+                e.target.value = "";
+              }}
+            />
           </div>
+
+          {!!active?.images?.length && (
+            <div className="np-images">
+              {active.images.map((src, index) => (
+                <div className="np-image" key={`${index}-${src.slice(-24)}`}>
+                  <img src={src} alt="" draggable={false} />
+                  <button className="np-image-remove" onClick={() => removeImage(index)} title={t("notepad.images.remove")}>
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <textarea
             ref={editor}
             className="np-editor"

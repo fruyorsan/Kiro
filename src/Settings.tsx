@@ -17,6 +17,7 @@ import {
 } from "./settings/index";
 import type { SettingsTab } from "./settings/index";
 import { initTheme } from "./theme";
+import { useKiroLogo } from "./kiroLogo";
 import { useT } from "./i18n";
 import "./Settings.css";
 
@@ -31,6 +32,7 @@ const TABS: { id: SettingsTab; labelKey: string; icon: typeof Settings }[] = [
 
 function SettingsApp() {
   const t = useT();
+  const kiroLogo = useKiroLogo();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const settings = useSettings();
 
@@ -67,7 +69,7 @@ function SettingsApp() {
     <div className="settings-container" style={{ zoom: settings.scale }}>
       <div className="title-bar" data-tauri-drag-region>
         <div className="title-brand" data-tauri-drag-region>
-          <img className="title-mark" src="/kiro.png?v=2" alt="" aria-hidden draggable={false} />
+          <img className="title-mark" src={kiroLogo} alt="" aria-hidden draggable={false} />
           <span className="title-text" data-tauri-drag-region>
             Kiro
           </span>

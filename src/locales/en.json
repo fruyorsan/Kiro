@@ -700,5 +700,22 @@
   "dock.searchNative": "Kiro search",
   "dock.searchNative.desc": "Instant search inside the dock. Off hands the magnifier back to your launcher (Windows Search, PowerToys, …)",
   "general.autoPerf.on": "Active now",
-  "general.autoPerf.auto": "Automatic"
+  "general.autoPerf.auto": "Automatic",
+  "perf.notice.title": "Performance mode is on",
+  "perf.notice.sub": "Game priority and quiet notifications",
+  "notepad.name": "Note name",
+  "notepad.addImage": "Add image",
+  "notepad.images.adding": "Adding…",
+  "notepad.images.error": "That image could not be added. Try PNG, JPG or WEBP.",
+  "notepad.images.full": "A note can hold up to {max} images.",
+  "notepad.images.remove": "Remove image",
+  "appearance.logo": "Kiro logo",
+  "appearance.logo.desc": "Use your own picture for the notch and dock mascot",
+  "appearance.logo.choose": "Choose image",
+  "appearance.logo.reset": "Reset",
+  "appearance.logo.hint": "PNG, JPG or WEBP. It is cropped to a square and scaled down automatically.",
+  "appearance.logo.error": "That picture could not be used. Try PNG, JPG or WEBP.",
+  "appearance.logo.saved": "Logo updated",
+  "ai.stop": "Stop",
+  "dockmenu.openError": "{name} could not be opened"
 }

@@ -38,6 +38,9 @@
 | **Out of your way** | Fixed, Smart or Peek modes, and both stay hidden over fullscreen games. |
 | **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent color. English and Turkish. Every option lives in a plain `settings.json`. |
 | **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. |
+| **Ask AI from the notch** | Ask Claude, ChatGPT or Gemini a question, with screenshots attached. The panel shows elapsed time and can be stopped at any moment. |
+| **Make it yours** | Pick your own picture for the Kiro mascot; it is cropped and scaled automatically and appears on the notch, dock, splash and settings at once. |
+| **Notes with pictures** | A small notebook in the dock: name a note, give it a colour, attach up to six pictures and export it as text. Pictures are downscaled so the notebook stays light. |
 | **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, stops trimming memory, and hides its always-on-top windows at the OS level so the game keeps direct-to-screen flip. Everything returns on exit. |
 | **Kiro FPS Boost** | While a game runs: the game process gets priority, Windows' efficiency throttling is switched off for it, and notifications are muted so they cannot break the game's flip path. The second time Kiro sees the same game it pins it to the high-performance GPU and disables fullscreen optimizations for it. A hardware audit reports what is actually costing frames. Every change is reversible. |
 
@@ -85,7 +88,7 @@ Get-FileHash .\Kiro-Setup-<version>.exe -Algorithm SHA256
 | **Control Center** | Wi-Fi, Bluetooth, Do Not Disturb, volume and brightness. Drag tiles, buttons and sliders into your own layout. |
 | **Status** | Battery (hidden on desktops without one) and weather, in a layout you choose. |
 | **Calendar** | Day, week, month and agenda views, a timer, a stopwatch and Pomodoro. |
-| **Shelf** | Drop files or text on the notch and drag them out later. |
+| **Shelf** | Drop files, text or a picture from your browser and drag them out later. |
 
 **Visibility modes.** The notch and the dock each have their own.
 

@@ -1178,6 +1178,48 @@ pub async fn focus_window(hwnd: isize) {
     }).await.unwrap_or_default();
 }
 
+/// Clicking a dock icon has to do something even when the stored window handle
+/// is stale. Chrome keeps background processes whose windows are hidden or
+/// already destroyed: `focus_window` then restored an invisible window and the
+/// icon looked dead. This resolves the click in one place: a live window is
+/// focused, anything else is launched from its path.
+#[tauri::command]
+pub async fn activate_app(app: AppInfo) -> Result<(), String> {
+    if app.path == "start" {
+        toggle_start_menu();
+        return Ok(());
+    }
+
+    if let Some(hwnd) = app.hwnd.filter(|value| *value != 0) {
+        let alive = unsafe {
+            use windows::Win32::Foundation::HWND;
+            use windows::Win32::UI::WindowsAndMessaging::{IsWindow, IsWindowVisible};
+            let handle = HWND(hwnd as *mut _);
+            IsWindow(Some(handle)).as_bool() && IsWindowVisible(handle).as_bool()
+        };
+        if alive {
+            focus_window(hwnd).await;
+            return Ok(());
+        }
+        crate::diagnostics::log(&format!(
+            "activate: stale hwnd {hwnd} for {} -> launching by path",
+            app.name
+        ));
+    }
+
+    let path = app.path.trim().to_string();
+    if path.is_empty() {
+        return Err(format!("{} için bir yol yok", app.name));
+    }
+    let args = app.args.clone();
+    let name = app.name.clone();
+    tauri::async_runtime::spawn_blocking(move || launch_path(&path, args.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?;
+    crate::diagnostics::log(&format!("activate: launched {name}"));
+    Ok(())
+}
+
 /// Focuses one window of a multi-window item. hwnds are most recent first: if none is
 /// in front take the first, otherwise go to the next one so clicks cycle through all of them.
 #[tauri::command]
@@ -2122,6 +2164,29 @@ pub fn save_pinned_apps(app: AppHandle, apps: Vec<AppInfo>) -> Result<(), String
     Ok(())
 }
 
+/// Drop pins whose executable is gone (app uninstalled or moved). Without this
+/// an uninstalled app kept sitting in the dock forever: launching it failed and
+/// "Dock'tan Kaldır" had no visible effect when the stored path shape differed
+/// from the running window. Only absolute file paths are checked; AUMIDs
+/// (no separator), shell targets and environment-variable paths are kept.
+fn prune_missing_pins(apps: &mut Vec<AppInfo>) -> bool {
+    let before = apps.len();
+    apps.retain(|app| {
+        let path = app.path.trim();
+        if path.is_empty() || path == "start" || path.starts_with("kiro-") || path.starts_with("shell:") {
+            return true;
+        }
+        if path.contains('%') || path.contains("${") {
+            return true;
+        }
+        if !(path.contains('\\') || path.contains('/')) {
+            return true;
+        }
+        std::path::Path::new(path).exists()
+    });
+    before != apps.len()
+}
+
 fn repair_pinned_targets(apps: &mut [AppInfo]) -> bool {
     let mut changed = false;
     for app in apps.iter_mut() {
@@ -2160,10 +2225,14 @@ pub async fn load_pinned_apps(app: AppHandle) -> Vec<AppInfo> {
 
     if let Ok(content) = std::fs::read_to_string(&path) {
         if let Ok(mut apps) = serde_json::from_str::<Vec<AppInfo>>(&content) {
+            // A pin whose exe was deleted (uninstalled app) is dead weight and
+            // looks like a phantom icon in the dock. Prune it on load.
+            let pruned = prune_missing_pins(&mut apps);
             // Pins created before the helper-process fix store a helper exe
             // (Steam's window belongs to steamwebhelper.exe). Repair them once
             // so an existing pin starts working without re-pinning.
-            if repair_pinned_targets(&mut apps) {
+            let repaired = repair_pinned_targets(&mut apps);
+            if pruned || repaired {
                 let _ = save_pinned_apps(app.clone(), apps.clone());
             }
             return apps;
@@ -2322,6 +2391,98 @@ pub async fn get_custom_icons(app: AppHandle) -> Result<HashMap<String, String>,
         }
     }
     Ok(result)
+}
+
+/// Validates, centre-crops and re-encodes a user-picked image so it can be used
+/// as the Kiro logo everywhere (dock, settings title, splash). Returns a PNG
+/// data URI; the frontend stores it under `kiro-logo`. Decoding here means an
+/// SVG, a corrupt file or a giant photo gets a readable error instead of
+/// breaking every window that renders the logo.
+#[tauri::command]
+pub fn prepare_kiro_logo(icon_data: String) -> Result<String, String> {
+    use base64::Engine;
+    use image::GenericImageView;
+
+    let b64_str = if icon_data.starts_with("data:") {
+        icon_data.split(',').nth(1).unwrap_or("")
+    } else {
+        &icon_data
+    };
+    let raw_bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64_str)
+        .map_err(|_| "Image could not be read".to_string())?;
+
+    let img = image::load_from_memory(&raw_bytes)
+        .map_err(|_| "Unsupported image. Use PNG, JPG or WEBP".to_string())?;
+
+    let (w, h) = img.dimensions();
+    if w < 24 || h < 24 {
+        return Err("Logo must be at least 24x24 pixels".into());
+    }
+
+    // Centre-crop to a square first: a wide photo would otherwise shrink to a
+    // thin strip inside a big transparent canvas.
+    let side = w.min(h);
+    let square = img.crop_imm((w - side) / 2, (h - side) / 2, side, side);
+    let scaled = square.resize_exact(256, 256, image::imageops::FilterType::Lanczos3);
+
+    let mut png_bytes: Vec<u8> = Vec::new();
+    scaled
+        .write_to(&mut std::io::Cursor::new(&mut png_bytes), image::ImageFormat::Png)
+        .map_err(|e| format!("Failed to encode PNG: {}", e))?;
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
+    Ok(format!("data:image/png;base64,{}", b64))
+}
+
+/// Validates and downscales an image the user wants to keep in a note.
+///
+/// Notes are stored as one JSON file, so a 12 MP phone photo would bloat it
+/// (and the save round-trip) to several megabytes. Everything is capped at
+/// 1400 px on the long edge; opaque pictures become JPEG, anything with
+/// transparency stays PNG.
+#[tauri::command]
+pub fn prepare_note_image(icon_data: String) -> Result<String, String> {
+    use base64::Engine;
+    use image::GenericImageView;
+
+    let b64_str = if icon_data.starts_with("data:") {
+        icon_data.split(',').nth(1).unwrap_or("")
+    } else {
+        &icon_data
+    };
+    let raw_bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64_str)
+        .map_err(|_| "Image could not be read".to_string())?;
+    let img = image::load_from_memory(&raw_bytes)
+        .map_err(|_| "Unsupported image. Use PNG, JPG, WEBP or GIF".to_string())?;
+
+    const MAX_EDGE: u32 = 1400;
+    let (w, h) = img.dimensions();
+    let scaled = if w > MAX_EDGE || h > MAX_EDGE {
+        img.resize(MAX_EDGE, MAX_EDGE, image::imageops::FilterType::Lanczos3)
+    } else {
+        img
+    };
+
+    let has_alpha = scaled.color().has_alpha();
+    let (bytes, mime) = if has_alpha {
+        let mut buf: Vec<u8> = Vec::new();
+        scaled
+            .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
+        (buf, "png")
+    } else {
+        let mut buf: Vec<u8> = Vec::new();
+        let rgb = scaled.to_rgb8();
+        image::DynamicImage::ImageRgb8(rgb)
+            .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Jpeg)
+            .map_err(|e| e.to_string())?;
+        (buf, "jpeg")
+    };
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:image/{};base64,{}", mime, b64))
 }
 
 #[tauri::command]

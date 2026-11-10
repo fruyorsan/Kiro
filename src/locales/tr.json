@@ -700,5 +700,22 @@
   "dock.searchNative": "Kiro araması",
   "dock.searchNative.desc": "Dock içinde anlık arama. Kapatırsan büyüteç, seçtiğin başlatıcıya (Windows Arama, PowerToys, …) geri döner",
   "general.autoPerf.on": "Şu an etkin",
-  "general.autoPerf.auto": "Otomatik"
+  "general.autoPerf.auto": "Otomatik",
+  "perf.notice.title": "Performans modu devrede",
+  "perf.notice.sub": "Oyun önceliği ve sessiz bildirimler",
+  "notepad.name": "Not adı",
+  "notepad.addImage": "Görsel ekle",
+  "notepad.images.adding": "Ekleniyor…",
+  "notepad.images.error": "Bu görsel eklenemedi. PNG, JPG veya WEBP dene.",
+  "notepad.images.full": "Bir notta en fazla {max} görsel olabilir.",
+  "notepad.images.remove": "Görseli kaldır",
+  "appearance.logo": "Kiro logosu",
+  "appearance.logo.desc": "Çentik ve dock maskotu için kendi fotoğrafını kullan",
+  "appearance.logo.choose": "Görsel seç",
+  "appearance.logo.reset": "Sıfırla",
+  "appearance.logo.hint": "PNG, JPG veya WEBP. Kareye kırpılıp otomatik küçültülür.",
+  "appearance.logo.error": "Bu görsel kullanılamadı. PNG, JPG veya WEBP dene.",
+  "appearance.logo.saved": "Logo güncellendi",
+  "ai.stop": "Durdur",
+  "dockmenu.openError": "{name} açılamadı"
 }

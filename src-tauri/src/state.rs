@@ -148,6 +148,10 @@ pub static ANY_MEDIA_PLAYING: AtomicBool = AtomicBool::new(false);
 pub static LAST_START_TOGGLE_MS: AtomicI64 = AtomicI64::new(0);
 pub static OVERLAY_IN_SPLASH: AtomicBool = AtomicBool::new(false);
 pub static CURRENT_FOREGROUND_FULLSCREEN: AtomicBool = AtomicBool::new(false);
+/// Fullscreen AND a real game (not a video player, browser or shell surface).
+/// The overlay stays interactive for the video case so the volume and
+/// brightness cards can be dragged while a movie is playing.
+pub static CURRENT_FOREGROUND_GAME_FULLSCREEN: AtomicBool = AtomicBool::new(false);
 pub static CURRENT_FOREGROUND_FULLSCREEN_ON_DOCK: AtomicBool = AtomicBool::new(false);
 pub static CURRENT_FOREGROUND_SHELL_ON_DOCK: AtomicBool = AtomicBool::new(false);
 pub static CURRENT_FOREGROUND_MAXIMIZED: AtomicBool = AtomicBool::new(false);

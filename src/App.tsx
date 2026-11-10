@@ -631,6 +631,9 @@ function App() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiAnswer, setAiAnswer] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  // Seconds since the request started. Long provider queues used to look like
+  // a freeze ("Düşünüyor…" for a minute with no sign of life).
+  const [aiElapsed, setAiElapsed] = useState(0);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiProvider, setAiProvider] = useState(() => localStorage.getItem("kiro-ai-provider") || "claude");
   // Screenshots attached to the next question. They live only until the answer
@@ -798,6 +801,7 @@ function App() {
       return;
     }
     setAiBusy(true);
+    setAiElapsed(0);
     setAiError(null);
     setAiAnswer("");
     const request = ++aiRequestRef.current;
@@ -823,6 +827,23 @@ function App() {
       if (request === aiRequestRef.current) setAiBusy(false);
     }
   }, [aiPrompt, aiImages, aiBusy, aiImageBusy, aiProvider, openAiSetup, t]);
+
+  const cancelAi = useCallback(() => {
+    // Bumping the request id makes the in-flight answer land in the void. The
+    // backend request is allowed to finish (its result is dropped and memory
+    // is trimmed), so the panel reacts instantly instead of waiting it out.
+    aiRequestRef.current += 1;
+    setAiBusy(false);
+    setAiElapsed(0);
+    setAiError(null);
+  }, []);
+
+  useEffect(() => {
+    if (!aiBusy) return;
+    const started = Date.now();
+    const id = window.setInterval(() => setAiElapsed(Math.floor((Date.now() - started) / 1000)), 500);
+    return () => window.clearInterval(id);
+  }, [aiBusy]);
 
   const saveAiSetup = useCallback(async () => {
     if (aiSaving) return;
@@ -2783,6 +2804,17 @@ function App() {
 
                             {/* Center - Time (always visible) */}
                             <div className="time-center">
+                              {dndActive && (
+                                <span className="focus-moon" title={t("cc.dnd")} aria-label={t("cc.dnd")}>
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path
+                                      d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.7 8.7 0 1 0 11 11Z"
+                                      fill="currentColor"
+                                    />
+                                  </svg>
+                                  <span className="focus-moon-halo" aria-hidden="true" />
+                                </span>
+                              )}
                               <div
                                 className="time-flip-container"
                                 onClick={toggleControlCenter}
@@ -3085,7 +3117,18 @@ function App() {
                           <>
                             <div className="ai-body" ref={aiBodyRef}>
                               {aiBusy ? (
-                                <div className="ai-thinking">{t("ai.thinking")}</div>
+                                <div className="ai-thinking">
+                                  <span className="ai-thinking-dot" />
+                                  <span>
+                                    {t("ai.thinking")}
+                                    {aiElapsed >= 3 && (
+                                      <span className="ai-thinking-time"> · {aiElapsed}s</span>
+                                    )}
+                                  </span>
+                                  <button type="button" className="ai-stop" onClick={cancelAi}>
+                                    {t("ai.stop")}
+                                  </button>
+                                </div>
                               ) : aiError ? (
                                 <div className="ai-error">{aiError}</div>
                               ) : aiAnswer ? (

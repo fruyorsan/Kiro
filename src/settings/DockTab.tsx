@@ -8,6 +8,7 @@ import { Dropdown } from "./Dropdown";
 import type { MonitorInfo, MonitorMode } from "./types";
 import { usePerMonitor } from "./usePerMonitor";
 import { useT } from "../i18n";
+import { useKiroLogo } from "../kiroLogo";
 import { HideDelay } from "./HideDelay";
 import { PreviewDelay } from "./PreviewDelay";
 
@@ -209,6 +210,8 @@ export function DockTab({
   replaceDockModes,
 }: DockTabProps) {
   const t = useT();
+  // The "Kiro" tile previews whatever logo the user picked.
+  const kiroLogo = useKiroLogo();
   const perMonitor = usePerMonitor(dockMode, dockModeByMonitor, replaceDockModes, monitors);
   const multiMonitor = dockMonitorMode === "all" && monitors.length > 1;
   const showPerMonitor = multiMonitor && perMonitor.enabled;
@@ -501,7 +504,7 @@ export function DockTab({
                     style={startIconTileStyle(startIcon === icon.key)}
                     title={icon.label}
                   >
-                    <img src={icon.src} alt={icon.label} style={{ width: "100%", height: "100%", objectFit: "contain" }} draggable={false} />
+                    <img src={icon.key === "default" ? kiroLogo : icon.src} alt={icon.label} style={{ width: "100%", height: "100%", objectFit: "contain" }} draggable={false} />
                   </div>
                 ))}
                 <div

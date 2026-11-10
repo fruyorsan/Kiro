@@ -233,3 +233,62 @@ button {
   font-size: 11px;
   color: var(--np-muted);
 }
+
+/* ---- Editable note name ---------------------------------------------- */
+.np-name {
+  margin: 12px 18px 0;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--np-text);
+  font: 600 16px/1.35 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -0.2px;
+  outline: none;
+  user-select: text;
+}
+.np-name::placeholder { color: var(--np-muted); font-weight: 500; }
+.np-name:hover { border-bottom-color: var(--np-line); }
+.np-name:focus { border-bottom-color: var(--np-accent, #0a84ff); }
+
+.np-item-badge { color: var(--np-muted); }
+
+/* ---- Attached images -------------------------------------------------- */
+.np-images {
+  display: flex;
+  gap: 8px;
+  padding: 10px 18px 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.np-image {
+  position: relative;
+  flex: 0 0 auto;
+  width: 86px;
+  height: 86px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--np-line);
+  background: var(--np-hover);
+}
+.np-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.np-image-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.np-image:hover .np-image-remove { opacity: 1; }
+.np-image-remove:hover { background: rgba(0, 0, 0, 0.85); }
+.np-icon-btn:disabled { opacity: 0.5; cursor: default; }
