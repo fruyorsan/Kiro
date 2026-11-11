@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kiro — tasarım örneği</title>
+<style>
+  :root {
+    --bg: #0b0c0f;
+    --text: #eef0f4;
+    --dim: #9aa1ad;
+    --glass: rgba(18, 19, 24, 0.78);
+    --rim: rgba(255, 255, 255, 0.10);
+    --rim-strong: rgba(255, 255, 255, 0.18);
+    --accent: #ff6b95;
+    --icon: 44px;
+    --gap: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background:
+      radial-gradient(1100px 620px at 18% -10%, #23304a 0%, transparent 62%),
+      radial-gradient(900px 520px at 88% 108%, #3b2233 0%, transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 34px 24px 26px;
+    gap: 28px;
+  }
+
+  /* ---------------------------------------------------------------- header */
+
+  .head { text-align: center; max-width: 660px; }
+  .head h1 {
+    margin: 0 0 6px;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--dim);
+    font-weight: 600;
+  }
+  .head p { margin: 0; font-size: 13px; line-height: 1.6; color: #7c838f; }
+  .head b { color: #cfd4dc; font-weight: 600; }
+
+  /* ----------------------------------------------------------------- notch */
+
+  .stage { width: 100%; max-width: 940px; display: flex; flex-direction: column; gap: 20px; }
+
+  .notch-wrap { display: flex; justify-content: center; }
+
+  .notch {
+    position: relative;
+    width: 560px;
+    border-radius: 0 0 20px 20px;
+    background: var(--glass);
+    border: 1px solid var(--rim);
+    border-top: none;
+    backdrop-filter: blur(22px) saturate(140%);
+    box-shadow:
+      0 18px 40px -18px rgba(0, 0, 0, 0.9),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+  }
+
+  /* tier 1: the status bar, one line, one weight */
+  .notch-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 18px;
+  }
+  .clock { font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
+  .clock small { font-size: 10px; color: var(--dim); margin-left: 6px; font-weight: 500; }
+  .spacer { flex: 1; }
+  .stat { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: #c3c8d2; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+  /* tier 2: controls, ranked — primary toggles bigger than utilities */
+  .notch-body {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 10px;
+    padding: 0 14px 14px;
+  }
+
+  .card {
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .card.on { background: rgba(255, 107, 149, 0.14); border-color: rgba(255, 107, 149, 0.30); }
+  .card-icon {
+    width: 30px; height: 30px; border-radius: 9px;
+    display: grid; place-items: center;
+    background: rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+  .card.on .card-icon { background: rgba(255, 107, 149, 0.22); }
+  .card-txt { min-width: 0; }
+  .card-title { font-size: 12px; font-weight: 600; line-height: 1.3; }
+  .card-sub { font-size: 10.5px; color: var(--dim); line-height: 1.35; }
+
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+
+  /* tier 3: sliders, full width, quiet */
+  .sliders { display: flex; flex-direction: column; gap: 9px; padding: 0 14px 15px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row span.lbl { font-size: 11px; color: var(--dim); width: 74px; flex-shrink: 0; }
+  .track { flex: 1; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.10); overflow: hidden; }
+  .fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #ff8db0, var(--accent)); }
+  .row span.val { font-size: 10.5px; color: var(--dim); width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ------------------------------------------------------------------ dock */
+
+  .dock-wrap { display: flex; justify-content: center; }
+
+  .dock {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--gap);
+    padding: 9px 12px;
+    border-radius: 20px;
+    background: var(--glass);
+    border: 1px solid var(--rim);
+    backdrop-filter: blur(22px) saturate(140%);
+    box-shadow:
+      0 22px 48px -20px rgba(0, 0, 0, 0.95),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+
+  /* Every icon gets the SAME box. No special frame for start/Kiro. */
+  .ic {
+    position: relative;
+    width: var(--icon);
+    height: var(--icon);
+    border-radius: 13px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 19px;
+    transition: transform 0.16s ease, background 0.16s ease;
+  }
+  .ic:hover { transform: translateY(-4px) scale(1.06); background: rgba(255, 255, 255, 0.12); }
+  .ic.kind-utility { background: rgba(255, 255, 255, 0.035); }
+
+  .run-dot {
+    position: absolute;
+    bottom: -6px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.75);
+  }
+  .run-dot.attn { background: var(--accent); box-shadow: 0 0 7px var(--accent); }
+
+  .divider { width: 1px; align-self: stretch; margin: 3px 2px; background: var(--rim); }
+
+  /* ------------------------------------------------------------- seasonal */
+
+  /* Static rim accumulation. Cheap: one repeating gradient. */
+  .dock::after, .notch::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 8px;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 6px 6px, rgba(255, 168, 88, 0.55) 3.2px, transparent 3.8px),
+      radial-gradient(circle at 20px 7px, rgba(226, 98, 42, 0.40) 2.6px, transparent 3.2px);
+    background-size: 27px 8px, 27px 8px;
+    background-repeat: repeat-x;
+    opacity: 0.9;
+  }
+
+  .leaf {
+    position: absolute;
+    top: -4px;
+    width: 6px; height: 6px;
+    border-radius: 62% 4% 62% 4%;
+    background: linear-gradient(140deg, #ffb257, #e2622a);
+    pointer-events: none;
+    animation: fall linear infinite;
+  }
+  @keyframes fall {
+    from { transform: translate3d(0, -10px, 0) rotate(0deg); }
+    to   { transform: translate3d(8px, 92px, 0) rotate(320deg); }
+  }
+
+  /* --------------------------------------------------------------- notes */
+
+  .notes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%; max-width: 940px;
+  }
+  .note {
+    border-left: 2px solid var(--accent);
+    padding: 2px 0 2px 12px;
+  }
+  .note h3 { margin: 0 0 4px; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: #cfd4dc; }
+  .note p { margin: 0; font-size: 11.5px; line-height: 1.55; color: #7c838f; }
+</style>
+</head>
+<body>
+
+  <div class="head">
+    <h1>Kiro — tasarım örneği</h1>
+    <p>Aynı işlevler, <b>üç katmanlı hiyerarşi</b> ve <b>tek tip ikon kutusu</b>. Renkler, mevsim katmanı temanın vurgusundan türetiliyor.</p>
+  </div>
+
+  <div class="stage">
+
+    <!-- notch -->
+    <div class="notch-wrap">
+      <div class="notch">
+        <div class="notch-bar">
+          <div class="clock">23:20<small>Cum</small></div>
+          <div class="spacer"></div>
+          <div class="stat">☁︎ 17°</div>
+          <div class="stat">⌁ 19%</div>
+          <div class="stat">▮ 58%</div>
+        </div>
+
+        <div class="notch-body">
+          <div class="card on">
+            <div class="card-icon">⌾</div>
+            <div class="card-txt">
+              <div class="card-title">Wi-Fi</div>
+              <div class="card-sub">Bağlı · ev-5G</div>
+            </div>
+          </div>
+          <div class="stack">
+            <div class="card">
+              <div class="card-icon">✦</div>
+              <div class="card-txt">
+                <div class="card-title">Bluetooth</div>
+                <div class="card-sub">Kapalı</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sliders">
+          <div class="row">
+            <span class="lbl">Ses</span>
+            <div class="track"><div class="fill" style="width:47%"></div></div>
+            <span class="val">47%</span>
+          </div>
+          <div class="row">
+            <span class="lbl">Parlaklık</span>
+            <div class="track"><div class="fill" style="width:54%"></div></div>
+            <span class="val">54%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- dock -->
+    <div class="dock-wrap">
+      <div class="dock">
+        <div class="ic">🐧</div>
+        <div class="ic">🔍</div>
+        <div class="divider"></div>
+        <div class="ic">🌐<i class="run-dot attn"></i></div>
+        <div class="ic">📁<i class="run-dot"></i></div>
+        <div class="ic">🎮<i class="run-dot"></i></div>
+        <div class="ic">💬</div>
+        <div class="divider"></div>
+        <div class="ic kind-utility">⌃</div>
+        <div class="ic kind-utility">🗒</div>
+        <div class="ic kind-utility">⚙</div>
+        <span class="leaf" style="left:24%; animation-duration:7.5s; animation-delay:-2s"></span>
+        <span class="leaf" style="left:63%; animation-duration:9s; animation-delay:-5s"></span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h3>Tek tip ikon</h3>
+      <p>Başlangıç ikonunun kare çerçevesi kalktı. Her ikon aynı 44 px kutuda, aynı yarıçapta. Göz artık simetriyi bozan bir şey görmüyor.</p>
+    </div>
+    <div class="note">
+      <h3>Üç katman</h3>
+      <p>Durum satırı, kontroller, kaydırıcılar. 4 pil + 7 daire + 2 slider yerine tek okunabilir sıralama.</p>
+    </div>
+    <div class="note">
+      <h3>Mevsim, temaya bağlı</h3>
+      <p>Yaprak rengi artık vurgu renginden türetiliyor, mono temada sırıtmıyor. Efekt aynı: CSS-only, sıfır timer.</p>
+    </div>
+  </div>
+
+</body>
+</html>
