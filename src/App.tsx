@@ -2498,7 +2498,7 @@ function App() {
         }}
       >
         {widgetTip && isHovered && <div className="widget-tip">{widgetTip}</div>}
-        {!isHidden && <SeasonLayer density={12} />}
+        {!isHidden && <SeasonLayer density={10} pile={15} />}
 
 
 

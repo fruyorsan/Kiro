@@ -1,180 +1,181 @@
 /*
  * Seasonal weather for the notch and the dock.
  *
- * Budget: one absolutely positioned layer per window, ~12 spans, three static
- * gradient bands and two keyframes. Only `transform` and `opacity` animate, so
- * the browser composites them on the GPU and never touches layout or paint.
- * Nothing here wakes a timer: when the season is off, the layer is not rendered
- * at all, and in performance mode or with reduced motion it is hidden outright.
+ * Budget: one absolutely positioned layer per window, ~20 static spans, two
+ * keyframes. Only `transform` and `opacity` animate, so the browser composites
+ * them on the GPU and never touches layout or paint. Nothing here wakes a
+ * timer: when the season is off, the layer is not rendered at all, and in
+ * performance mode or with reduced motion it is hidden outright.
+ *
+ * Everything rests ON the rim, never inside the surface: the layer is clipped
+ * to the surface width but allowed to paint ~26px above the top edge, so the
+ * drift and the falling flakes live outside the bar, on the wallpaper.
  */
 
 .season-layer {
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
   pointer-events: none;
   z-index: 6;
-  /* Keep this layer's painting independent of the icons beneath it. */
-  contain: paint;
+  /* Top is negative on purpose: the decoration spills over the rim. */
+  clip-path: inset(-26px 0 0 0);
+  /* `contain: paint` would clip the spill again, so contain layout only. */
+  contain: layout style;
 }
 
-/* The layer is as tall as the surface, so a percentage translate moves a
-   particle across the whole height without measuring anything in JS. */
-.season-bit {
+/* ------------------------------------------------------------------ drift */
+
+/* A settled grain. Its bottom edge sits a couple of pixels inside the rim so
+   it reads as resting on the edge instead of floating next to it. */
+.season-pile {
   position: absolute;
-  top: 0;
   left: var(--x, 50%);
-  width: 0;
-  height: 100%;
-  animation: season-fall var(--dur, 10s) linear var(--delay, 0s) infinite;
-  will-change: transform;
-}
-
-.season-bit::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
+  bottom: calc(100% - var(--sink, 2px));
   width: var(--size, 4px);
   height: var(--size, 4px);
   display: block;
 }
 
-@keyframes season-fall {
-  from {
-    transform: translate3d(0, -100%, 0);
-  }
-  to {
-    transform: translate3d(var(--drift, 0px), 100%, 0);
-  }
+/* ---------------------------------------------------------------- falling */
+
+/* The bit is a zero-width column that hangs entirely ABOVE the rim; the flake
+   is pinned to its bottom, so translating the column by 100% lands the flake
+   exactly on the edge. It fades out there, into the drift. */
+.season-bit {
+  position: absolute;
+  left: var(--x, 50%);
+  bottom: 100%;
+  width: 0;
+  height: 26px;
+  animation: season-fall var(--dur, 10s) linear var(--delay, 0s) infinite;
 }
 
-/* Settled snow / leaves along the top rim: static gradients, no animation. */
-.season-layer::after {
+.season-bit::before {
   content: "";
   position: absolute;
-  top: 0;
   left: 0;
-  right: 0;
-  height: 7px;
-  pointer-events: none;
+  bottom: 0;
+  width: var(--size, 4px);
+  height: var(--size, 4px);
+  display: block;
+}
+
+/* -110% starts above the clip, so a flake fades in as it enters the band and
+   settles a hair below the rim rather than popping out of existence. */
+@keyframes season-fall {
+  0% {
+    transform: translate3d(0, -110%, 0);
+    opacity: 0;
+  }
+  18% {
+    opacity: var(--op, 0.9);
+  }
+  78% {
+    opacity: var(--op, 0.9);
+  }
+  100% {
+    transform: translate3d(var(--drift, 0px), 9%, 0);
+    opacity: 0;
+  }
 }
 
 /* ---------------------------------------------------------------- winter */
 
+.season-winter .season-pile,
 .season-winter .season-bit::before {
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 0 4px rgba(198, 226, 255, 0.7);
-  opacity: 0.85;
+  background: #fff;
+  box-shadow: 0 0 4px rgba(198, 226, 255, 0.75);
 }
 
-.season-winter .season-bit:nth-child(3n)::before {
-  opacity: 0.55;
+.season-winter .season-bit::before {
+  opacity: 0.9;
+}
+
+.season-winter .season-pile:nth-child(3n) {
+  opacity: 0.72;
   box-shadow: none;
-}
-
-.season-winter.season-layer::after {
-  background-image: radial-gradient(circle at 5px 6px, rgba(255, 255, 255, 0.55) 3px, transparent 3.5px);
-  background-size: 17px 7px;
-  background-repeat: repeat-x;
 }
 
 /* ---------------------------------------------------------------- autumn */
 
-/* The leaves are tinted from the accent, so autumn does not fight a mono or
-   pink theme: with the default accent they stay warm orange, with a custom
-   accent they drift towards it instead of clashing. */
-.season-autumn.season-layer {
-  --season-warm: var(--kiro-accent, #e2622a);
-  background: linear-gradient(180deg, rgba(255, 149, 72, 0.10), transparent 42%);
-}
-
+/* Deliberately NOT tinted from the accent: with the default mono accent the
+   accent is blue, and blue leaves read as a bug. Autumn is amber, rust and
+   orange, and it stays that way in every theme. */
+.season-autumn .season-pile,
 .season-autumn .season-bit::before {
-  border-radius: 62% 4% 62% 4%;
-  /* Plain fallback first: an old WebView2 drops the color-mix line, not the leaf. */
-  background: linear-gradient(140deg, #ffb257, #e2622a);
-  background: linear-gradient(140deg, color-mix(in srgb, var(--season-warm, #e2622a) 62%, #ffd08a), var(--season-warm, #e2622a));
-  box-shadow: 0 0 5px rgba(226, 98, 42, 0.35);
+  border-radius: 62% 8% 62% 8%;
+  background: linear-gradient(140deg, #ffc46b, #e2622a);
   transform: rotate(var(--rot, 0deg));
 }
 
-.season-autumn .season-bit:nth-child(2n)::before {
-  background: linear-gradient(140deg, #ffd08a, #d8571f);
-  background: linear-gradient(140deg, #ffd08a, color-mix(in srgb, var(--season-warm, #e2622a) 78%, #b8451a));
+.season-autumn .season-pile:nth-child(3n) {
+  background: linear-gradient(140deg, #ffb257, #c2451a);
+  opacity: 0.9;
 }
 
-.season-autumn .season-bit:nth-child(3n)::before {
-  background: linear-gradient(140deg, #ffc46b, #b8451a);
-  background: linear-gradient(140deg, color-mix(in srgb, var(--season-warm, #e2622a) 45%, #ffc46b), color-mix(in srgb, var(--season-warm, #e2622a) 90%, #6d2408));
-  opacity: 0.85;
-}
-
-.season-autumn.season-layer::after {
-  background-image:
-    radial-gradient(circle at 6px 7px, rgba(255, 168, 88, 0.50) 3.5px, transparent 4px),
-    radial-gradient(circle at 19px 6px, rgba(226, 98, 42, 0.38) 3px, transparent 3.6px);
-  background-size: 26px 8px;
-  background-repeat: repeat-x;
+.season-autumn .season-pile:nth-child(4n) {
+  background: linear-gradient(140deg, #ffd08a, #a83a12);
+  opacity: 0.8;
 }
 
 /* ---------------------------------------------------------------- spring */
 
-.season-spring.season-layer {
-  background: linear-gradient(180deg, rgba(255, 176, 208, 0.09), transparent 40%);
+.season-spring .season-pile,
+.season-spring .season-bit::before {
+  border-radius: 62% 8% 30% 8%;
+  background: linear-gradient(140deg, #ffe3ee, #ff9dc0);
+  transform: rotate(var(--rot, 0deg));
+}
+
+.season-spring .season-pile {
+  opacity: 0.95;
 }
 
 .season-spring .season-bit::before {
-  border-radius: 50% 0 50% 50%;
-  background: linear-gradient(140deg, #ffd7e6, #ff9dc0);
-  opacity: 0.9;
-  transform: rotate(var(--rot, 0deg));
   animation: season-sway 4.5s ease-in-out infinite alternate;
 }
 
 @keyframes season-sway {
   from {
-    transform: rotate(calc(var(--rot, 0deg) - 40deg));
+    transform: rotate(calc(var(--rot, 0deg) - 45deg));
   }
   to {
-    transform: rotate(calc(var(--rot, 0deg) + 40deg));
+    transform: rotate(calc(var(--rot, 0deg) + 45deg));
   }
-}
-
-.season-spring.season-layer::after {
-  background-image: radial-gradient(circle at 7px 6px, rgba(255, 190, 216, 0.45) 2.5px, transparent 3px);
-  background-size: 21px 7px;
-  background-repeat: repeat-x;
 }
 
 /* ---------------------------------------------------------------- summer */
 
-.season-summer.season-layer {
-  background: linear-gradient(180deg, rgba(255, 214, 120, 0.10), transparent 38%);
-}
-
+/* Fireflies hover in the band above the rim instead of falling; the drift is a
+   few dim resting lights. */
 .season-summer .season-bit {
   animation: none;
 }
 
 .season-summer .season-bit::before {
-  top: var(--y, 45%);
+  bottom: var(--y, 12px);
   border-radius: 50%;
   background: rgba(255, 226, 148, 0.95);
   box-shadow: 0 0 6px rgba(255, 196, 84, 0.75);
-  animation: season-glow 6s ease-in-out infinite alternate;
-  animation-delay: var(--delay, 0s);
+  animation: season-glow 6s ease-in-out var(--delay, 0s) infinite alternate;
+}
+
+.season-summer .season-pile {
+  border-radius: 50%;
+  background: rgba(255, 220, 140, 0.8);
+  box-shadow: 0 0 5px rgba(255, 196, 84, 0.6);
+  opacity: 0.7;
 }
 
 @keyframes season-glow {
   from {
-    opacity: 0.15;
-    transform: translateY(0) scale(0.9);
+    opacity: 0.12;
+    transform: translateY(0) scale(0.85);
   }
   to {
-    opacity: 0.85;
-    transform: translateY(-6px) scale(1.15);
+    opacity: 0.9;
+    transform: translateY(-5px) scale(1.15);
   }
 }
 
