@@ -15,7 +15,7 @@ import { setVisibleInterval } from "./hooks/visibleInterval";
 import { appAttention } from "./attention";
 import { DockSearch, loadInstalledApps } from "./components/DockSearch";
 import { useKiroLogo } from "./kiroLogo";
-
+import { SeasonLayer } from "./components/SeasonLayer";
 interface AppInfo {
   name: string;
   path: string;
@@ -1114,9 +1114,12 @@ const Dock = memo(function Dock() {
       })
     ];
 
+    // Kiro never lists itself: the start button already is Kiro, so a running
+    // Kiro window used to paint a second identical mascot at the end of the
+    // dock. Settings, Calendar and Notepad are reached from the menu instead.
     const unpinned = activeOrder
       .map(id => activeApps.find(a => appIdentity(a.path, a.executable, a.name) === id))
-      .filter((a): a is AppInfo => !!a && !matchedRunningKeys.has(appIdentity(a.path, a.executable, a.name)));
+      .filter((a): a is AppInfo => !!a && !isKiroWindow(a) && !matchedRunningKeys.has(appIdentity(a.path, a.executable, a.name)));
 
     return [...pinned, ...unpinned];
   }, [pinnedApps, activeApps, activeOrder]);
@@ -1421,6 +1424,7 @@ const Dock = memo(function Dock() {
           radius={(isImpacted || isExpanded) && !isHidden ? 18 : 17}
           edgeRadius={(isImpacted || isExpanded) && !isHidden ? 0 : 17}
         />
+        {!isHidden && <SeasonLayer density={9} />}
         <AnimatePresence>
           {isExpanded && (
             <motion.div
@@ -2221,6 +2225,7 @@ function AddAppPopup({
   }, []);
 
   useEffect(() => {
+    let blurTimer = 0;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
@@ -2250,7 +2255,7 @@ function AddAppPopup({
     const handleBlur = () => {
       // Same transient blur as the launcher: borrowing the keyboard moves focus
       // to the dock, so only dismiss when the focus actually stayed elsewhere.
-      window.setTimeout(() => {
+      blurTimer = window.setTimeout(() => {
         if (!document.hasFocus()) onClose();
       }, 350);
     };
@@ -2258,6 +2263,9 @@ function AddAppPopup({
     window.addEventListener("blur", handleBlur);
     document.addEventListener("mousedown", handleMouseDown, true);
     return () => {
+      // The popup can close well inside those 350 ms (a click on a row, Enter,
+      // Escape). A timer left behind would then close whatever opened next.
+      window.clearTimeout(blurTimer);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("mousedown", handleMouseDown, true);

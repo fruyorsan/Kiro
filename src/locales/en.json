@@ -726,5 +726,13 @@
   "dock.menu.empty": "No shortcuts yet. Add one and it appears in the dock menu.",
   "dock.menu.remove": "Remove shortcut",
   "dock.menu.apps": "Apps and shortcuts",
-  "dockmenu.customize": "Customize this menu…"
+  "dockmenu.customize": "Customize this menu…",
+  "appearance.season": "Seasonal effect",
+  "appearance.season.desc": "Snow settles on the notch and the dock in winter, leaves in autumn. Pure CSS animation.",
+  "appearance.season.auto": "Automatic (calendar)",
+  "appearance.season.winter": "Winter — snow",
+  "appearance.season.spring": "Spring — blossom",
+  "appearance.season.summer": "Summer — fireflies",
+  "appearance.season.autumn": "Autumn — leaves",
+  "appearance.season.off": "Off"
 }

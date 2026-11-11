@@ -1,0 +1,184 @@
+/*
+ * Seasonal weather for the notch and the dock.
+ *
+ * Budget: one absolutely positioned layer per window, ~12 spans, three static
+ * gradient bands and two keyframes. Only `transform` and `opacity` animate, so
+ * the browser composites them on the GPU and never touches layout or paint.
+ * Nothing here wakes a timer: when the season is off, the layer is not rendered
+ * at all, and in performance mode or with reduced motion it is hidden outright.
+ */
+
+.season-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 6;
+  /* Keep this layer's painting independent of the icons beneath it. */
+  contain: paint;
+}
+
+/* The layer is as tall as the surface, so a percentage translate moves a
+   particle across the whole height without measuring anything in JS. */
+.season-bit {
+  position: absolute;
+  top: 0;
+  left: var(--x, 50%);
+  width: 0;
+  height: 100%;
+  animation: season-fall var(--dur, 10s) linear var(--delay, 0s) infinite;
+  will-change: transform;
+}
+
+.season-bit::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--size, 4px);
+  height: var(--size, 4px);
+  display: block;
+}
+
+@keyframes season-fall {
+  from {
+    transform: translate3d(0, -100%, 0);
+  }
+  to {
+    transform: translate3d(var(--drift, 0px), 100%, 0);
+  }
+}
+
+/* Settled snow / leaves along the top rim: static gradients, no animation. */
+.season-layer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 7px;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- winter */
+
+.season-winter .season-bit::before {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 4px rgba(198, 226, 255, 0.7);
+  opacity: 0.85;
+}
+
+.season-winter .season-bit:nth-child(3n)::before {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.season-winter.season-layer::after {
+  background-image: radial-gradient(circle at 5px 6px, rgba(255, 255, 255, 0.55) 3px, transparent 3.5px);
+  background-size: 17px 7px;
+  background-repeat: repeat-x;
+}
+
+/* ---------------------------------------------------------------- autumn */
+
+.season-autumn.season-layer {
+  background: linear-gradient(180deg, rgba(255, 149, 72, 0.10), transparent 42%);
+}
+
+.season-autumn .season-bit::before {
+  border-radius: 62% 4% 62% 4%;
+  background: linear-gradient(140deg, #ffb257, #e2622a);
+  box-shadow: 0 0 5px rgba(226, 98, 42, 0.35);
+  transform: rotate(var(--rot, 0deg));
+}
+
+.season-autumn .season-bit:nth-child(2n)::before {
+  background: linear-gradient(140deg, #ffd08a, #d8571f);
+}
+
+.season-autumn .season-bit:nth-child(3n)::before {
+  background: linear-gradient(140deg, #ffc46b, #b8451a);
+  opacity: 0.8;
+}
+
+.season-autumn.season-layer::after {
+  background-image:
+    radial-gradient(circle at 6px 7px, rgba(255, 168, 88, 0.50) 3.5px, transparent 4px),
+    radial-gradient(circle at 19px 6px, rgba(226, 98, 42, 0.38) 3px, transparent 3.6px);
+  background-size: 26px 8px;
+  background-repeat: repeat-x;
+}
+
+/* ---------------------------------------------------------------- spring */
+
+.season-spring.season-layer {
+  background: linear-gradient(180deg, rgba(255, 176, 208, 0.09), transparent 40%);
+}
+
+.season-spring .season-bit::before {
+  border-radius: 50% 0 50% 50%;
+  background: linear-gradient(140deg, #ffd7e6, #ff9dc0);
+  opacity: 0.9;
+  transform: rotate(var(--rot, 0deg));
+  animation: season-sway 4.5s ease-in-out infinite alternate;
+}
+
+@keyframes season-sway {
+  from {
+    transform: rotate(calc(var(--rot, 0deg) - 40deg));
+  }
+  to {
+    transform: rotate(calc(var(--rot, 0deg) + 40deg));
+  }
+}
+
+.season-spring.season-layer::after {
+  background-image: radial-gradient(circle at 7px 6px, rgba(255, 190, 216, 0.45) 2.5px, transparent 3px);
+  background-size: 21px 7px;
+  background-repeat: repeat-x;
+}
+
+/* ---------------------------------------------------------------- summer */
+
+.season-summer.season-layer {
+  background: linear-gradient(180deg, rgba(255, 214, 120, 0.10), transparent 38%);
+}
+
+.season-summer .season-bit {
+  animation: none;
+}
+
+.season-summer .season-bit::before {
+  top: var(--y, 45%);
+  border-radius: 50%;
+  background: rgba(255, 226, 148, 0.95);
+  box-shadow: 0 0 6px rgba(255, 196, 84, 0.75);
+  animation: season-glow 6s ease-in-out infinite alternate;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes season-glow {
+  from {
+    opacity: 0.15;
+    transform: translateY(0) scale(0.9);
+  }
+  to {
+    opacity: 0.85;
+    transform: translateY(-6px) scale(1.15);
+  }
+}
+
+/* ------------------------------------------------------------- safeguards */
+
+/* A fullscreen game owns the machine: no decoration, no compositing work. */
+html.perf-lite .season-layer {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .season-layer {
+    display: none;
+  }
+}

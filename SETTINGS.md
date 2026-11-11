@@ -179,6 +179,7 @@ Removing a link or disconnecting the account deletes its stored secret and cache
 | `kiro-glass-wallpaper` | `"true"` / `"false"` | `"false"` | Frosted and Liquid only. Show a blurred copy of the desktop wallpaper behind the notch and dock, and the window behind them when there is one. Off keeps the plain tint. Animated wallpapers (Wallpaper Engine) are not shown. |
 | `kiro-theme-accent` | `"mono"` / `"system"` / `"custom"` | `"mono"` | Color for toggles, active buttons, sliders, progress bars and today's date. **mono** = the text color (the classic look). **system** = Windows accent. **custom** = `kiro-theme-accent-color`. Ignored in Legacy Mode. |
 | `kiro-theme-accent-color` | hex string | `"#0a84ff"` | Accent used when `kiro-theme-accent` is `custom`. |
+| `kiro-season-theme` | `"auto"` / `"winter"` / `"spring"` / `"summer"` / `"autumn"` / `"off"` | `"auto"` | Seasonal decoration on the notch and the dock: snow collects and falls in winter, leaves in autumn, blossom in spring, fireflies in summer. **auto** follows the calendar month. Purely cosmetic and CSS-only (a dozen composited spans per window, no timers), so it costs no measurable memory; it is hidden automatically during Automatic Performance Mode and for anyone with Windows' reduced-motion setting on. |
 | `kiro-corners-enabled` | `"true"` / `"false"` | `"false"` | Render rounded screen corner overlays on top edges. |
 
 ### Status Widgets

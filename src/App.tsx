@@ -26,6 +26,7 @@ import { NotchShelf, useShelf } from "./components/NotchShelf";
 import { parseCcLayout, parsePanelOrder, resolveCcLayout, type CcKind } from "./panelOrder";
 import { NotchProgressBorder } from "./components/NotchProgressBorder";
 import { SurfaceShape } from "./components/SurfaceShape";
+import { SeasonLayer } from "./components/SeasonLayer";
 import { AiMarkdown } from "./aiMarkdown";
 import { AI_MAX_IMAGES, fileToAiImage, imageFilesFrom, imageFilesFromDataTransfer, type AiImage } from "./aiImage";
 import { playAgentSound } from "./agentSounds";
@@ -2497,6 +2498,7 @@ function App() {
         }}
       >
         {widgetTip && isHovered && <div className="widget-tip">{widgetTip}</div>}
+        {!isHidden && <SeasonLayer density={12} />}
 
 
 

@@ -1,10 +1,12 @@
-import { Palette, Droplet, Contrast, Droplets, Sun, Square, Maximize2, Layers, SwatchBook, Highlighter, ImagePlus } from "lucide-react";
+import { Palette, Droplet, Contrast, Droplets, Sun, Square, Maximize2, Layers, SwatchBook, Highlighter, ImagePlus, Snowflake } from "lucide-react";
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { SettingRow } from "./SettingRow";
 import { SettingSection } from "./SettingSection";
 import { Dropdown } from "./Dropdown";
 import { useT } from "../i18n";
 import { GlassWallpaper } from "./GlassWallpaper";
+import { SEASON_SETTING, setSeasonTheme } from "../season";
 import { THEME_PRESETS, hexToHsl, hslToHex, type ThemePreset } from "../theme";
 import { prepareKiroLogo, resetKiroLogo, setKiroLogoSrc, useKiroLogo } from "../kiroLogo";
 
@@ -67,6 +69,15 @@ export function AppearanceTab({
   const kiroLogo = useKiroLogo();
   const [logoBusy, setLogoBusy] = useState(false);
   const [logoError, setLogoError] = useState("");
+  const [seasonTheme, setSeasonThemeState] = useState(() => localStorage.getItem(SEASON_SETTING) ?? "auto");
+  // Seasonal decoration is cosmetic and lives in the notch/dock windows, so it
+  // is written through the shared settings file instead of a render prop: every
+  // window picks the change up from the `settings-changed` event.
+  const handleSeasonChange = (value: string) => {
+    setSeasonThemeState(value);
+    setSeasonTheme(value);
+    invoke("save_setting", { key: SEASON_SETTING, value }).catch(() => {});
+  };
   const isMaterial = !legacyMode && themeStyle === "material";
   const showCustomColor = themeMode === "custom";
   // Material You builds the whole palette from the accent, so these don't apply there.
@@ -172,6 +183,23 @@ export function AppearanceTab({
             ]}
           />
         </SettingRow>
+
+        {!legacyMode && (
+          <SettingRow icon={Snowflake} label={t("appearance.season")} desc={t("appearance.season.desc")}>
+            <Dropdown
+              value={seasonTheme}
+              onChange={handleSeasonChange}
+              options={[
+                { value: "auto", label: t("appearance.season.auto") },
+                { value: "winter", label: t("appearance.season.winter") },
+                { value: "spring", label: t("appearance.season.spring") },
+                { value: "summer", label: t("appearance.season.summer") },
+                { value: "autumn", label: t("appearance.season.autumn") },
+                { value: "off", label: t("appearance.season.off") },
+              ]}
+            />
+          </SettingRow>
+        )}
 
         <SettingRow icon={SwatchBook} label={t("appearance.presets")} desc={t("appearance.presets.desc")}>
           <div className="preset-swatches">

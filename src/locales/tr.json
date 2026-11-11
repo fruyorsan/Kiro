@@ -726,5 +726,13 @@
   "dock.menu.empty": "Henüz kısayol yok. Eklediğinde dock menüsünde görünür.",
   "dock.menu.remove": "Kısayolu kaldır",
   "dock.menu.apps": "Uygulamalar ve kısayollar",
-  "dockmenu.customize": "Bu menüyü düzenle…"
+  "dockmenu.customize": "Bu menüyü düzenle…",
+  "appearance.season": "Mevsim Efekti",
+  "appearance.season.desc": "Çentik ve dock'un üstünde kışın kar, sonbaharda yaprak birikir. Sadece CSS animasyonu kullanır.",
+  "appearance.season.auto": "Otomatik (takvim)",
+  "appearance.season.winter": "Kış — kar",
+  "appearance.season.spring": "İlkbahar — çiçek",
+  "appearance.season.summer": "Yaz — ateş böceği",
+  "appearance.season.autumn": "Sonbahar — yaprak",
+  "appearance.season.off": "Kapalı"
 }
