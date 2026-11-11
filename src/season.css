@@ -83,24 +83,32 @@
 
 /* ---------------------------------------------------------------- autumn */
 
+/* The leaves are tinted from the accent, so autumn does not fight a mono or
+   pink theme: with the default accent they stay warm orange, with a custom
+   accent they drift towards it instead of clashing. */
 .season-autumn.season-layer {
+  --season-warm: var(--kiro-accent, #e2622a);
   background: linear-gradient(180deg, rgba(255, 149, 72, 0.10), transparent 42%);
 }
 
 .season-autumn .season-bit::before {
   border-radius: 62% 4% 62% 4%;
+  /* Plain fallback first: an old WebView2 drops the color-mix line, not the leaf. */
   background: linear-gradient(140deg, #ffb257, #e2622a);
+  background: linear-gradient(140deg, color-mix(in srgb, var(--season-warm, #e2622a) 62%, #ffd08a), var(--season-warm, #e2622a));
   box-shadow: 0 0 5px rgba(226, 98, 42, 0.35);
   transform: rotate(var(--rot, 0deg));
 }
 
 .season-autumn .season-bit:nth-child(2n)::before {
   background: linear-gradient(140deg, #ffd08a, #d8571f);
+  background: linear-gradient(140deg, #ffd08a, color-mix(in srgb, var(--season-warm, #e2622a) 78%, #b8451a));
 }
 
 .season-autumn .season-bit:nth-child(3n)::before {
   background: linear-gradient(140deg, #ffc46b, #b8451a);
-  opacity: 0.8;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--season-warm, #e2622a) 45%, #ffc46b), color-mix(in srgb, var(--season-warm, #e2622a) 90%, #6d2408));
+  opacity: 0.85;
 }
 
 .season-autumn.season-layer::after {
