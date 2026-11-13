@@ -69,7 +69,14 @@ export function AppearanceTab({
   const kiroLogo = useKiroLogo();
   const [logoBusy, setLogoBusy] = useState(false);
   const [logoError, setLogoError] = useState("");
-  const [seasonTheme, setSeasonThemeState] = useState(() => localStorage.getItem(SEASON_SETTING) ?? "auto");
+  // The dropdown only knows the current effect names; a setting written by an
+  // older build still says winter/spring/summer/autumn, so map it on read or
+  // the select would show no option at all.
+  const [seasonTheme, setSeasonThemeState] = useState(() => {
+    const raw = (localStorage.getItem(SEASON_SETTING) ?? "auto").toLowerCase();
+    const legacy: Record<string, string> = { winter: "snow", spring: "blossom", summer: "rain", autumn: "leaves" };
+    return legacy[raw] ?? raw;
+  });
   // Seasonal decoration is cosmetic and lives in the notch/dock windows, so it
   // is written through the shared settings file instead of a render prop: every
   // window picks the change up from the `settings-changed` event.
@@ -191,10 +198,10 @@ export function AppearanceTab({
               onChange={handleSeasonChange}
               options={[
                 { value: "auto", label: t("appearance.season.auto") },
-                { value: "winter", label: t("appearance.season.winter") },
-                { value: "spring", label: t("appearance.season.spring") },
-                { value: "summer", label: t("appearance.season.summer") },
-                { value: "autumn", label: t("appearance.season.autumn") },
+                { value: "snow", label: t("appearance.season.snow") },
+                { value: "rain", label: t("appearance.season.rain") },
+                { value: "leaves", label: t("appearance.season.leaves") },
+                { value: "blossom", label: t("appearance.season.blossom") },
                 { value: "off", label: t("appearance.season.off") },
               ]}
             />

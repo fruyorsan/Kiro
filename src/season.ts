@@ -7,37 +7,45 @@ import { useSettingsSync } from "./hooks/useSettingsSync";
  * The whole effect is a fixed set of absolutely positioned spans animated by
  * CSS keyframes on `transform`/`opacity` only, so the compositor does the work
  * and React never re-renders. There is no timer, no canvas and no particle
- * simulation: about a dozen nodes per window, painted once.
+ * simulation: about twenty nodes per window, painted once.
  */
 
-export type Season = "winter" | "autumn" | "spring" | "summer";
+export type SeasonEffect = "snow" | "rain" | "leaves" | "blossom";
 
 export const SEASON_SETTING = "kiro-season-theme";
 
-export const SEASONS: Season[] = ["winter", "spring", "summer", "autumn"];
+export const SEASON_EFFECTS: SeasonEffect[] = ["snow", "rain", "leaves", "blossom"];
 
-export function seasonForDate(date = new Date()): Season {
+/** The calendar pick, for `auto`. Northern hemisphere, month-based. */
+export function effectForDate(date = new Date()): SeasonEffect {
   const month = date.getMonth();
-  // Northern hemisphere: the theme follows the calendar, not the weather.
-  if (month === 11 || month <= 1) return "winter";
-  if (month <= 4) return "spring";
-  if (month <= 7) return "summer";
-  return "autumn";
+  if (month === 11 || month <= 1) return "snow";
+  if (month <= 4) return "blossom";
+  if (month <= 7) return "rain";
+  return "leaves";
 }
 
-/** `null` means "paint nothing". Unknown values fall back to the calendar. */
-export function resolveSeason(raw: string | null | undefined, now = new Date()): Season | null {
+/**
+ * `null` means "paint nothing". Unknown values fall back to the calendar, and
+ * the old season names still work so an existing setting keeps its look.
+ */
+export function resolveSeason(raw: string | null | undefined, now = new Date()): SeasonEffect | null {
   const value = (raw ?? "auto").trim().toLowerCase();
   if (value === "off" || value === "none" || value === "false") return null;
-  if (value === "winter" || value === "spring" || value === "summer" || value === "autumn") return value;
-  return seasonForDate(now);
+  if (value === "snow" || value === "rain" || value === "leaves" || value === "blossom") return value;
+  // Legacy names from the first release of the effect.
+  if (value === "winter") return "snow";
+  if (value === "spring") return "blossom";
+  if (value === "summer") return "rain";
+  if (value === "autumn") return "leaves";
+  return effectForDate(now);
 }
 
 export function setSeasonTheme(value: string) {
   localStorage.setItem(SEASON_SETTING, value);
 }
 
-export function useSeason(): Season | null {
+export function useSeason(): SeasonEffect | null {
   const [raw, setRaw] = useState<string | null>(() => localStorage.getItem(SEASON_SETTING));
 
   useEffect(() => {

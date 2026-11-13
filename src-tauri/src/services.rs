@@ -2353,8 +2353,22 @@ fn start_mouse_worker(app_handle: AppHandle) {
         .spawn(move || loop {
             // A pending dwell has to finish with a still cursor, but the hook only fires on movement,
             // so also wake on a timer.
-            if TOP_EDGE_PENDING.load(Ordering::Relaxed) || SIDE_EDGE_PENDING.load(Ordering::Relaxed) {
-                std::thread::park_timeout(Duration::from_millis(TOP_EDGE_POLL_MS));
+            let dwell_pending = TOP_EDGE_PENDING.load(Ordering::Relaxed)
+                || SIDE_EDGE_PENDING.load(Ordering::Relaxed);
+            // An edge OSD (volume / brightness / notch / dock) is open: keep ticking
+            // after the cursor stops. The 500 ms hover expiry is time based, so
+            // without this the hover never decays while the mouse sits still and the
+            // card hangs on screen forever (the hook only wakes us on movement).
+            let osd_holding = MH_LAST_LEFT_EDGE_HOVER.load(Ordering::Relaxed) != 0
+                || MH_LAST_RIGHT_EDGE_HOVER.load(Ordering::Relaxed) != 0
+                || MH_LAST_EDGE_HOVER.load(Ordering::Relaxed) != 0
+                || MH_LAST_TOP_EDGE_HOVER.load(Ordering::Relaxed) != 0;
+            if dwell_pending || osd_holding {
+                std::thread::park_timeout(Duration::from_millis(if osd_holding {
+                    120
+                } else {
+                    TOP_EDGE_POLL_MS
+                }));
                 MOUSE_DIRTY.store(true, Ordering::Relaxed);
             } else {
                 std::thread::park();
@@ -2940,8 +2954,20 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
 
                 let brightness_enter = if brightness_right { &MH_RIGHT_ENTER_MS } else { &MH_LEFT_ENTER_MS };
                 let brightness_band = at_edge(brightness_right) && brightness_right != volume_right;
+                // Same as the volume card: the collapsed card sticks out past the
+                // 8 px band, so hovering it must not count as leaving the edge.
+                let over_bright_card = !brightness_band
+                    && MH_LAST_RIGHT_EDGE_HOVER.load(Ordering::Relaxed) != 0
+                    && {
+                        let sc = primary_scale * overlay_kiro_scale;
+                        let nw = (42.0 * sc) as i32;
+                        let nh = (196.0 * sc) as i32;
+                        let nx = if brightness_right { mon_x + mon_w - nw } else { mon_x };
+                        let ny = mon_y + (mon_h / 2) - (nh / 2);
+                        cursor.x >= nx && cursor.x <= nx + nw && cursor.y >= ny && cursor.y <= ny + nh
+                    };
                 let brightness_confirmed = edge_dwell_met(brightness_enter, brightness_band, now, edge_dwell);
-                if brightness_confirmed {
+                if brightness_confirmed || over_bright_card {
                     MH_RIGHT_EXPIRY_MS.store(now + 500, Ordering::Relaxed);
                 }
                 if brightness_band && !brightness_confirmed {

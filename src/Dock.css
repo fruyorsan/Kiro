@@ -438,6 +438,17 @@ body {
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* A file dragged out of Explorer is hovering this icon. The magnification
+   transform is inline, so highlight with paint-only properties: an accent
+   outline plus a soft glow, and a brighter surface behind the icon. */
+[data-drop-target="1"] .dock-icon {
+  outline: 2px solid var(--kiro-accent, #5ac8fa);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--kiro-accent, #5ac8fa) 22%, rgba(255, 255, 255, 0.06));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kiro-accent, #5ac8fa) 55%, transparent),
+    0 0 16px color-mix(in srgb, var(--kiro-accent, #5ac8fa) 55%, transparent);
+}
+
 .dock-icon img {
   width: 28px;
   height: 28px;

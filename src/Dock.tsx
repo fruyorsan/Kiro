@@ -3,6 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import './Dock.css';
 import './surfaces.css';
 import { SurfaceShape } from "./components/SurfaceShape";
@@ -393,6 +394,8 @@ const Dock = memo(function Dock() {
   const [dockMixedReorder, setDockMixedReorder] = useState(() => localStorage.getItem("kiro-dock-mixed-reorder") === "true");
   const [mixedOrder, setMixedOrder] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<{ id: string, previews: { hwnd: number, title: string, image: string }[] } | null>(null);
+  // Path of the dock app under a file being dragged from Explorer, if any.
+  const [fileDragTarget, setFileDragTarget] = useState<string | null>(null);
   const [isDockHovered, setIsDockHovered] = useState(false);
   const [isEdgeHovered, setIsEdgeHovered] = useState(false);
   const [isOverlapped, setIsOverlapped] = useState(false);
@@ -738,7 +741,11 @@ const Dock = memo(function Dock() {
         const newPaths = running.map(r => appIdentity(r.path, r.executable, r.name));
         const existingPaths = prev.filter(p => newPaths.includes(p));
         const addedPaths = newPaths.filter(p => !prev.includes(p));
-        return [...existingPaths, ...addedPaths];
+        // Returning a fresh array here re-rendered every dock tile on each 10s poll
+        // even when the window list had not changed at all.
+        const next = [...existingPaths, ...addedPaths];
+        const same = next.length === prev.length && next.every((p, i) => p === prev[i]);
+        return same ? prev : next;
       });
 
       running.forEach(app => fetchIcon(app.path, app.name, app.hwnd));
@@ -1314,6 +1321,56 @@ const Dock = memo(function Dock() {
     };
   }, [hoveredApp, isDragging, dockItems, contextMenu, previewDelay]);
 
+  // Files dragged from Explorer onto an app icon open with that app. While a
+  // file is in flight the hover preview stays closed: it covered the icon and
+  // swallowed the drop, so the drag looked like it had nowhere to go.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+
+    const targetAt = (position: { x: number; y: number }) => {
+      const ratio = window.devicePixelRatio || 1;
+      const element = document.elementFromPoint(position.x / ratio, position.y / ratio);
+      return element?.closest('[data-dock-path]')?.getAttribute('data-dock-path') ?? null;
+    };
+
+    getCurrentWebview()
+      .onDragDropEvent((event) => {
+        const payload = event.payload as any;
+        if (payload.type === 'leave') {
+          setFileDragTarget(null);
+          return;
+        }
+
+        if (payload.type === 'drop') {
+          const target = targetAt(payload.position);
+          setFileDragTarget(null);
+          if (!target) return;
+          for (const file of (payload.paths ?? []) as string[]) {
+            invoke('open_file_with', { appPath: target, filePath: file })
+              .catch((err) => console.error('Failed to open dropped file:', err));
+          }
+          return;
+        }
+
+        // Enter/over: kill the preview before it can pop up under the cursor.
+        if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+        isPreviewHoveredRef.current = false;
+        setPreviewData(null);
+        setHoveredApp(null);
+        setFileDragTarget(targetAt(payload.position));
+      })
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      });
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
   const previewAppId = dockPreviewEnabled ? previewData?.id : undefined;
   useEffect(() => {
     if (!previewAppId) {
@@ -1424,7 +1481,7 @@ const Dock = memo(function Dock() {
           radius={(isImpacted || isExpanded) && !isHidden ? 18 : 17}
           edgeRadius={(isImpacted || isExpanded) && !isHidden ? 0 : 17}
         />
-        {!isHidden && <SeasonLayer density={8} pile={11} />}
+        <SeasonLayer density={12} pile={10} paused={isHidden} />
         <AnimatePresence>
           {isExpanded && (
             <motion.div
@@ -1578,6 +1635,8 @@ const Dock = memo(function Dock() {
                     as="div"
                     key={itemKey(app)}
                     value={itemKey(app)}
+                    data-dock-path={app.path}
+                    data-drop-target={fileDragTarget === app.path ? "1" : undefined}
                     style={{ position: 'relative' }}
                     onDragStart={() => { setIsDragging(true); setHoveredApp(null); setPressedApp(null); }}
                     onDragEnd={handleDragEnd}
@@ -1684,6 +1743,8 @@ const Dock = memo(function Dock() {
                     as="div"
                     key={itemKey(app)}
                     value={itemKey(app)}
+                    data-dock-path={app.path}
+                    data-drop-target={fileDragTarget === app.path ? "1" : undefined}
                     style={{ position: 'relative' }}
                     onDragStart={() => { setIsDragging(true); setHoveredApp(null); setPressedApp(null); }}
                     onDragEnd={handleUnpinnedDragEnd}
@@ -1783,6 +1844,8 @@ const Dock = memo(function Dock() {
                     as="div"
                     key={itemKey(app)}
                     value={itemKey(app)}
+                    data-dock-path={app.path}
+                    data-drop-target={fileDragTarget === app.path ? "1" : undefined}
                     style={{ position: 'relative' }}
                     onDragStart={() => { setIsDragging(true); setHoveredApp(null); setPressedApp(null); }}
                     onDragEnd={() => handleMixedDragEnd(app)}

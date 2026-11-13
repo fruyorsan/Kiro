@@ -1082,7 +1082,9 @@ function App() {
   // re-renders often enough that a plain interval is cheaper than polling.
   const [todayDate, setTodayDate] = useState(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => setTodayDate(new Date()), 60_000);
+    // Hidden windows and the game perf mode do not show the pill, so the minute
+    // tick does not need to wake the renderer there.
+    const id = setVisibleInterval(() => setTodayDate(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
   const [ccLayout, setCcLayout] = useState(() => parseCcLayout(localStorage.getItem("kiro-cc-layout")));
@@ -2498,7 +2500,13 @@ function App() {
         }}
       >
         {widgetTip && isHovered && <div className="widget-tip">{widgetTip}</div>}
-        {!isHidden && <SeasonLayer density={10} pile={15} />}
+        <SeasonLayer
+          density={14}
+          pile={13}
+          paused={isHidden}
+          radius={notchBottomRight ? (isImpacted ? 0 : 18) : isCalendarMode ? 28 : 18}
+          edge={notchBottomRight ? "top" : "bottom"}
+        />
 
 
 

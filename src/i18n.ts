@@ -8,10 +8,42 @@ type Messages = Record<string, string>;
 export const LANGUAGES: Record<string, { name: string }> = {
   en: { name: "English" },
   tr: { name: "Türkçe" },
+  de: { name: "Deutsch" },
+  fr: { name: "Français" },
+  es: { name: "Español" },
+  it: { name: "Italiano" },
+  pt: { name: "Português" },
+  ru: { name: "Русский" },
+  uk: { name: "Українська" },
+  pl: { name: "Polski" },
+  nl: { name: "Nederlands" },
+  id: { name: "Bahasa Indonesia" },
+  zh: { name: "中文" },
+  ja: { name: "日本語" },
+  ko: { name: "한국어" },
+  ar: { name: "العربية" },
 };
 
+// Each locale is its own chunk, fetched only when that language is picked, so
+// sixteen languages cost nothing in RAM or download for anyone using one. A
+// locale file may translate only the shell and finish in English: `t` falls
+// back key by key, so a missing string never shows as a raw key.
 const LAZY_LOCALES: Record<string, () => Promise<{ default: Messages }>> = {
   tr: () => import("./locales/tr.json"),
+  de: () => import("./locales/de.json"),
+  fr: () => import("./locales/fr.json"),
+  es: () => import("./locales/es.json"),
+  it: () => import("./locales/it.json"),
+  pt: () => import("./locales/pt.json"),
+  ru: () => import("./locales/ru.json"),
+  uk: () => import("./locales/uk.json"),
+  pl: () => import("./locales/pl.json"),
+  nl: () => import("./locales/nl.json"),
+  id: () => import("./locales/id.json"),
+  zh: () => import("./locales/zh.json"),
+  ja: () => import("./locales/ja.json"),
+  ko: () => import("./locales/ko.json"),
+  ar: () => import("./locales/ar.json"),
 };
 
 const loaded: Record<string, Messages> = { en: en as Messages };

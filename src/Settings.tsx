@@ -96,31 +96,35 @@ function SettingsApp() {
       </div>
 
       <div className="settings-body">
-        <div className="settings-tabbar">
-          <div className="tabbar-tabs" role="tablist">
+        <nav className="settings-sidebar" aria-label={t("tabs.general")}>
+          <div className="sidebar-tabs" role="tablist">
             {TABS.map(({ id, labelKey, icon: Icon }) => (
               <button
                 key={id}
                 role="tab"
                 aria-selected={activeTab === id}
-                className={`top-tab ${activeTab === id || (id === "notch" && activeTab === "calendar-sync") ? "active" : ""}`}
+                className={`side-tab ${activeTab === id || (id === "notch" && activeTab === "calendar-sync") ? "active" : ""}`}
                 onClick={() => setActiveTab(id)}
               >
-                <Icon size={14} strokeWidth={1.7} />
+                <Icon size={15} strokeWidth={1.7} />
                 <span>{t(labelKey)}</span>
               </button>
             ))}
           </div>
-          <span className="tabbar-version">
+          <span className="sidebar-version">
             {t("settings.version")} {__KIRO_VERSION__}
           </span>
-        </div>
+        </nav>
 
-        <div className="settings-content">
-          <div className="settings-page-head">
-            <h1>{t(`tabs.${activeTab === "calendar-sync" ? "notch" : activeTab}`)}</h1>
-            <p>{t(`tabs.${activeTab === "calendar-sync" ? "notch" : activeTab}.desc`)}</p>
-          </div>
+        <div className="settings-main">
+          <div className="settings-content">
+            <div className="settings-page-head">
+              <h1>{t(`tabs.${activeTab === "calendar-sync" ? "notch" : activeTab}`)}</h1>
+              <p>{t(`tabs.${activeTab === "calendar-sync" ? "notch" : activeTab}.desc`)}</p>
+            </div>
+          {/* Keyed by tab so each page fades in on its own; the page itself is
+              never unmounted piecemeal while React swaps the tab body. */}
+          <div className="settings-pane" key={activeTab}>
           {activeTab === "general" && (
             <GeneralTab
               autostart={settings.autostart}
@@ -347,6 +351,8 @@ function SettingsApp() {
               handleUninstallKiro={settings.handleUninstallKiro}
             />
           )}
+          </div>
+          </div>
         </div>
       </div>
     </div>

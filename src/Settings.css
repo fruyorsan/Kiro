@@ -2533,3 +2533,609 @@ input:checked + .slider:before {
 .light-mode .setting-divider {
   background: rgba(0, 0, 0, 0.07);
 }
+
+/* ======================================================================
+   Kiro settings shell: a left rail instead of the old top strip.
+   The rail carries the identity (icons, accent bar, version at the foot)
+   and keeps every page the same width, so the window reads as one product
+   rather than a stack of panels.
+   ====================================================================== */
+
+.settings-body {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.settings-sidebar {
+  width: 178px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 100%;
+  padding: 12px 10px 10px;
+  box-sizing: border-box;
+  border-right: 1px solid rgba(255, 255, 255, 0.055);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.006));
+  user-select: none;
+}
+
+.sidebar-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.side-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 520;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.side-tab:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-color);
+}
+
+.side-tab.active {
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--kiro-accent, var(--kiro-highlight, #8a8aff)) 14%, transparent);
+}
+
+.side-tab.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2.5px;
+  height: 16px;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  background: var(--kiro-accent, var(--kiro-highlight, #8a8aff));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--kiro-accent, var(--kiro-highlight, #8a8aff)) 60%, transparent);
+}
+
+.side-tab svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.side-tab.active svg {
+  color: var(--kiro-accent, var(--kiro-highlight, #8a8aff));
+  opacity: 1;
+}
+
+.sidebar-version {
+  margin-top: auto;
+  padding: 6px 10px;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.settings-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings-content {
+  padding: 0 26px 26px;
+}
+
+.settings-page-head {
+  padding: 18px 0 14px;
+}
+
+.settings-page-head h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.settings-page-head h1::after {
+  content: "";
+  display: block;
+  width: 34px;
+  height: 2px;
+  margin-top: 9px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--kiro-accent, var(--kiro-highlight, #8a8aff)), transparent);
+}
+
+.settings-page-head p {
+  margin-top: 8px;
+  max-width: 560px;
+  font-size: 12px;
+}
+
+.setting-icon-bg {
+  border-radius: 8px;
+}
+
+.light-mode .settings-sidebar {
+  border-right-color: rgba(0, 0, 0, 0.07);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.004));
+}
+
+.light-mode .side-tab:hover {
+  background: rgba(0, 0, 0, 0.045);
+}
+
+.light-mode .side-tab.active {
+  background: color-mix(in srgb, var(--kiro-accent, var(--kiro-highlight, #5b5bd6)) 12%, transparent);
+}
+
+/* A small flag badge on the logo: a nod to where Kiro is made. */
+.about-logo-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-bottom: 14px;
+}
+
+.about-logo-wrap .about-logo {
+  margin-bottom: 0;
+}
+
+.about-flag {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 0 2px rgba(18, 18, 24, 0.95);
+}
+
+.about-flag svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.light-mode .about-flag {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18), 0 0 0 2px rgba(255, 255, 255, 0.95);
+}
+
+/* ======================================================================
+   Settings polish pass
+   ----------------------------------------------------------------------
+   One accent, an 8px rhythm, glass cards and quiet motion. Everything here
+   is additive so the older rules keep working if a class is shared with
+   another window.
+   ====================================================================== */
+
+/* --- Page transition ---------------------------------------------------- */
+.settings-pane {
+  animation: settings-pane-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes settings-pane-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-pane { animation: none; }
+  .side-tab,
+  .setting-item,
+  .setting-group,
+  .setting-section-chevron { transition: none !important; }
+}
+
+/* --- Sidebar ------------------------------------------------------------ */
+.settings-sidebar {
+  padding: 14px 10px 10px;
+  gap: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.008) 55%, transparent);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-tabs {
+  gap: 2px;
+}
+
+.side-tab {
+  position: relative;
+  gap: 10px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: color-mix(in srgb, var(--text-color) 62%, transparent);
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.side-tab:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-color);
+}
+
+.side-tab:active {
+  transform: scale(0.985);
+}
+
+.side-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--kiro-accent, #8a8aff) 55%, transparent);
+}
+
+.side-tab.active {
+  color: var(--text-color);
+  font-weight: 560;
+  background: color-mix(in srgb, var(--kiro-accent, #8a8aff) 13%, rgba(255, 255, 255, 0.02));
+  box-shadow:
+    inset 0 0 0 0.5px color-mix(in srgb, var(--kiro-accent, #8a8aff) 26%, transparent),
+    0 2px 10px -4px rgba(0, 0, 0, 0.6);
+}
+
+.side-tab.active::before {
+  left: 3px;
+  width: 3px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--kiro-accent, #8a8aff) 65%, transparent);
+}
+
+.side-tab svg {
+  opacity: 0.62;
+  transition: opacity 0.16s ease, color 0.16s ease;
+}
+
+.side-tab:hover svg { opacity: 0.95; }
+
+.side-tab.active svg {
+  opacity: 1;
+  color: color-mix(in srgb, var(--kiro-accent, #8a8aff) 82%, #ffffff);
+}
+
+.sidebar-version {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  opacity: 0.42;
+}
+
+/* --- Content surface ---------------------------------------------------- */
+.settings-main {
+  background:
+    radial-gradient(90% 60% at 100% 0%, rgba(255, 255, 255, 0.028), transparent 58%);
+}
+
+.settings-content {
+  padding: 0 28px 28px;
+  scrollbar-gutter: stable;
+}
+
+.settings-content::-webkit-scrollbar { width: 8px; }
+.settings-content::-webkit-scrollbar-thumb {
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+.settings-content:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+.settings-page-head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding: 20px 0 12px;
+  margin-bottom: 2px;
+  background: linear-gradient(180deg,
+    rgba(16, 16, 21, 0.96) 0%,
+    rgba(16, 16, 21, 0.86) 68%,
+    rgba(16, 16, 21, 0) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.light-mode .settings-page-head {
+  background: linear-gradient(180deg,
+    rgba(247, 247, 250, 0.97) 0%,
+    rgba(247, 247, 250, 0.88) 68%,
+    rgba(247, 247, 250, 0) 100%);
+}
+
+.settings-page-head h1 {
+  font-size: 23px;
+  font-weight: 680;
+  letter-spacing: -0.032em;
+  line-height: 1.15;
+}
+
+.settings-page-head h1::after {
+  width: 28px;
+  height: 2px;
+  margin-top: 8px;
+  opacity: 0.9;
+}
+
+.settings-page-head p {
+  margin-top: 8px;
+  max-width: 58ch;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.68;
+}
+
+/* --- Cards and rows ----------------------------------------------------- */
+.setting-group {
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.036), rgba(255, 255, 255, 0.018));
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 24px -18px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.028);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.setting-group:hover {
+  border-color: rgba(255, 255, 255, 0.11);
+}
+
+.setting-item {
+  gap: 2px;
+  padding: 11px 14px;
+  transition: background 0.14s ease;
+}
+
+.setting-item:hover {
+  background: rgba(255, 255, 255, 0.026);
+}
+
+.setting-item.action { cursor: pointer; }
+.setting-item.action:active { background: rgba(255, 255, 255, 0.05); }
+
+.setting-icon-bg {
+  width: 28px;
+  height: 28px;
+  margin-right: 12px;
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--text-color) 52%, transparent);
+  background: rgba(255, 255, 255, 0.04);
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.setting-item:hover .setting-icon-bg {
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--kiro-accent, #8a8aff) 14%, rgba(255, 255, 255, 0.04));
+}
+
+.setting-label {
+  font-size: 13px;
+  font-weight: 520;
+  letter-spacing: 0.002em;
+}
+
+.setting-desc {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  opacity: 0.62;
+}
+
+.setting-divider {
+  margin-left: 54px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Section headers read as cards, not floating uppercase text. */
+.setting-group-label {
+  font-size: 10.5px;
+  font-weight: 620;
+  letter-spacing: 0.085em;
+  opacity: 0.9;
+  margin: 24px 4px 8px;
+}
+
+.setting-group-label:first-of-type { margin-top: 6px; }
+
+.setting-group-label.setting-section-header {
+  margin: 20px 0 8px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 0.5px solid rgba(255, 255, 255, 0.075);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  font-size: 12.5px;
+  font-weight: 560;
+  letter-spacing: 0.005em;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.setting-group-label.setting-section-header:hover {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.setting-group-label.setting-section-header:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--kiro-accent, #8a8aff) 50%, transparent);
+}
+
+.setting-section:not(.collapsed) > .setting-group-label.setting-section-header {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+}
+
+.setting-section:not(.collapsed) > .setting-group {
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.setting-section-chevron { transition: transform 0.2s cubic-bezier(0.22, 0.61, 0.36, 1); }
+
+/* --- Controls ----------------------------------------------------------- */
+.toggle-switch {
+  width: 40px;
+  height: 23px;
+  flex-shrink: 0;
+}
+
+.slider {
+  transition: background-color 0.22s ease, border-color 0.22s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.slider:before {
+  width: 17px;
+  height: 17px;
+  left: 2px;
+  bottom: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.toggle-switch input:focus-visible + .slider {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--kiro-accent, #8a8aff) 55%, transparent);
+}
+
+.dropdown-trigger {
+  border-radius: 8px;
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.05);
+  min-height: 26px;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dropdown-trigger:hover { background: rgba(255, 255, 255, 0.08); }
+
+.dropdown-trigger.open,
+.dropdown-trigger:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--kiro-accent, #8a8aff) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--kiro-accent, #8a8aff) 26%, transparent);
+}
+
+/* --- Light mode mirrors -------------------------------------------------- */
+.light-mode .settings-main {
+  background: radial-gradient(90% 60% at 100% 0%, rgba(0, 0, 0, 0.025), transparent 58%);
+}
+
+.light-mode .side-tab { color: rgba(0, 0, 0, 0.6); }
+.light-mode .side-tab:hover { background: rgba(0, 0, 0, 0.045); color: rgba(0, 0, 0, 0.88); }
+.light-mode .side-tab.active {
+  color: rgba(0, 0, 0, 0.9);
+  background: color-mix(in srgb, var(--kiro-accent, #5b5bd6) 11%, rgba(255, 255, 255, 0.6));
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.07);
+}
+
+.light-mode .setting-group {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px -20px rgba(0, 0, 0, 0.5);
+}
+
+.light-mode .setting-group:hover { border-color: rgba(0, 0, 0, 0.12); }
+.light-mode .setting-item:hover { background: rgba(0, 0, 0, 0.022); }
+
+.light-mode .setting-icon-bg {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.light-mode .setting-item:hover .setting-icon-bg {
+  background: color-mix(in srgb, var(--kiro-accent, #5b5bd6) 11%, rgba(0, 0, 0, 0.03));
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.light-mode .setting-group-label.setting-section-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.light-mode .setting-group-label.setting-section-header:hover { background: #ffffff; }
+
+.light-mode .slider { border-color: rgba(0, 0, 0, 0.08); }
+.light-mode .dropdown-trigger { background: rgba(0, 0, 0, 0.045); border-color: rgba(0, 0, 0, 0.1); }
+.light-mode .dropdown-trigger:hover { background: rgba(0, 0, 0, 0.07); }
+.light-mode .setting-divider { background: rgba(0, 0, 0, 0.06); }
+
+/* --- Narrow window: the rail becomes a horizontal strip ------------------ */
+@media (max-width: 760px) {
+  .settings-body {
+    flex-direction: column;
+  }
+
+  .settings-sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-sidebar::-webkit-scrollbar { display: none; }
+
+  .sidebar-tabs {
+    flex-direction: row;
+    flex: 1;
+    gap: 2px;
+  }
+
+  .side-tab {
+    width: auto;
+    min-height: 30px;
+    padding: 6px 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .side-tab span { font-size: 12px; }
+
+  .side-tab.active::before { display: none; }
+
+  .sidebar-version {
+    margin-top: 0;
+    padding: 0 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .settings-content { padding: 0 16px 20px; }
+  .settings-page-head { padding: 14px 0 10px; }
+  .settings-page-head h1 { font-size: 20px; }
+
+  .light-mode .settings-sidebar {
+    border-right: 0;
+    border-bottom-color: rgba(0, 0, 0, 0.07);
+  }
+}
+
+@media (max-width: 560px) {
+  .sidebar-version { display: none; }
+  .setting-divider { margin-left: 14px; }
+  .setting-item { padding: 10px 12px; }
+}

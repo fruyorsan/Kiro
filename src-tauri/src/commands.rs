@@ -855,6 +855,19 @@ fn launch_path(path: &str, args: Option<&str>) {
     }
 }
 
+/// Opens a file with a specific application: what a file dropped onto a dock
+/// icon does. The path is quoted so a space in the file name survives.
+#[tauri::command]
+pub fn open_file_with(app_path: String, file_path: String) -> Result<(), String> {
+    let file = std::path::Path::new(&file_path);
+    if !file.exists() {
+        return Err(format!("File not found: {file_path}"));
+    }
+    let quoted = format!("\"{}\"", file_path.trim_matches('"'));
+    launch_path(&app_path, Some(&quoted));
+    Ok(())
+}
+
 /// Some apps draw their main window from a helper process that lives inside the
 /// app's own install folder: Steam uses `steamwebhelper.exe`, Epic uses
 /// `EpicWebHelper.exe`. The window still carries the app's display name, so the
@@ -2157,10 +2170,55 @@ pub async fn get_app_icon(app: AppHandle, path: String, name: Option<String>, hw
     Ok(file_icon)
 }
 
+/// Windows accepts `\\` as a separator, so a path that was serialized twice
+/// (`C:\\Program Files\\Google\\Chrome\\...`) still launches, but every lookup
+/// that compares it as a string misses: the icon came back empty and the dock
+/// fell back to the app's first letter. Collapse the runs, keeping a leading
+/// UNC prefix (`\\server\share`) intact.
+fn normalize_pinned_path(path: &str) -> String {
+    if !path.contains("\\\\") {
+        return path.to_string();
+    }
+    let (head, rest) = match path.strip_prefix("\\\\") {
+        Some(rest) => ("\\\\", rest),
+        None => ("", path),
+    };
+    let mut out = String::with_capacity(path.len());
+    out.push_str(head);
+    let mut prev_sep = false;
+    for ch in rest.chars() {
+        if ch == '\\' {
+            if prev_sep {
+                continue;
+            }
+            prev_sep = true;
+        } else {
+            prev_sep = false;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// Rewrites doubled separators in place. Returns true when anything changed.
+fn normalize_pinned_paths(apps: &mut [AppInfo]) -> bool {
+    let mut changed = false;
+    for app in apps.iter_mut() {
+        let fixed = normalize_pinned_path(&app.path);
+        if fixed != app.path {
+            app.path = fixed;
+            changed = true;
+        }
+    }
+    changed
+}
+
 #[tauri::command]
 pub fn save_pinned_apps(app: AppHandle, apps: Vec<AppInfo>) -> Result<(), String> {
     let path = app.path().app_config_dir().map_err(|e| e.to_string())?.join("pinned_apps.json");
     if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
+    let mut apps = apps;
+    normalize_pinned_paths(&mut apps);
     let content = serde_json::to_string(&apps).map_err(|e| e.to_string())?;
     std::fs::write(path, content).map_err(|e| e.to_string())?;
     Ok(())
@@ -2234,7 +2292,10 @@ pub async fn load_pinned_apps(app: AppHandle) -> Vec<AppInfo> {
             // (Steam's window belongs to steamwebhelper.exe). Repair them once
             // so an existing pin starts working without re-pinning.
             let repaired = repair_pinned_targets(&mut apps);
-            if pruned || repaired {
+            // A path that went through a double JSON round-trip keeps doubled
+            // separators; it launches but no icon or string lookup matches it.
+            let normalized = normalize_pinned_paths(&mut apps);
+            if pruned || repaired || normalized {
                 let _ = save_pinned_apps(app.clone(), apps.clone());
             }
             return apps;
@@ -4131,15 +4192,29 @@ pub struct SystemMetrics {
 }
 
 #[tauri::command]
-pub fn get_system_metrics() -> SystemMetrics {
-    let (net_up, net_down) = get_network_speed().unwrap_or((0, 0));
-    SystemMetrics {
-        cpu: get_cpu_usage().unwrap_or(0),
-        ram: get_ram_usage().unwrap_or(0.0),
-        disk_free_gb: get_disk_space().unwrap_or(0),
-        net_up,
-        net_down,
-    }
+pub async fn get_system_metrics() -> SystemMetrics {
+    // The notch polls this every 3s while it is open. A synchronous command runs on the
+    // main thread, so the interface-table walk (GetIfTable2 allocates and iterates every
+    // adapter) and GetDiskFreeSpaceExW stalled the window animation behind it. The work
+    // is unchanged, it just runs on the blocking pool now.
+    tauri::async_runtime::spawn_blocking(|| {
+        let (net_up, net_down) = get_network_speed().unwrap_or((0, 0));
+        SystemMetrics {
+            cpu: get_cpu_usage().unwrap_or(0),
+            ram: get_ram_usage().unwrap_or(0.0),
+            disk_free_gb: get_disk_space().unwrap_or(0),
+            net_up,
+            net_down,
+        }
+    })
+    .await
+    .unwrap_or(SystemMetrics {
+        cpu: 0,
+        ram: 0.0,
+        disk_free_gb: 0,
+        net_up: 0,
+        net_down: 0,
+    })
 }
 
 #[tauri::command]

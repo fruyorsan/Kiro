@@ -181,7 +181,20 @@ export function AboutTab({
   return (
     <div className="about-tab-container">
       <div className="about-header">
-        <img src={kiroLogo} className="about-logo" alt="Kiro Logo" />
+        <div className="about-logo-wrap">
+          <img src={kiroLogo} className="about-logo" alt="Kiro Logo" />
+          <span className="about-flag" title="Türkiye" aria-label="Türkiye">
+            <svg viewBox="0 0 60 60" role="img" aria-hidden="true">
+              <circle cx="30" cy="30" r="30" fill="#E30A17" />
+              <circle cx="26" cy="30" r="11.5" fill="#fff" />
+              <circle cx="31.5" cy="30" r="9.2" fill="#E30A17" />
+              <polygon
+                fill="#fff"
+                points="38,25 39.12,28.46 42.76,28.46 39.81,30.59 40.94,34.05 38,31.9 35.06,34.05 36.19,30.59 33.24,28.46 36.88,28.46"
+              />
+            </svg>
+          </span>
+        </div>
         <h1 className="about-title">Kiro</h1>
         <p className="about-version">{t("about.version", { version: appVersion || "â€”" })}</p>
         <button

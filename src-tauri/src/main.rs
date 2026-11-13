@@ -181,6 +181,7 @@ fn main() {
             prepare_kiro_logo,
             prepare_note_image,
             activate_app,
+            open_file_with,
             set_menu_open,
             ai::ai_ask,
             ai::ai_open_console,

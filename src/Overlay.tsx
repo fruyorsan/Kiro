@@ -256,7 +256,7 @@ function VolumeNotch({
         lastKnownSessions = list;
         setSessions((prev) => {
           const prevByPid = new Map(prev.map((s) => [s.pid, s]));
-          return list.map((session) => {
+          const next = list.map((session) => {
             if (draggingRef.current === session.pid) {
               const local = prevByPid.get(session.pid);
               if (local) {
@@ -265,6 +265,13 @@ function VolumeNotch({
             }
             return session;
           });
+          // The list is polled every 2s; keeping the same array when nothing changed
+          // stops the whole mixer re-rendering while it sits idle.
+          const same = prev.length === next.length && prev.every((s, i) => {
+            const n = next[i];
+            return s.pid === n.pid && s.volume === n.volume && s.is_muted === n.is_muted && s.name === n.name;
+          });
+          return same ? prev : next;
         });
         setSessionsLoaded(true);
         setSessionsError(false);
@@ -876,7 +883,7 @@ function OverlayApp() {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
       } else {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => setMode('idle'), mixerExpandedRef.current ? 700 : 1500);
+        timeoutRef.current = setTimeout(() => setMode('idle'), mixerExpandedRef.current ? 700 : 900);
       }
     });
 
@@ -897,7 +904,7 @@ function OverlayApp() {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
       } else {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => setMode('idle'), 1500);
+        timeoutRef.current = setTimeout(() => setMode('idle'), 900);
       }
     });
 
