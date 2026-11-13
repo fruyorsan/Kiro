@@ -105,8 +105,11 @@ chrono-tz = "0.10"
 
 [profile.release]
 strip = true
-lto = true
-codegen-units = 1
+# Thin LTO + parallel codegen: nearly the same binary size as fat LTO but the
+# link step stops dominating the release build (fat LTO with codegen-units = 1
+# was most of the deploy time).
+lto = "thin"
+codegen-units = 16
 opt-level = "s"
 panic = "abort"
 

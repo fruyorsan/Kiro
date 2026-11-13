@@ -73,7 +73,7 @@
         "skipTaskbar": true,
         "shadow": false,
         "visible": false,
-        "dragDropEnabled": false
+        "dragDropEnabled": true
       }
     ],
     "security": {
@@ -83,7 +83,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -97,7 +97,50 @@
         "sidebarImage": "../installer/assets/sidebar.bmp",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
-        "installerHooks": "../installer/build/installer.nsh"
+        "installerHooks": "../installer/build/installer.nsh",
+        "displayLanguageSelector": true,
+        "languages": [
+          "English",
+          "Turkish",
+          "German",
+          "French",
+          "Spanish",
+          "Italian",
+          "PortugueseBR",
+          "Russian",
+          "Japanese",
+          "Korean",
+          "SimpChinese",
+          "TradChinese",
+          "Arabic",
+          "Indonesian",
+          "Vietnamese",
+          "Thai",
+          "Dutch",
+          "Polish",
+          "Swedish",
+          "Norwegian",
+          "Danish",
+          "Finnish",
+          "Czech",
+          "Slovak",
+          "Hungarian",
+          "Romanian",
+          "Ukrainian",
+          "Greek",
+          "Hebrew",
+          "Bulgarian",
+          "Croatian",
+          "Serbian",
+          "SerbianLatin",
+          "Slovenian",
+          "Malay",
+          "Catalan",
+          "Estonian",
+          "Latvian",
+          "Lithuanian",
+          "Afrikaans"
+        ]
       }
     }
   },

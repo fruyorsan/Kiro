@@ -1,15 +1,17 @@
 /*
- * Seasonal weather for the notch and the dock.
+ * Seasonal decoration & accumulation physics for the notch and the dock.
  *
- * Budget: one absolutely positioned layer per window, ~20 static spans, two
- * keyframes. Only `transform` and `opacity` animate, so the browser composites
- * them on the GPU and never touches layout or paint. Nothing here wakes a
- * timer: when the season is off, the layer is not rendered at all, and in
- * performance mode or with reduced motion it is hidden outright.
- *
- * Everything rests ON the rim, never inside the surface: the layer is clipped
- * to the surface width but allowed to paint ~26px above the top edge, so the
- * drift and the falling flakes live outside the bar, on the wallpaper.
+ * - `.season-stage`: holds the drift, falling weather from the top of the
+ *   window (`y < 0`), and gravity-scattered particles (`y > 0`) that the
+ *   pointer knocks loose.
+ * - `.season-drift`: the settled mass, one smooth SVG path driven by a height
+ *   field (snow bank / rain puddle). Rain adds an open surface line so only the
+ *   water level is outlined, not the edge where it meets the bar.
+ * - `.season-svg`: maple/oak leaves, cherry blossoms/petals, and 6-point
+ *   snowflake crystals.
+ * - `.season-snow-puff`: soft 3D snow puffs on the crest and in the air.
+ * - `.season-rain-streak` / `.season-rain-drop`: fine raindrops, crest
+ *   droplets, and `.season-ripple-ring` where a drop hits the puddle.
  */
 
 .season-layer {
@@ -17,177 +19,380 @@
   inset: 0;
   pointer-events: none;
   z-index: 6;
-  /* Top is negative on purpose: the decoration spills over the rim. */
-  clip-path: inset(-26px 0 0 0);
-  /* `contain: paint` would clip the spill again, so contain layout only. */
-  contain: layout style;
+  overflow: visible;
+  /* Let the decoration drape above and below the bar, but never spill past its
+     left and right ends: the vine and snow must stop at the bar's outline. */
+  clip-path: inset(-80px 0 -80px 0);
+}
+
+.season-stage {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.season-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  pointer-events: none;
+  will-change: transform, opacity;
+  opacity: 0;
+}
+
+.season-settled {
+  transform-origin: 50% 80%;
 }
 
 /* ------------------------------------------------------------------ drift */
 
-/* A settled grain. Its bottom edge sits a couple of pixels inside the rim so
-   it reads as resting on the edge instead of floating next to it. */
-.season-pile {
-  position: absolute;
-  left: var(--x, 50%);
-  bottom: calc(100% - var(--sink, 2px));
-  width: var(--size, 4px);
-  height: var(--size, 4px);
-  display: block;
-}
-
-/* ---------------------------------------------------------------- falling */
-
-/* The bit is a zero-width column that hangs entirely ABOVE the rim; the flake
-   is pinned to its bottom, so translating the column by 100% lands the flake
-   exactly on the edge. It fades out there, into the drift. */
-.season-bit {
-  position: absolute;
-  left: var(--x, 50%);
-  bottom: 100%;
-  width: 0;
-  height: 26px;
-  animation: season-fall var(--dur, 10s) linear var(--delay, 0s) infinite;
-}
-
-.season-bit::before {
-  content: "";
+/* The settled mass. The path is regenerated from the height field each frame:
+   its origin is the rim, negative Y above it. The underside follows the bar's
+   own corner radius (read from --season-radius), so at both ends the bank
+   drapes down over the rounded edge instead of being cut off or poking out. */
+.season-drift {
   position: absolute;
   left: 0;
-  bottom: 0;
-  width: var(--size, 4px);
-  height: var(--size, 4px);
-  display: block;
+  width: 100%;
+  overflow: visible;
+  pointer-events: none;
+  /* Shadow on the bar below, not above: the drift must sit on the rim, not hover. */
+  filter: drop-shadow(0 1px 2px rgba(8, 22, 46, 0.35));
 }
 
-/* -110% starts above the clip, so a flake fades in as it enters the band and
-   settles a hair below the rim rather than popping out of existence. */
-@keyframes season-fall {
-  0% {
-    transform: translate3d(0, -110%, 0);
-    opacity: 0;
-  }
-  18% {
-    opacity: var(--op, 0.9);
-  }
-  78% {
-    opacity: var(--op, 0.9);
-  }
-  100% {
-    transform: translate3d(var(--drift, 0px), 9%, 0);
-    opacity: 0;
-  }
+/* The settled mass. The path is regenerated from the height field each frame:
+   the coordinate system has its origin at the rim, negative Y above it. No
+   stroke: the outline lives on `.season-drift-surface` along the crest only, so
+   no bright hairline runs along the rim or past the rounded corners. */
+.season-drift-fill {
+  stroke: none;
 }
 
-/* ---------------------------------------------------------------- winter */
-
-.season-winter .season-pile,
-.season-winter .season-bit::before {
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 4px rgba(198, 226, 255, 0.75);
+/* Rain: a shallower puddle with a wet edge instead of a snow bank. */
+.season-rain .season-drift {
+  filter: drop-shadow(0 0 2px rgba(150, 205, 250, 0.3));
 }
 
-.season-winter .season-bit::before {
-  opacity: 0.9;
+/* Surface highlight along the crest of the bank / water level of the puddle. */
+.season-drift-surface {
+  fill: none;
+  stroke: rgba(240, 251, 255, 0.62);
+  stroke-width: 0.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
-.season-winter .season-pile:nth-child(3n) {
-  opacity: 0.72;
-  box-shadow: none;
+/* The fold where the bank spills past the rim and hangs over the bar's face.
+   A single shaded tone: bright snow above the rim, its underside below it. */
+.season-drift-lip {
+  stroke: none;
+  pointer-events: none;
 }
 
-/* ---------------------------------------------------------------- autumn */
-
-/* Deliberately NOT tinted from the accent: with the default mono accent the
-   accent is blue, and blue leaves read as a bug. Autumn is amber, rust and
-   orange, and it stays that way in every theme. */
-.season-autumn .season-pile,
-.season-autumn .season-bit::before {
-  border-radius: 62% 8% 62% 8%;
-  background: linear-gradient(140deg, #ffc46b, #e2622a);
-  transform: rotate(var(--rot, 0deg));
+.season-snow .season-drift-lip {
+  fill: #c2daf1;
+  fill-opacity: 0.97;
+  filter: drop-shadow(0 0.8px 1px rgba(24, 52, 86, 0.28));
 }
 
-.season-autumn .season-pile:nth-child(3n) {
-  background: linear-gradient(140deg, #ffb257, #c2451a);
-  opacity: 0.9;
+.season-rain .season-drift-lip {
+  fill: #6fa9d4;
+  fill-opacity: 0.55;
 }
 
-.season-autumn .season-pile:nth-child(4n) {
-  background: linear-gradient(140deg, #ffd08a, #a83a12);
-  opacity: 0.8;
+.season-leaves .season-drift-lip {
+  fill: #7d4c22;
+  fill-opacity: 0.95;
 }
 
-/* ---------------------------------------------------------------- spring */
-
-.season-spring .season-pile,
-.season-spring .season-bit::before {
-  border-radius: 62% 8% 30% 8%;
-  background: linear-gradient(140deg, #ffe3ee, #ff9dc0);
-  transform: rotate(var(--rot, 0deg));
+.season-blossom .season-drift-lip {
+  fill: #e490ae;
+  fill-opacity: 0.92;
 }
 
-.season-spring .season-pile {
+/* Rain/autumn/spring garland: tendrils hang along the WHOLE rim, wrapping the
+   rounded ends, so the vine covers the bar face and the gaps between icons
+   instead of clustering at the two corners. */
+.season-garland,
+.season-drips {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.season-vine-runner {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  width: 100%;
+  height: 18px;
+  background-repeat: repeat-x;
+  background-size: 180px 18px;
+  background-position: 0 0;
+  pointer-events: none;
   opacity: 0.95;
+  filter: drop-shadow(0 1px 1.4px rgba(8, 20, 10, 0.4));
 }
 
-.season-spring .season-bit::before {
-  animation: season-sway 4.5s ease-in-out infinite alternate;
+/* Rain: ivy starts exactly on the waterline, not above it. */
+.season-garland-rain .season-vine {
+  top: 0;
 }
 
-@keyframes season-sway {
-  from {
-    transform: rotate(calc(var(--rot, 0deg) - 45deg));
+.season-vine {
+  position: absolute;
+  top: -3px;
+  left: var(--vine-x, 5%);
+  width: calc(17px * var(--vine-scale, 1));
+  height: var(--vine-len, 24px);
+  margin-left: calc(-8.5px * var(--vine-scale, 1));
+  pointer-events: none;
+}
+
+.season-vine-inner {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 0;
+  transform: rotate(var(--vine-lean, 0deg));
+  animation: season-vine-sway 6.4s ease-in-out infinite;
+  animation-delay: var(--vine-delay, 0s);
+}
+
+.season-vine-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 1px 1.8px rgba(8, 20, 10, 0.5));
+}
+
+@keyframes season-vine-sway {
+  0%,
+  100% {
+    transform: rotate(calc(var(--vine-lean, 0deg) - 2.2deg));
   }
-  to {
-    transform: rotate(calc(var(--rot, 0deg) + 45deg));
-  }
-}
-
-/* ---------------------------------------------------------------- summer */
-
-/* Fireflies hover in the band above the rim instead of falling; the drift is a
-   few dim resting lights. */
-.season-summer .season-bit {
-  animation: none;
-}
-
-.season-summer .season-bit::before {
-  bottom: var(--y, 12px);
-  border-radius: 50%;
-  background: rgba(255, 226, 148, 0.95);
-  box-shadow: 0 0 6px rgba(255, 196, 84, 0.75);
-  animation: season-glow 6s ease-in-out var(--delay, 0s) infinite alternate;
-}
-
-.season-summer .season-pile {
-  border-radius: 50%;
-  background: rgba(255, 220, 140, 0.8);
-  box-shadow: 0 0 5px rgba(255, 196, 84, 0.6);
-  opacity: 0.7;
-}
-
-@keyframes season-glow {
-  from {
-    opacity: 0.12;
-    transform: translateY(0) scale(0.85);
-  }
-  to {
-    opacity: 0.9;
-    transform: translateY(-5px) scale(1.15);
+  50% {
+    transform: rotate(calc(var(--vine-lean, 0deg) + 2.6deg));
   }
 }
 
-/* ------------------------------------------------------------- safeguards */
+/* Snow/rain frozen edge: a continuous cap on the rim plus icicles hanging over
+   the bar face. Icicles are separate nodes with pixel sizes, so they keep their
+   shape on a narrow notch and on a wide dock alike. */
+.season-fringe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  pointer-events: none;
+}
 
-/* A fullscreen game owns the machine: no decoration, no compositing work. */
-html.perf-lite .season-layer {
+.season-fringe-cap {
+  position: absolute;
+  top: 0;
+  left: var(--season-radius, 18px);
+  width: calc(100% - var(--season-radius, 18px) * 2);
+  height: 12px;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 1.4px 1.8px rgba(16, 38, 68, 0.3));
+}
+
+.season-icicle {
+  position: absolute;
+  top: 1px;
+  left: var(--ice-x, 10%);
+  width: var(--ice-w, 12px);
+  height: var(--ice-h, 18px);
+  margin-left: calc(var(--ice-w, 12px) * -0.5);
+  transform-origin: 50% 0;
+  animation: season-ice-sway 7.5s ease-in-out infinite;
+  animation-delay: var(--ice-delay, 0s);
+  pointer-events: none;
+}
+
+.season-icicle svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 1.5px 1.6px rgba(18, 44, 78, 0.34));
+}
+
+.season-rain .season-icicle {
   display: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .season-layer {
-    display: none;
+.season-rain .season-fringe-cap {
+  filter: drop-shadow(0 0 2px rgba(150, 205, 250, 0.4));
+}
+
+.ice-body {
+  fill: #f3faff;
+}
+
+.ice-core {
+  fill: #ffffff;
+  opacity: 0.95;
+}
+
+.season-rain .ice-body {
+  fill: #cfe8fb;
+  fill-opacity: 0.62;
+}
+
+.season-rain .ice-core {
+  fill: #ffffff;
+  opacity: 0.6;
+}
+
+@keyframes season-ice-sway {
+  0%,
+  100% {
+    transform: rotate(-0.5deg) translateY(0);
   }
+  50% {
+    transform: rotate(0.7deg) translateY(0.4px);
+  }
+}
+
+/* On the top-of-screen notch the visible rim is the bar's bottom edge, so the
+   cap sits there and the ice hangs into the space below the bar. */
+.season-fringe-bottom {
+  top: auto;
+  bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .season-icicle {
+    animation: none;
+  }
+}
+
+.season-fringe-rain {
+  opacity: 0.96;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .season-vine-inner {
+    animation: none;
+  }
+}
+
+/* Per-season tint for the crest outline. */
+.season-snow .season-drift-surface {
+  stroke: rgba(255, 255, 255, 0.8);
+}
+
+.season-leaves .season-drift-surface {
+  stroke: rgba(255, 196, 130, 0.55);
+}
+
+.season-blossom .season-drift-surface {
+  stroke: rgba(255, 208, 222, 0.6);
+}
+
+/* Splash rings where a raindrop meets the puddle. Squashed vertically in JS so
+   they read as rings lying on the water, not circles hanging off the rim. */
+.season-ripple {
+  width: 14px;
+  height: 14px;
+  transform-origin: 50% 50%;
+}
+
+.season-ripple-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid rgba(214, 240, 255, 0.85);
+  box-shadow: 0 0 4px rgba(180, 224, 255, 0.35);
+}
+
+/* --------------------------------------------------------- particle tokens */
+
+.season-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 1px 1.6px rgba(0, 0, 0, 0.36));
+}
+
+.season-snowflake-svg {
+  filter: drop-shadow(0 0 1.4px rgba(200, 230, 255, 0.6));
+}
+
+/* Crystals resting on the snow: white arms over a blue-grey outline so the
+   facets stay readable on white instead of glowing into a soft bead. */
+.season-crystal-svg {
+  filter: drop-shadow(0 0.7px 0.6px rgba(38, 78, 128, 0.55));
+}
+
+.season-snow-puff {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 38% 35%,
+    #ffffff 0%,
+    #ebf4ff 68%,
+    rgba(218, 236, 255, 0.35) 100%
+  );
+  box-shadow:
+    0 1px 2px rgba(12, 28, 56, 0.28),
+    0 0 3.5px rgba(255, 255, 255, 0.85);
+}
+
+/* Fine, soft, natural raindrop streak */
+.season-rain-streak {
+  display: block;
+  width: 0.9px;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(195, 228, 255, 0) 0%,
+    rgba(210, 236, 255, 0.52) 60%,
+    rgba(240, 250, 255, 0.82) 100%
+  );
+}
+
+/* Glistening water droplet resting on the rim or dripping down */
+.season-rain-drop {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50% 50% 42% 42%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(190, 228, 255, 0.72) 65%,
+    rgba(145, 200, 245, 0.35) 100%
+  );
+  box-shadow: 0 0.5px 1.5px rgba(10, 30, 60, 0.32);
+}
+
+/* --------------------------------------- top-of-screen notch compatibility */
+
+/* The notch hangs from the top of the screen, so the only visible edge is its
+   bottom one: anchor the decoration there in every state, including while the
+   panel is open, and let it drape into the transparent space below the bar. */
+.screen:not(.notch-bottom-right) .kiro .season-stage {
+  top: auto;
+  bottom: 0;
+  height: 0;
+}
+
+/* -------------------------------------------------------------- safeguards */
+
+html.perf-lite .season-layer {
+  display: none !important;
 }
