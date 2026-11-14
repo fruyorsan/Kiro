@@ -12,6 +12,8 @@ type Props = {
   radius?: number;
   /** Surface attachment edge: `"top"` = floating/bottom bar; `"bottom"` = top-of-screen bezel notch. */
   edge?: "top" | "bottom";
+  /** Dock sits flush at screen bottom: omit bottom edge strokes & bottom hanging ornaments. */
+  openBottom?: boolean;
   className?: string;
 };
 
@@ -82,11 +84,11 @@ interface RippleSpec {
   maxR: number;
 }
 
-const MAX_FALLING = 18;
-const MAX_SCATTERED = 36;
+const MAX_FALLING = 20;
+const MAX_SCATTERED = 38;
 const MAX_RIPPLES = 8;
 const DRIFT_BIN_PX = 2;
-const PERIM_PAD = 16;
+const PERIM_PAD = 18;
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
@@ -194,15 +196,17 @@ function perimeterLength(W: number, H: number, c: CornerRadii): number {
 }
 
 /**
- * Generates lush double-strand intertwining vines/blossoms/autumn leaves or clean frosted ice
- * wrapping all 4 rounded edges cleanly while matching exact corner radii.
+ * Generates an organic open or closed border path with smooth Catmull-Rom-like quadratic curves
+ * and natural botanical clusters (varied cluster spacing + buds + leaves) rather than uniform stickers.
  */
 function buildPerimeterMarkup(
   season: SeasonEffect,
   W: number,
   H: number,
   c: CornerRadii,
-  edge: "top" | "bottom"
+  edge: "top" | "bottom",
+  openBottom: boolean,
+  uid: string
 ): string {
   if (W < 24 || H < 18) return "";
   const total = perimeterLength(W, H, c);
@@ -212,58 +216,106 @@ function buildPerimeterMarkup(
   const fmt = (n: number) => n.toFixed(1);
 
   if (season === "snow") {
-    // Clean rounded-rect frost rim hugging exact corner radii (no dashed inner ring, no jagged edges).
-    const step = 3;
-    const count = Math.max(40, Math.round(total / step));
-    const pts: string[] = [];
-    for (let i = 0; i <= count; i++) {
-      const d = (i / count) * total;
-      const p = samplePerimeter(d, W, H, c);
-      pts.push(`${fmt(p.x)},${fmt(p.y)}`);
-    }
-    const contourPath = `M ${pts.join(" L ")} Z`;
+    // Snow perimeter:
+    // - Dock (`openBottom`): soft icy shoulder frost wrapping ONLY top-left/right down the sides (zero bottom line!).
+    // - Notch (`!openBottom`): soft ambient frosted rim + cozy corner snow pockets on bottom corners too.
+    const fadeId = `kiroFrostFade-${uid}`;
+    const pocketId = `kiroSnowPocket-${uid}`;
 
-    const crystals: string[] = [];
+    const defs =
+      `<defs>` +
+      `<linearGradient id="${fadeId}" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0%" stop-color="#eaf5ff" stop-opacity="0.58"/>` +
+      `<stop offset="55%" stop-color="#cde7ff" stop-opacity="0.28"/>` +
+      `<stop offset="100%" stop-color="#b8dcff" stop-opacity="0"/>` +
+      `</linearGradient>` +
+      `<linearGradient id="${pocketId}" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0%" stop-color="#ffffff" stop-opacity="0.92"/>` +
+      `<stop offset="100%" stop-color="#b7d7f7" stop-opacity="0.72"/>` +
+      `</linearGradient>` +
+      `</defs>`;
+
+    if (openBottom) {
+      // Dock open U-arch framing left shoulder -> top -> right shoulder, fading cleanly away before bottom!
+      const sideReach = clamp(H * 0.72, 16, H - 6);
+      const archPath =
+        `M 0.5,${fmt(sideReach)} L 0.5,${fmt(c.tl)} ` +
+        `A ${fmt(c.tl)},${fmt(c.tl)} 0 0 1 ${fmt(c.tl)},0.5 ` +
+        `L ${fmt(W - c.tr)},0.5 ` +
+        `A ${fmt(c.tr)},${fmt(c.tr)} 0 0 1 ${fmt(W - 0.5)},${fmt(c.tr)} ` +
+        `L ${fmt(W - 0.5)},${fmt(sideReach)}`;
+
+      return (
+        `<g class="season-perim-frost">` +
+        defs +
+        `<path d="${archPath}" fill="none" stroke="url(#${fadeId})" stroke-width="2.6" stroke-linecap="round"/>` +
+        `</g>`
+      );
+    }
+
+    // Notch (collapsed & expanded): soft continuous frosted glow + soft organic snow drifts on bottom corners & sides.
     const topLen = Math.max(0, W - c.tl - c.tr);
     const rightLen = Math.max(0, H - c.tr - c.br);
     const botLen = Math.max(0, W - c.br - c.bl);
     const arcTR = 0.5 * Math.PI * c.tr;
     const arcBR = 0.5 * Math.PI * c.br;
     const arcBL = 0.5 * Math.PI * c.bl;
-    const arcTL = 0.5 * Math.PI * c.tl;
 
-    const cornerDists = [
-      topLen + arcTR * 0.5,
-      topLen + arcTR + rightLen + arcBR * 0.5,
-      topLen + arcTR + rightLen + arcBR + botLen + arcBL * 0.5,
-      total - arcTL * 0.5,
-    ];
+    // Soft organic rounded snow frost border path hugging exact corners.
+    const step = 3;
+    const count = Math.max(40, Math.round(total / step));
+    const outerPts: string[] = [];
+    for (let i = 0; i <= count; i++) {
+      const p = samplePerimeter((i / count) * total, W, H, c);
+      outerPts.push(`${fmt(p.x)},${fmt(p.y)}`);
+    }
 
-    cornerDists.forEach((d, idx) => {
-      if (topFlush && (idx === 0 || idx === 3)) return;
-      const p = samplePerimeter(d, W, H, c);
-      const cx = p.x + p.nx * 2.2;
-      const cy = p.y + p.ny * 2.2;
-      const size = 3.6;
-      const deg = (Math.atan2(p.ny, p.nx) * 180) / Math.PI;
-      crystals.push(
-        `<g transform="translate(${fmt(cx)},${fmt(cy)}) rotate(${fmt(deg)})" opacity="0.86">` +
-          `<path d="M-${size},0 L${size},0 M0,-${size} L0,${size} M-${size * 0.65},-${size * 0.65} L${size * 0.65},${size * 0.65} M-${size * 0.65},${size * 0.65} L${size * 0.65},-${size * 0.65}" ` +
-          `stroke="#eaf5ff" stroke-width="1.0" stroke-linecap="round" fill="none"/>` +
-          `<circle cx="0" cy="0" r="1.15" fill="#ffffff"/>` +
-          `</g>`
+    // Small cozy corner snow drifts on bottom-left & bottom-right corners + mid-side frost patches on expanded panel.
+    const pockets: string[] = [];
+    const buildArcSnowCap = (startD: number, spanD: number, maxThick: number, outSign = 1) => {
+      const steps = 12;
+      const topSide: string[] = [];
+      const botSide: string[] = [];
+      for (let k = 0; k <= steps; k++) {
+        const u = k / steps;
+        const p = samplePerimeter(startD + u * spanD, W, H, c);
+        const env = Math.sin(u * Math.PI);
+        const mound = maxThick * env * env * (0.85 + 0.15 * Math.sin(u * Math.PI * 3));
+        topSide.push(`${fmt(p.x + p.nx * (outSign * mound - 0.8))},${fmt(p.y + p.ny * (outSign * mound - 0.8))}`);
+        botSide.unshift(`${fmt(p.x - p.nx * 0.8)},${fmt(p.y - p.ny * 0.8)}`);
+      }
+      return `M ${topSide.join(" L ")} L ${botSide.join(" L ")} Z`;
+    };
+
+    if (W > 200) {
+      // Bottom corner snow pillows + expanded side snow patches so expanded notch feels wintry all around.
+      pockets.push(
+        `<path d="${buildArcSnowCap(topLen + arcTR + rightLen - 8, arcBR + Math.min(28, botLen * 0.25), 5.5)}" fill="url(#${pocketId})"/>`
       );
-    });
+      pockets.push(
+        `<path d="${buildArcSnowCap(topLen + arcTR + rightLen + arcBR + botLen * 0.75, arcBL + Math.min(28, botLen * 0.25), 5.5)}" fill="url(#${pocketId})"/>`
+      );
+      if (H > 95) {
+        pockets.push(
+          `<path d="${buildArcSnowCap(topLen + arcTR + rightLen * 0.25, Math.min(55, rightLen * 0.45), 4.2)}" fill="url(#${pocketId})" opacity="0.88"/>`
+        );
+        pockets.push(
+          `<path d="${buildArcSnowCap(topLen + arcTR + rightLen + arcBR + botLen + arcBL + Math.max(0, H - c.bl - c.tl) * 0.3, Math.min(55, Math.max(20, (H - c.bl - c.tl) * 0.45)), 4.2)}" fill="url(#${pocketId})" opacity="0.88"/>`
+        );
+      }
+    }
 
     return (
       `<g class="season-perim-frost">` +
-      `<path d="${contourPath}" fill="none" stroke="rgba(218,238,255,0.46)" stroke-width="2.2" stroke-linejoin="round"/>` +
-      crystals.join("") +
+      defs +
+      `<path d="M ${outerPts.join(" L ")} Z" fill="none" stroke="rgba(214,237,255,0.34)" stroke-width="2.4" stroke-linejoin="round"/>` +
+      `<path d="M ${outerPts.join(" L ")} Z" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="5.2" stroke-linejoin="round" opacity="0.35"/>` +
+      pockets.join("") +
       `</g>`
     );
   }
 
-  // Lush intertwining twin vine strands (rich thickness & organic twist, sampled every 2.5px so corners curve smoothly!).
+  // Organic winding vine stems with uneven, natural botanical clusters (NEVER mechanical equidistant soldiers!).
   const step = 2.5;
   const segCount = Math.max(48, Math.round(total / step));
   const strandA: string[] = [];
@@ -272,132 +324,19 @@ function buildPerimeterMarkup(
   for (let i = 0; i <= segCount; i++) {
     const d = (i / segCount) * total;
     const p = samplePerimeter(d, W, H, c);
-    const wA = 1.5 * Math.sin(d * 0.13) + 0.5;
-    const wB = 1.3 * Math.cos(d * 0.13 + 0.8) + 0.9;
+    // Skip lower vine bulge on Dock bottom edge so nothing gets cut off at monitor bottom edge.
+    const hideDockBottom = openBottom && p.zone === "bottom";
+    const wA = 1.45 * Math.sin(d * 0.115) + 0.45 * Math.sin(d * 0.29) + 0.35;
+    const wB = 1.25 * Math.cos(d * 0.115 + 0.9) + 0.35 * Math.cos(d * 0.23) + 0.7;
     const clampInward = (off: number) => {
+      if (hideDockBottom) return -0.8;
       if (topFlush && p.zone === "top") return clamp(off, -0.3, 0.7);
-      if (p.zone === "corner") return clamp(off, -0.4, 1.4);
-      if (p.zone === "top" || p.zone === "bottom") return clamp(off, -0.5, 2.2);
-      return clamp(off, -0.8, 2.8);
+      if (p.zone === "corner") return clamp(off, -0.35, 1.35);
+      if (p.zone === "top" || p.zone === "bottom") return clamp(off, -0.45, 2.0);
+      return clamp(off, -0.7, 2.5);
     };
-    const oA = clampInward(wA);
-    const oB = clampInward(wB);
-    strandA.push(`${fmt(p.x + p.nx * oA)},${fmt(p.y + p.ny * oA)}`);
-    strandB.push(`${fmt(p.x + p.nx * oB)},${fmt(p.y + p.ny * oB)}`);
-  }
-
-  const pathA = `M ${strandA.join(" L ")} Z`;
-  const pathB = `M ${strandB.join(" L ")} Z`;
-
-  const ornaments: string[] = [];
-  const spacing = season === "rain" ? 14 : season === "leaves" ? 14 : 17;
-  const itemCount = Math.max(16, Math.floor(total / spacing));
-
-  const leafShades =
-    season === "rain"
-      ? ["#1d5e2d", "#297a3b", "#37964a", "#4aad5a", "#246c35"]
-      : season === "leaves"
-      ? ["#d95826", "#eb8a24", "#b83622", "#e8b32a", "#c94c24"]
-      : ["#4f8a48", "#65a358", "#3f743b"];
-
-  for (let i = 0; i < itemCount; i++) {
-    const jitter = (seededNoise(i, 3) - 0.5) * spacing * 0.45;
-    const d = (i + 0.5) * (total / itemCount) + jitter;
-    const p = samplePerimeter(d, W, H, c);
-
-    if (topFlush && p.zone === "top" && i % 3 !== 0) continue;
-
-    const isCornerOrSide = p.zone === "corner" || p.zone === "left" || p.zone === "right";
-
-    const outAng = (Math.atan2(p.ny, p.nx) * 180) / Math.PI;
-    const swingSign = i % 2 === 0 ? 1 : -1;
-    const tilt = swingSign * (26 + seededNoise(i, 7) * 28);
-    const scaleBase = isCornerOrSide
-      ? 1.02 + seededNoise(i, 11) * 0.34
-      : 0.94 + seededNoise(i, 11) * 0.32;
-
-    const pushOut = topFlush && p.zone === "top" ? 0.5 : isCornerOrSide ? 2.4 : 1.7;
-    const ox = p.x + p.nx * pushOut;
-    const oy = p.y + p.ny * pushOut;
-
-    if (season === "rain") {
-      const fill = leafShades[i % leafShades.length];
-      ornaments.push(
-        `<g transform="translate(${fmt(ox)},${fmt(oy)}) rotate(${fmt(outAng + tilt)}) scale(${fmt(scaleBase)})">` +
-          `<path d="M0,0 C1.8,-3.6 5.2,-4.4 6.8,-1.8 C8.8,-2.8 11.2,-1.1 11.8,0 C11.2,1.1 8.8,2.8 6.8,1.8 C5.2,4.4 1.8,3.6 0,0 Z" ` +
-          `fill="${fill}" stroke="#123d1c" stroke-width="0.65"/>` +
-          `<path d="M0.6,0 L8.5,0 M3.5,0 L5.8,-1.8 M3.5,0 L5.8,1.8" stroke="#8ce89a" stroke-opacity="0.52" stroke-width="0.55" fill="none" stroke-linecap="round"/>` +
-          `</g>`
-      );
-
-      if (isCornerOrSide && i % 3 === 0) {
-        const tx = p.x + p.nx * 3.6;
-        const ty = p.y + p.ny * 3.6;
-        ornaments.push(
-          `<path d="M0,0 Q3,-3 5,0 T8,2.2 Q9.5,3.2 8.2,4.4" transform="translate(${fmt(tx)},${fmt(ty)}) rotate(${fmt(outAng - swingSign * 18)})" ` +
-            `fill="none" stroke="#459d52" stroke-width="0.95" stroke-linecap="round" opacity="0.82"/>`
-        );
-      }
-
-      if (i % 3 === 1) {
-        const dx = ox + p.nx * 4.2 + p.tx * swingSign * 2;
-        const dy = oy + p.ny * 4.2 + p.ty * swingSign * 2;
-        ornaments.push(
-          `<g transform="translate(${fmt(dx)},${fmt(dy)})">` +
-            `<circle cx="0" cy="0" r="1.85" fill="rgba(195,236,255,0.72)" stroke="rgba(255,255,255,0.8)" stroke-width="0.45"/>` +
-            `<circle cx="-0.55" cy="-0.55" r="0.6" fill="#ffffff"/>` +
-            `</g>`
-        );
-      }
-    } else if (season === "leaves") {
-      const fill = leafShades[i % leafShades.length];
-      const highlight = i % 2 === 0 ? "#ffd97d" : "#ffb066";
-      const isMaple = i % 2 === 0;
-      const leafPath = isMaple
-        ? "M0,0 L2.5,-2.6 L4.6,-4.4 L5.4,-1.8 L8.5,-2.8 L7.4,-0.5 L10.6,0 L7.4,0.5 L8.5,2.8 L5.4,1.8 L4.6,4.4 L2.5,2.6 Z"
-        : "M0,0 C2.6,-3.4 7.4,-3.8 10.6,0 C7.4,3.8 2.6,3.4 0,0 Z";
-
-      ornaments.push(
-        `<g transform="translate(${fmt(ox)},${fmt(oy)}) rotate(${fmt(outAng + tilt)}) scale(${fmt(scaleBase)})">` +
-          `<path d="${leafPath}" fill="${fill}" stroke="rgba(72,24,10,0.65)" stroke-width="0.55" stroke-linejoin="round"/>` +
-          `<path d="M1.2,0 L8.2,0" stroke="${highlight}" stroke-opacity="0.48" stroke-width="0.55" stroke-linecap="round"/>` +
-          `</g>`
-      );
-
-      if (isCornerOrSide && i % 4 === 0) {
-        ornaments.push(
-          `<circle cx="${fmt(ox + p.nx * 3.8)}" cy="${fmt(oy + p.ny * 3.8)}" r="1.55" fill="#d43f26" stroke="#ffad85" stroke-width="0.4"/>`
-        );
-      }
-    } else if (season === "blossom") {
-      const leafColor = leafShades[i % leafShades.length];
-      ornaments.push(
-        `<path d="M0,0 C2.4,-2.4 5.8,-2.2 7.8,0 C5.8,2.2 2.4,2.4 0,0 Z" ` +
-          `transform="translate(${fmt(ox)},${fmt(oy)}) rotate(${fmt(outAng + tilt * 1.15)}) scale(${fmt(scaleBase * 0.9)})" ` +
-          `fill="${leafColor}" stroke="#274f24" stroke-width="0.5"/>`
-      );
-
-      if (i % 2 === 0 || isCornerOrSide) {
-        const bx = ox + p.nx * (isCornerOrSide ? 3.8 : 2.6);
-        const by = oy + p.ny * (isCornerOrSide ? 3.8 : 2.6);
-        const fScale = scaleBase * (isCornerOrSide ? 1.0 : 0.92);
-        const rot = outAng + i * 23;
-        const petals = [0, 72, 144, 216, 288]
-          .map(
-            (deg) =>
-              `<ellipse cx="3.3" cy="0" rx="2.7" ry="1.85" transform="rotate(${deg})" fill="${
-                i % 3 === 0 ? "#ffd4e4" : "#ffb5cf"
-              }" stroke="rgba(255,255,255,0.55)" stroke-width="0.35"/>`
-          )
-          .join("");
-        ornaments.push(
-          `<g transform="translate(${fmt(bx)},${fmt(by)}) rotate(${fmt(rot)}) scale(${fmt(fScale)})">` +
-            petals +
-            `<circle cx="0" cy="0" r="1.45" fill="#fff099" stroke="#e68a5c" stroke-width="0.4"/>` +
-            `</g>`
-        );
-      }
-    }
+    strandA.push(`${fmt(p.x + p.nx * clampInward(wA))},${fmt(p.y + p.ny * clampInward(wA))}`);
+    strandB.push(`${fmt(p.x + p.nx * clampInward(wB))},${fmt(p.y + p.ny * clampInward(wB))}`);
   }
 
   const stemPrimary =
@@ -405,64 +344,224 @@ function buildPerimeterMarkup(
   const stemSecondary =
     season === "rain" ? "#348943" : season === "blossom" ? "#724c3c" : "#865429";
 
-  return (
-    `<g class="season-perim-vine">` +
-    `<path d="${pathA}" fill="none" stroke="${stemPrimary}" stroke-width="2.15" stroke-linejoin="round" stroke-linecap="round"/>` +
-    `<path d="${pathB}" fill="none" stroke="${stemSecondary}" stroke-width="1.35" stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>` +
-    ornaments.join("") +
-    `</g>`
-  );
+  let stemsSvg = "";
+  if (openBottom) {
+    // Open U-arch for Dock so the bottom screen-touching edge stays totally clean.
+    const leftD = perimeterLength(W, H, c) - Math.max(0, H - c.bl - c.tl) * 0.2;
+    const rightD = Math.max(0, W - c.tl - c.tr) + 0.5 * Math.PI * c.tr + Math.max(0, H - c.tr - c.br) * 0.88;
+    const openPtsA: string[] = [];
+    const openPtsB: string[] = [];
+    const span = (total - leftD) + rightD;
+    const steps = Math.max(36, Math.round(span / 2.5));
+    for (let i = 0; i <= steps; i++) {
+      const d = leftD + (i / steps) * span;
+      const p = samplePerimeter(d, W, H, c);
+      const wA = 1.45 * Math.sin(d * 0.115) + 0.45 * Math.sin(d * 0.29) + 0.35;
+      const wB = 1.25 * Math.cos(d * 0.115 + 0.9) + 0.7;
+      openPtsA.push(`${fmt(p.x + p.nx * clamp(wA, -0.4, 2.1))},${fmt(p.y + p.ny * clamp(wA, -0.4, 2.1))}`);
+      openPtsB.push(`${fmt(p.x + p.nx * clamp(wB, -0.4, 2.1))},${fmt(p.y + p.ny * clamp(wB, -0.4, 2.1))}`);
+    }
+    stemsSvg =
+      `<path d="M ${openPtsA.join(" L ")}" fill="none" stroke="${stemPrimary}" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="M ${openPtsB.join(" L ")}" fill="none" stroke="${stemSecondary}" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>`;
+  } else {
+    stemsSvg =
+      `<path d="M ${strandA.join(" L ")} Z" fill="none" stroke="${stemPrimary}" stroke-width="2.15" stroke-linejoin="round" stroke-linecap="round"/>` +
+      `<path d="M ${strandB.join(" L ")} Z" fill="none" stroke="${stemSecondary}" stroke-width="1.35" stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>`;
+  }
+
+  // Natural asymmetric botanical cluster walker (clusters of 2-4 blooms/leaves separated by organic stem gaps!).
+  const ornaments: string[] = [];
+  const leafShades =
+    season === "rain"
+      ? ["#1d5e2d", "#297a3b", "#37964a", "#4aad5a", "#246c35"]
+      : season === "leaves"
+      ? ["#d95826", "#eb8a24", "#b83622", "#e8b32a", "#c94c24"]
+      : ["#4f8a48", "#65a358", "#3f743b"];
+
+  let cursorD = 8 + seededNoise(1, 5) * 14;
+  let clusterIdx = 0;
+
+  while (cursorD < total - 6) {
+    const clusterSize = 1 + Math.floor(seededNoise(clusterIdx, 13) * 3); // 1 to 3 items grouped organically
+    for (let m = 0; m < clusterSize; m++) {
+      const localD = cursorD + m * (6.5 + seededNoise(clusterIdx * 7 + m, 17) * 5.5);
+      if (localD >= total) break;
+      const p = samplePerimeter(localD, W, H, c);
+
+      if (openBottom && p.zone === "bottom") continue;
+      if (topFlush && p.zone === "top" && (clusterIdx + m) % 3 !== 0) continue;
+
+      const idxSeed = clusterIdx * 11 + m;
+      const isCornerOrSide = p.zone === "corner" || p.zone === "left" || p.zone === "right";
+      const outAng = (Math.atan2(p.ny, p.nx) * 180) / Math.PI;
+      const swingSign = seededNoise(idxSeed, 19) > 0.5 ? 1 : -1;
+      const tilt = swingSign * (18 + seededNoise(idxSeed, 23) * 44);
+      const sizeRand = 0.68 + seededNoise(idxSeed, 29) * 0.62; // Genuine size hierarchy (0.68..1.30)!
+      const pushOut = topFlush && p.zone === "top" ? 0.45 : (1.2 + seededNoise(idxSeed, 31) * 2.2);
+      const ox = p.x + p.nx * pushOut;
+      const oy = p.y + p.ny * pushOut;
+
+      if (season === "rain") {
+        const fill = leafShades[idxSeed % leafShades.length];
+        ornaments.push(
+          `<g transform="translate(${fmt(ox)},${fmt(oy)}) rotate(${fmt(outAng + tilt)}) scale(${fmt(sizeRand)})">` +
+            `<path d="M0,0 C1.8,-3.6 5.2,-4.4 6.8,-1.8 C8.8,-2.8 11.2,-1.1 11.8,0 C11.2,1.1 8.8,2.8 6.8,1.8 C5.2,4.4 1.8,3.6 0,0 Z" ` +
+            `fill="${fill}" stroke="#123d1c" stroke-width="0.62"/>` +
+            `<path d="M0.6,0 L8.5,0 M3.5,0 L5.8,-1.8 M3.5,0 L5.8,1.8" stroke="#8ce89a" stroke-opacity="0.52" stroke-width="0.52" fill="none" stroke-linecap="round"/>` +
+            `</g>`
+        );
+        if (m === 0 && seededNoise(idxSeed, 37) > 0.58) {
+          const tx = p.x + p.nx * 2.8;
+          const ty = p.y + p.ny * 2.8;
+          ornaments.push(
+            `<path d="M0,0 Q3.2,-3.2 5.4,0.2 T8.5,2.4 Q9.8,3.5 8.4,4.8" transform="translate(${fmt(tx)},${fmt(ty)}) rotate(${fmt(outAng - swingSign * 22)})" ` +
+              `fill="none" stroke="#459d52" stroke-width="0.95" stroke-linecap="round" opacity="0.84"/>`
+          );
+        }
+        if (m === clusterSize - 1 && seededNoise(idxSeed, 41) > 0.55) {
+          const dx = ox + p.nx * 3.8 + p.tx * swingSign * 2;
+          const dy = oy + p.ny * 3.8 + p.ty * swingSign * 2;
+          ornaments.push(
+            `<g transform="translate(${fmt(dx)},${fmt(dy)})">` +
+              `<circle cx="0" cy="0" r="1.8" fill="rgba(195,236,255,0.78)" stroke="rgba(255,255,255,0.82)" stroke-width="0.4"/>` +
+              `<circle cx="-0.55" cy="-0.55" r="0.58" fill="#ffffff"/>` +
+              `</g>`
+          );
+        }
+      } else if (season === "leaves") {
+        const fill = leafShades[idxSeed % leafShades.length];
+        const highlight = idxSeed % 2 === 0 ? "#ffd97d" : "#ffb066";
+        const isMaple = seededNoise(idxSeed, 43) > 0.42;
+        const leafPath = isMaple
+          ? "M0,0 L2.5,-2.6 L4.6,-4.4 L5.4,-1.8 L8.5,-2.8 L7.4,-0.5 L10.6,0 L7.4,0.5 L8.5,2.8 L5.4,1.8 L4.6,4.4 L2.5,2.6 Z"
+          : "M0,0 C2.6,-3.4 7.4,-3.8 10.6,0 C7.4,3.8 2.6,3.4 0,0 Z";
+
+        ornaments.push(
+          `<g transform="translate(${fmt(ox)},${fmt(oy)}) rotate(${fmt(outAng + tilt)}) scale(${fmt(sizeRand)})">` +
+            `<path d="${leafPath}" fill="${fill}" stroke="rgba(72,24,10,0.65)" stroke-width="0.55" stroke-linejoin="round"/>` +
+            `<path d="M1.2,0 L8.2,0" stroke="${highlight}" stroke-opacity="0.48" stroke-width="0.55" stroke-linecap="round"/>` +
+            `</g>`
+        );
+        if (isCornerOrSide && m === 0 && seededNoise(idxSeed, 47) > 0.6) {
+          ornaments.push(
+            `<circle cx="${fmt(ox + p.nx * 3.4)}" cy="${fmt(oy + p.ny * 3.4)}" r="1.45" fill="#d43f26" stroke="#ffad85" stroke-width="0.4"/>`
+          );
+        }
+      } else if (season === "blossom") {
+        // Tuck 1-2 natural sage leaves beneath buds, then render either a rich open flower or a small closed bud!
+        const leafColor = leafShades[idxSeed % leafShades.length];
+        if (m === 0 || seededNoise(idxSeed, 53) > 0.48) {
+          ornaments.push(
+            `<path d="M0,0 C2.2,-2.2 5.4,-2.0 7.4,0 C5.4,2.0 2.2,2.2 0,0 Z" ` +
+              `transform="translate(${fmt(ox)},${fmt(oy)}) rotate(${fmt(outAng + swingSign * 42)}) scale(${fmt(sizeRand * 0.88)})" ` +
+              `fill="${leafColor}" stroke="#274f24" stroke-width="0.48"/>`
+          );
+        }
+
+        const isBud = m > 0 && seededNoise(idxSeed, 59) > 0.45;
+        const bx = ox + p.nx * (isCornerOrSide ? 3.2 : 2.1);
+        const by = oy + p.ny * (isCornerOrSide ? 3.2 : 2.1);
+        if (isBud) {
+          ornaments.push(
+            `<ellipse cx="0" cy="0" rx="2.5" ry="1.5" transform="translate(${fmt(bx)},${fmt(by)}) rotate(${fmt(outAng + tilt)})" ` +
+              `fill="#ff96bf" stroke="#b9567d" stroke-width="0.4"/>`
+          );
+        } else {
+          const fScale = sizeRand * 0.92;
+          const rot = outAng + idxSeed * 31;
+          const petals = [0, 72, 144, 216, 288]
+            .map(
+              (deg) =>
+                `<ellipse cx="3.2" cy="0" rx="2.6" ry="1.8" transform="rotate(${deg})" fill="${
+                  idxSeed % 3 === 0 ? "#ffe0ec" : "#ffb5cf"
+                }" stroke="rgba(255,255,255,0.58)" stroke-width="0.35"/>`
+            )
+            .join("");
+          ornaments.push(
+            `<g transform="translate(${fmt(bx)},${fmt(by)}) rotate(${fmt(rot)}) scale(${fmt(fScale)})">` +
+              petals +
+              `<circle cx="0" cy="0" r="1.35" fill="#fff099" stroke="#e68a5c" stroke-width="0.4"/>` +
+              `</g>`
+          );
+        }
+      }
+    }
+
+    // Irregular organic breathing room between clusters (so flowers/leaves don't look stamped!).
+    const baseGap = season === "blossom" ? 24 : 20;
+    const randomGap = seededNoise(clusterIdx, 61) * (season === "blossom" ? 30 : 24);
+    cursorD += clusterSize * 8 + baseGap + randomGap;
+    clusterIdx++;
+  }
+
+  return `<g class="season-perim-vine">${stemsSvg}${ornaments.join("")}</g>`;
 }
 
+/** Asymmetric natural groups of translucent curved ice droplets along shoulder edges. */
 function buildIcicles(W: number, c: CornerRadii, edge: "top" | "bottom"): IcicleSpec[] {
-  if (W < 90) return [];
+  if (W < 95) return [];
   const specs: IcicleSpec[] = [];
   const yAnchor = 0.5;
-  const shoulderStart = Math.max(10, Math.max(c.tl, c.tr) * 0.72);
-  const isNarrow = W < 340;
-  const count = isNarrow ? 4 : clamp(Math.floor(W / 44), 6, 12);
+  const shoulderStart = Math.max(12, Math.max(c.tl, c.tr) * 0.85);
+  const usableW = W - 2 * shoulderStart;
+  if (usableW < 30) return [];
 
-  let idx = 0;
-  for (let i = 0; i < count; i++) {
-    const u = (i + 0.5) / count;
-    if (isNarrow && u > 0.24 && u < 0.76) continue;
-    const x = shoulderStart + u * (W - 2 * shoulderStart);
-    const edgeFactor = Math.min(u, 1 - u) * 2;
-    const maxLen = edge === "bottom" ? 6.5 : isNarrow ? 8.5 : u > 0.28 && u < 0.72 ? 7.5 : 11.5;
-    const h = clamp(maxLen - edgeFactor * 1.5 + seededNoise(i, 19) * 3.0, 5, maxLen + 2);
-    const w = 4.0 + seededNoise(i, 23) * 2.0;
-    specs.push({ id: idx++, x, y: yAnchor, w, h, phase: seededNoise(i, 29) * Math.PI * 2 });
-  }
+  // Natural asymmetric positions rather than identical equidistant teeth.
+  const anchors =
+    W < 280
+      ? [0.06, 0.14, 0.86, 0.93]
+      : [0.04, 0.09, 0.15, 0.31, 0.36, 0.67, 0.72, 0.85, 0.91, 0.96];
+
+  anchors.forEach((u, idx) => {
+    const x = shoulderStart + u * usableW;
+    const isOuter = u < 0.22 || u > 0.78;
+    const maxLen = edge === "bottom" ? 6.5 : isOuter ? 12.5 : 8.5;
+    const h = clamp(maxLen * (0.65 + seededNoise(idx, 19) * 0.55), 5, 14);
+    const w = 3.4 + seededNoise(idx, 23) * 1.8;
+    specs.push({ id: idx, x, y: yAnchor, w, h, phase: seededNoise(idx, 29) * Math.PI * 2 });
+  });
   return specs;
 }
 
+/** Smooth `snowy.aauburn.com`-style fluffy snow drift path using cubic quadratic midpoint curves. */
 function buildSnowDriftPath(bins: Float32Array, W: number, c: CornerRadii, edge: "top" | "bottom"): string {
   const n = bins.length;
-  if (n < 3 || W < 40) return "";
+  if (n < 4 || W < 40) return "";
   const r = Math.max(c.tl, c.tr);
-  const lip = 1.2;
-  const capScale = edge === "bottom" ? 0.38 : 1.0;
+  const lip = 1.6;
+  const capScale = edge === "bottom" ? 0.45 : 1.0;
 
-  const topPts: string[] = [];
-  const basePts: string[] = [];
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const sampleStep = Math.max(1, Math.floor(n / 44));
 
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < n; i += sampleStep) {
     const x = (i / (n - 1)) * W;
-    const distLeft = x;
-    const distRight = W - x;
     const cornerFade =
       r > 2
-        ? clamp(Math.min(distLeft, distRight) / (r * 0.92), 0, 1)
-        : clamp(Math.min(distLeft, distRight) / 6, 0, 1);
+        ? clamp(Math.min(x, W - x) / (r * 0.94), 0, 1)
+        : clamp(Math.min(x, W - x) / 6, 0, 1);
     const smoothFade = cornerFade * cornerFade * (3 - 2 * cornerFade);
     const h = bins[i] * smoothFade * capScale;
-    const yCrest = edge === "bottom" ? Math.max(-2.5, 2.2 - h * 0.45) : -(h - lip);
-    const yBase = edge === "bottom" ? 2.6 : lip;
-    topPts.push(`${x.toFixed(1)},${yCrest.toFixed(1)}`);
-    basePts.unshift(`${x.toFixed(1)},${yBase.toFixed(1)}`);
+    const yCrest = edge === "bottom" ? Math.max(-3.0, 2.2 - h * 0.5) : -(h - lip);
+    xs.push(x);
+    ys.push(yCrest);
+  }
+  if (xs[xs.length - 1] !== W) {
+    xs.push(W);
+    ys.push(edge === "bottom" ? 2.2 : lip);
   }
 
-  return `M ${topPts.join(" L ")} L ${basePts.join(" L ")} Z`;
+  let d = `M ${xs[0].toFixed(1)},${ys[0].toFixed(1)}`;
+  for (let i = 1; i < xs.length - 1; i++) {
+    const mx = (xs[i] + xs[i + 1]) * 0.5;
+    const my = (ys[i] + ys[i + 1]) * 0.5;
+    d += ` Q ${xs[i].toFixed(1)},${ys[i].toFixed(1)} ${mx.toFixed(1)},${my.toFixed(1)}`;
+  }
+  const yBase = edge === "bottom" ? 2.8 : lip;
+  d += ` L ${W.toFixed(1)},${yBase.toFixed(1)} L 0,${yBase.toFixed(1)} Z`;
+  return d;
 }
 
 export function SeasonLayer({
@@ -473,6 +572,7 @@ export function SeasonLayer({
   className,
   radius = 18,
   edge = "top",
+  openBottom = false,
 }: Props) {
   const season = useSeason();
   const uid = useId().replace(/:/g, "");
@@ -616,8 +716,11 @@ export function SeasonLayer({
   );
 
   const perimeterMarkup = useMemo(
-    () => (season && geom.w > 0 ? buildPerimeterMarkup(season, geom.w, geom.h, corners, edge) : ""),
-    [season, geom.w, geom.h, corners, edge]
+    () =>
+      season && geom.w > 0
+        ? buildPerimeterMarkup(season, geom.w, geom.h, corners, edge, openBottom, uid)
+        : "",
+    [season, geom.w, geom.h, corners, edge, openBottom, uid]
   );
 
   useEffect(() => {
@@ -635,13 +738,14 @@ export function SeasonLayer({
     if (sim.bins.length !== binCount) {
       const next = new Float32Array(binCount);
       if (season === "snow") {
-        const baseTarget = clamp(pile ? pile * 0.72 : 7.8, 4.5, 11);
+        // Generous pillowy snow mounds matching snowy.aauburn.com proportions!
+        const baseTarget = clamp(pile ? pile * 0.92 : 12.2, 8.5, 14.5);
         for (let i = 0; i < binCount; i++) {
           const u = i / Math.max(1, binCount - 1);
           const wave =
-            0.55 +
-            0.25 * Math.sin(u * Math.PI * 3.2) +
-            0.2 * Math.cos(u * Math.PI * 7.5 + 0.8);
+            0.52 +
+            0.28 * Math.sin(u * Math.PI * 2.8 + 0.4) +
+            0.2 * Math.cos(u * Math.PI * 6.5 + 1.1);
           next[i] = baseTarget * wave;
         }
       }
@@ -655,7 +759,7 @@ export function SeasonLayer({
     }
 
     sim.dirtyDrift = true;
-    const count = clamp(density ?? 12, 6, MAX_FALLING);
+    const count = clamp(density ?? 14, 6, MAX_FALLING);
     for (let i = 0; i < MAX_FALLING; i++) {
       const p = sim.falling[i];
       if (i < count) {
@@ -761,7 +865,7 @@ export function SeasonLayer({
       const nearBottom = Math.abs(ry - sim.h) < 18;
       const nearLeft = Math.abs(rx) < 18;
       const nearRight = Math.abs(rx - sim.w) < 18;
-      const onRim = nearTop || nearBottom || nearLeft || nearRight;
+      const onRim = nearTop || (!openBottom && nearBottom) || nearLeft || nearRight;
 
       if (sim.season === "snow") {
         for (let i = 0; i < sim.icicles.length; i++) {
@@ -813,7 +917,7 @@ export function SeasonLayer({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerdown", onDown);
     };
-  }, [season, effectivePaused, scatter, geom.w]);
+  }, [season, effectivePaused, scatter, geom.w, openBottom]);
 
   useEffect(() => {
     if (!season || effectivePaused || geom.w <= 0) return;
@@ -835,7 +939,7 @@ export function SeasonLayer({
           }
           const g = icicleRefs.current[i];
           if (g) {
-            const sway = Math.sin(now * 0.0018 + sim.icicles[i].phase) * 1.4;
+            const sway = Math.sin(now * 0.0018 + sim.icicles[i].phase) * 1.3;
             const sy = h <= 0.02 ? 0 : h;
             const sx = 0.72 + 0.28 * h;
             g.style.opacity = h <= 0.02 ? "0" : String(0.25 + 0.75 * h);
@@ -861,15 +965,17 @@ export function SeasonLayer({
         p.rot += p.vr * dt;
 
         if (sim.season === "snow" && sim.bins.length > 0) {
-          const hitTop = p.y >= -4 && p.y <= 5;
-          const cornerMargin = Math.max(sim.corners.tl, sim.corners.tr) * 0.7;
-          if (hitTop && p.x > cornerMargin && p.x < sim.w - cornerMargin && Math.random() < 0.35) {
-            const bIdx = clamp(Math.round((p.x / sim.w) * (sim.bins.length - 1)), 1, sim.bins.length - 2);
-            const maxH = sim.w < 340 ? 9.5 : 12.0;
+          const hitTop = p.y >= -6 && p.y <= 5;
+          const cornerMargin = Math.max(sim.corners.tl, sim.corners.tr) * 0.68;
+          if (hitTop && p.x > cornerMargin && p.x < sim.w - cornerMargin && Math.random() < 0.45) {
+            const bIdx = clamp(Math.round((p.x / sim.w) * (sim.bins.length - 1)), 2, sim.bins.length - 3);
+            const maxH = sim.w < 340 ? 11.5 : 17.0;
             if (sim.bins[bIdx] < maxH) {
-              sim.bins[bIdx] = Math.min(maxH, sim.bins[bIdx] + 1.15);
-              sim.bins[bIdx - 1] = Math.min(maxH, sim.bins[bIdx - 1] + 0.55);
-              sim.bins[bIdx + 1] = Math.min(maxH, sim.bins[bIdx + 1] + 0.55);
+              sim.bins[bIdx] = Math.min(maxH, sim.bins[bIdx] + 1.65);
+              sim.bins[bIdx - 1] = Math.min(maxH, sim.bins[bIdx - 1] + 0.9);
+              sim.bins[bIdx + 1] = Math.min(maxH, sim.bins[bIdx + 1] + 0.9);
+              sim.bins[bIdx - 2] = Math.min(maxH, sim.bins[bIdx - 2] + 0.4);
+              sim.bins[bIdx + 2] = Math.min(maxH, sim.bins[bIdx + 2] + 0.4);
               sim.dirtyDrift = true;
             }
             p.y = -24 - Math.random() * 40;
@@ -995,24 +1101,24 @@ export function SeasonLayer({
       {season === "snow" && geom.w > 0 && (
         <svg
           className="season-snow-svg"
-          viewBox={`0 -22 ${geom.w} ${geom.h + 44}`}
+          viewBox={`0 -24 ${geom.w} ${geom.h + 48}`}
           style={{
-            top: -22,
+            top: -24,
             left: 0,
             width: geom.w,
-            height: geom.h + 44,
+            height: geom.h + 48,
           }}
         >
           <defs>
             <linearGradient id={snowGradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.98" />
-              <stop offset="68%" stopColor="#e8f3ff" stopOpacity="0.96" />
-              <stop offset="100%" stopColor="#bdd7f4" stopOpacity="0.88" />
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.99" />
+              <stop offset="62%" stopColor="#e7f3ff" stopOpacity="0.96" />
+              <stop offset="100%" stopColor="#b0d2f5" stopOpacity="0.88" />
             </linearGradient>
-            <linearGradient id={iceGradId} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.92" />
-              <stop offset="55%" stopColor="#cfe8ff" stopOpacity="0.78" />
-              <stop offset="100%" stopColor="#8bc0ee" stopOpacity="0.62" />
+            <linearGradient id={iceGradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
+              <stop offset="55%" stopColor="#cce8ff" stopOpacity="0.68" />
+              <stop offset="100%" stopColor="#82bef0" stopOpacity="0.48" />
             </linearGradient>
           </defs>
 
@@ -1020,29 +1126,50 @@ export function SeasonLayer({
           <path
             ref={driftShineRef}
             fill="none"
-            stroke="rgba(255,255,255,0.9)"
-            strokeWidth="1"
+            stroke="rgba(255,255,255,0.92)"
+            strokeWidth="1.2"
             className="season-drift-shine"
           />
 
           <g className="season-icicle-group">
-            {icicles.map((ic, idx) => (
-              <g
-                key={ic.id}
-                ref={(el) => {
-                  icicleRefs.current[idx] = el;
-                }}
-                className="season-icicle-node"
-                style={{ transformOrigin: `${ic.x.toFixed(1)}px ${ic.y.toFixed(1)}px` }}
-              >
-                <polygon
-                  points={`${(ic.x - ic.w * 0.5).toFixed(1)},${ic.y.toFixed(1)} ${(ic.x + ic.w * 0.5).toFixed(1)},${ic.y.toFixed(1)} ${(ic.x + 0.4).toFixed(1)},${(ic.y + ic.h).toFixed(1)}`}
-                  fill={`url(#${iceGradId})`}
-                  stroke="rgba(255,255,255,0.6)"
-                  strokeWidth="0.45"
-                />
-              </g>
-            ))}
+            {icicles.map((ic, idx) => {
+              const half = ic.w * 0.5;
+              const x0 = ic.x;
+              const y0 = ic.y;
+              // Translucent tapered ice-droplet curve + crisp highlight glint (never flat harsh teeth).
+              const icePath =
+                `M ${(x0 - half).toFixed(1)},${y0.toFixed(1)} ` +
+                `Q ${(x0 - half * 0.45).toFixed(1)},${(y0 + ic.h * 0.48).toFixed(1)} ${(x0 - 0.6).toFixed(1)},${(y0 + ic.h - 1.2).toFixed(1)} ` +
+                `Q ${x0.toFixed(1)},${(y0 + ic.h + 0.6).toFixed(1)} ${(x0 + 0.7).toFixed(1)},${(y0 + ic.h - 1.2).toFixed(1)} ` +
+                `Q ${(x0 + half * 0.45).toFixed(1)},${(y0 + ic.h * 0.48).toFixed(1)} ${(x0 + half).toFixed(1)},${y0.toFixed(1)} Z`;
+
+              return (
+                <g
+                  key={ic.id}
+                  ref={(el) => {
+                    icicleRefs.current[idx] = el;
+                  }}
+                  className="season-icicle-node"
+                  style={{ transformOrigin: `${x0.toFixed(1)}px ${y0.toFixed(1)}px` }}
+                >
+                  <path
+                    d={icePath}
+                    fill={`url(#${iceGradId})`}
+                    stroke="rgba(255,255,255,0.45)"
+                    strokeWidth="0.4"
+                  />
+                  <line
+                    x1={(x0 - half * 0.25).toFixed(1)}
+                    y1={(y0 + 1.2).toFixed(1)}
+                    x2={(x0 - 0.2).toFixed(1)}
+                    y2={(y0 + ic.h * 0.72).toFixed(1)}
+                    stroke="rgba(255,255,255,0.78)"
+                    strokeWidth="0.55"
+                    strokeLinecap="round"
+                  />
+                </g>
+              );
+            })}
           </g>
         </svg>
       )}

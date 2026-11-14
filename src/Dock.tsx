@@ -1495,8 +1495,9 @@ const Dock = memo(function Dock() {
         />
         <SeasonLayer
           density={12}
-          pile={10}
+          pile={14}
           paused={isHidden}
+          openBottom
           radius={(isImpacted || isExpanded) && !isHidden ? 18 : 17}
         />
         <AnimatePresence>
