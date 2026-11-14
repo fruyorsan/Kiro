@@ -3139,3 +3139,569 @@ input:checked + .slider:before {
   .setting-divider { margin-left: 14px; }
   .setting-item { padding: 10px 12px; }
 }
+
+/* ==========================================================================
+   Settings Shell Redesign: Brand Card, Instant Search, Groups, Hero, Preview
+   ========================================================================== */
+
+.settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-brand-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(124, 156, 255, 0.14), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+}
+
+.brand-logo-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #ffffff;
+  background: linear-gradient(135deg, #6b8cff, #4763d6);
+  box-shadow: 0 3px 10px rgba(107, 140, 255, 0.36);
+}
+
+.brand-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.brand-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text, #f3f5fa);
+  line-height: 1.2;
+}
+
+.brand-sub {
+  font-size: 10.5px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.56));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-ver-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-search-icon {
+  position: absolute;
+  left: 10px;
+  color: rgba(255, 255, 255, 0.48);
+  pointer-events: none;
+}
+
+.sidebar-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 26px 0 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text, #f4f6fb);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sidebar-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.sidebar-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.sidebar-search-input:focus {
+  border-color: rgba(124, 156, 255, 0.58);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(124, 156, 255, 0.15);
+}
+
+.sidebar-search-clear {
+  position: absolute;
+  right: 7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.sidebar-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.search-hit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.search-hit-btn:hover,
+.search-hit-btn.is-current {
+  background: rgba(124, 156, 255, 0.14);
+  border-color: rgba(124, 156, 255, 0.35);
+}
+
+.search-hit-title {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text, #eef2ff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-hit-tab {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.68);
+  flex-shrink: 0;
+}
+
+.sidebar-search-empty {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  padding: 18px 8px;
+}
+
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.sidebar-group-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  padding: 2px 8px 4px;
+}
+
+.side-tab {
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.side-tab-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.72);
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.side-tab.active .side-tab-icon {
+  background: rgba(124, 156, 255, 0.24);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(107, 140, 255, 0.3);
+}
+
+.settings-page-head.settings-page-head-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 18px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(124, 156, 255, 0.11), rgba(255, 255, 255, 0.025));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.page-head-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(124, 156, 255, 0.36), rgba(90, 120, 230, 0.18));
+  border: 1px solid rgba(155, 180, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(107, 140, 255, 0.26);
+}
+
+.page-head-text h1 {
+  margin: 0 0 2px;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.page-head-text p {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.72;
+}
+
+.setting-item.search-highlight {
+  background: rgba(124, 156, 255, 0.11);
+  border-radius: 10px;
+  box-shadow: inset 3px 0 0 #7c9cff;
+  transition: background 0.2s ease;
+}
+
+/* Live Appearance Mini Preview */
+.appearance-live-preview {
+  position: relative;
+  border-radius: 16px;
+  padding: 15px 16px 12px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(108, 138, 255, 0.24), transparent 55%),
+    radial-gradient(circle at 86% 80%, rgba(235, 118, 178, 0.18), transparent 55%),
+    rgba(13, 15, 21, 0.72);
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+.appearance-live-preview.is-light {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(92, 132, 255, 0.22), transparent 55%),
+    radial-gradient(circle at 86% 80%, rgba(240, 130, 180, 0.18), transparent 55%),
+    rgba(226, 232, 245, 0.85);
+}
+
+.live-preview-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 0 12px;
+}
+
+.live-mini-notch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  font-size: 11px;
+  font-weight: 600;
+  color: #f6f8ff;
+}
+
+.appearance-live-preview.is-light .live-mini-notch {
+  color: #161a24;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+}
+
+.live-mini-notch.season-badge-snow,
+.live-mini-dock.season-badge-snow {
+  box-shadow: 0 -2px 0 rgba(235, 246, 255, 0.88), 0 0 0 1.5px rgba(175, 218, 255, 0.45), 0 8px 18px rgba(0, 0, 0, 0.26);
+}
+
+.live-mini-notch.season-badge-rain,
+.live-mini-dock.season-badge-rain {
+  box-shadow: 0 0 0 1.6px rgba(68, 178, 92, 0.72), 0 8px 18px rgba(24, 92, 42, 0.34);
+}
+
+.live-mini-notch.season-badge-leaves,
+.live-mini-dock.season-badge-leaves {
+  box-shadow: 0 0 0 1.6px rgba(238, 134, 46, 0.72), 0 8px 18px rgba(120, 48, 18, 0.32);
+}
+
+.live-mini-notch.season-badge-blossom,
+.live-mini-dock.season-badge-blossom {
+  box-shadow: 0 0 0 1.6px rgba(255, 166, 206, 0.74), 0 8px 18px rgba(130, 50, 90, 0.3);
+}
+
+.mini-notch-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.mini-notch-time {
+  letter-spacing: 0.02em;
+}
+
+.mini-notch-chip {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.live-mini-dock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.mini-dock-pill {
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.appearance-live-preview.is-light .mini-dock-pill:not(:first-child) {
+  background: rgba(15, 23, 42, 0.14);
+}
+
+.live-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.live-preview-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.appearance-live-preview.is-light .live-preview-tag {
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.live-preview-badges {
+  display: flex;
+  gap: 6px;
+}
+
+.preview-chip {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: capitalize;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f4f6fc;
+}
+
+.appearance-live-preview.is-light .preview-chip {
+  background: rgba(255, 255, 255, 0.65);
+  color: #161a24;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+/* 6-Tile Visual Season Picker Grid */
+.season-setting-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.season-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 4px 16px 14px;
+}
+
+.season-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  background: rgba(255, 255, 255, 0.032);
+  color: var(--text, #edf1fa);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
+}
+
+.season-card:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.065);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.season-card-glyph {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.season-tone-auto .season-card-glyph { color: #8da6ff; }
+.season-tone-snow .season-card-glyph { color: #8fd3ff; }
+.season-tone-rain .season-card-glyph { color: #54d47a; }
+.season-tone-leaves .season-card-glyph { color: #f69c3c; }
+.season-tone-blossom .season-card-glyph { color: #ff9dc8; }
+.season-tone-off .season-card-glyph { color: rgba(255, 255, 255, 0.52); }
+
+.season-card.active {
+  background: rgba(124, 156, 255, 0.14);
+  border-color: rgba(124, 156, 255, 0.65);
+  box-shadow: 0 4px 14px rgba(107, 140, 255, 0.22);
+}
+
+.season-tone-snow.active {
+  background: rgba(124, 196, 255, 0.15);
+  border-color: rgba(143, 211, 255, 0.72);
+  box-shadow: 0 4px 14px rgba(124, 196, 255, 0.22);
+}
+
+.season-tone-rain.active {
+  background: rgba(68, 195, 108, 0.14);
+  border-color: rgba(84, 212, 122, 0.7);
+  box-shadow: 0 4px 14px rgba(68, 195, 108, 0.2);
+}
+
+.season-tone-leaves.active {
+  background: rgba(245, 155, 56, 0.15);
+  border-color: rgba(246, 156, 60, 0.72);
+  box-shadow: 0 4px 14px rgba(245, 155, 56, 0.2);
+}
+
+.season-tone-blossom.active {
+  background: rgba(255, 150, 194, 0.15);
+  border-color: rgba(255, 157, 200, 0.72);
+  box-shadow: 0 4px 14px rgba(255, 150, 194, 0.22);
+}
+
+.season-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Light-mode overrides for newly added Settings UI cards */
+.light-mode .sidebar-brand-card,
+.light-mode .settings-page-head.settings-page-head-card {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(255, 255, 255, 0.78));
+  border-color: rgba(15, 23, 42, 0.09);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.light-mode .brand-name {
+  color: #111827;
+}
+
+.light-mode .brand-sub,
+.light-mode .sidebar-group-label,
+.light-mode .sidebar-search-empty {
+  color: rgba(15, 23, 42, 0.58);
+}
+
+.light-mode .brand-ver-badge,
+.light-mode .search-hit-tab {
+  background: rgba(15, 23, 42, 0.07);
+  color: rgba(15, 23, 42, 0.72);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.light-mode .sidebar-search-icon {
+  color: rgba(15, 23, 42, 0.45);
+}
+
+.light-mode .sidebar-search-input {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(15, 23, 42, 0.11);
+  color: #111827;
+}
+
+.light-mode .sidebar-search-input::placeholder {
+  color: rgba(15, 23, 42, 0.45);
+}
+
+.light-mode .side-tab-icon {
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.68);
+}
+
+.light-mode .side-tab.active .side-tab-icon {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.light-mode .search-hit-btn,
+.light-mode .season-card {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(15, 23, 42, 0.1);
+  color: #111827;
+}
+
+.light-mode .season-card-glyph {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.light-mode .season-tone-off .season-card-glyph {
+  color: rgba(15, 23, 42, 0.5);
+}
+
+@media (max-width: 620px) {
+  .season-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

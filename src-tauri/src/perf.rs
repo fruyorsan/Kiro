@@ -33,12 +33,44 @@ const HOLD: Duration = Duration::from_millis(1500);
 const RELEASE_HOLD: Duration = Duration::from_secs(3);
 
 static ACTIVE: AtomicBool = AtomicBool::new(false);
+static MANUAL: AtomicBool = AtomicBool::new(false);
 static SINCE: Mutex<Option<Instant>> = Mutex::new(None);
 static MISSING_SINCE: Mutex<Option<Instant>> = Mutex::new(None);
 
-/// True while the automatic performance mode is engaged.
+/// True while automatic or manual performance mode is engaged.
 pub fn active() -> bool {
-    ACTIVE.load(Ordering::Relaxed)
+    ACTIVE.load(Ordering::Relaxed) || MANUAL.load(Ordering::Relaxed)
+}
+
+pub fn set_manual_perf(app: &AppHandle, enabled: bool) {
+    let prev = MANUAL.swap(enabled, Ordering::Relaxed);
+    if prev == enabled {
+        return;
+    }
+    if enabled {
+        if !ACTIVE.load(Ordering::Relaxed) {
+            engage_boost();
+        }
+        crate::diagnostics::log("manual perf mode: on");
+        let _ = app.emit("perf-mode", true);
+    } else {
+        if !ACTIVE.load(Ordering::Relaxed) {
+            release_boost();
+            crate::diagnostics::log("manual perf mode: off");
+            let _ = app.emit("perf-mode", false);
+        } else {
+            crate::diagnostics::log("manual perf mode: off (auto perf remains active)");
+        }
+    }
+}
+
+pub fn init(app: &AppHandle) {
+    let throttled = crate::utils::get_setting_str(app, "kiro-fps-boost-throttled")
+        .map(|v| v == "true")
+        .unwrap_or(false);
+    if throttled {
+        set_manual_perf(app, true);
+    }
 }
 
 fn enabled(app: &AppHandle) -> bool {
@@ -56,9 +88,13 @@ fn deactivate(app: &AppHandle) {
         *missing = None;
     }
     if ACTIVE.swap(false, Ordering::Relaxed) {
-        release_boost();
-        crate::diagnostics::log("auto perf mode: off");
-        let _ = app.emit("perf-mode", false);
+        if !MANUAL.load(Ordering::Relaxed) {
+            release_boost();
+            crate::diagnostics::log("auto perf mode: off");
+            let _ = app.emit("perf-mode", false);
+        } else {
+            crate::diagnostics::log("auto perf mode: off (manual boost remains active)");
+        }
     }
 }
 
@@ -181,7 +217,9 @@ pub fn update(app: &AppHandle, fullscreen: bool, window_title: &str) {
 
     ACTIVE.store(true, Ordering::Relaxed);
     drop(since);
-    engage_boost();
+    if !MANUAL.load(Ordering::Relaxed) {
+        engage_boost();
+    }
     crate::diagnostics::log(&format!(
         "auto perf mode: on (fullscreen app in foreground: {window_title})"
     ));

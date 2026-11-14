@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ChevronLeft, Lock, X, Bluetooth, Check, Speaker } from "lucide-react";
 import { useT } from "../i18n";
@@ -53,6 +53,7 @@ export function ConnectionsView({ kind, onBack, onOpenWindowsSettings }: Props) 
   const [passwordFor, setPasswordFor] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const refreshTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (passwordFor === null) return;
@@ -79,7 +80,13 @@ export function ConnectionsView({ kind, onBack, onOpenWindowsSettings }: Props) 
   useEffect(() => {
     void refresh();
     const timer = setVisibleInterval(() => void refresh(), REFRESH_MS);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      if (refreshTimeoutRef.current !== null) {
+        window.clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+    };
   }, [refresh]);
 
   const t = useT();
@@ -92,7 +99,10 @@ export function ConnectionsView({ kind, onBack, onOpenWindowsSettings }: Props) 
       setError(String(e));
     } finally {
       setBusy("");
-      setTimeout(() => void refresh(), 1200);
+      if (refreshTimeoutRef.current !== null) {
+        window.clearTimeout(refreshTimeoutRef.current);
+      }
+      refreshTimeoutRef.current = window.setTimeout(() => void refresh(), 1200);
     }
   };
 

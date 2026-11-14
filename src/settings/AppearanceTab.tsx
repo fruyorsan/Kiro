@@ -1,4 +1,4 @@
-import { Palette, Droplet, Contrast, Droplets, Sun, Square, Maximize2, Layers, SwatchBook, Highlighter, ImagePlus, Snowflake } from "lucide-react";
+import { Palette, Droplet, Contrast, Droplets, Sun, Square, Maximize2, Layers, SwatchBook, Highlighter, ImagePlus, Snowflake, Zap } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { SettingRow } from "./SettingRow";
@@ -39,6 +39,8 @@ interface AppearanceTabProps {
   handleAccentColorChange: (color: string) => void;
   applyThemePreset: (preset: ThemePreset) => void;
   legacyMode: boolean;
+  fpsThrottled?: boolean;
+  toggleFpsThrottled?: () => void;
 }
 
 export function AppearanceTab({
@@ -64,6 +66,8 @@ export function AppearanceTab({
   handleAccentColorChange,
   applyThemePreset,
   legacyMode,
+  fpsThrottled,
+  toggleFpsThrottled,
 }: AppearanceTabProps) {
   const t = useT();
   const kiroLogo = useKiroLogo();
@@ -110,8 +114,68 @@ export function AppearanceTab({
     }
   };
 
+  const seasonOptions = [
+    { value: "auto", label: t("appearance.season.auto"), tone: "auto" },
+    { value: "snow", label: t("appearance.season.snow"), tone: "snow" },
+    { value: "rain", label: t("appearance.season.rain"), tone: "rain" },
+    { value: "leaves", label: t("appearance.season.leaves"), tone: "leaves" },
+    { value: "blossom", label: t("appearance.season.blossom"), tone: "blossom" },
+    { value: "off", label: t("appearance.season.off"), tone: "off" },
+  ] as const;
+
+  const activeSeasonOption =
+    seasonOptions.find((opt) => opt.value === seasonTheme) ?? seasonOptions[0];
+  const isLightPreview = themeMode === "light";
+  const previewSurfaceBg =
+    themeMode === "custom"
+      ? themeColor
+      : isLightPreview
+      ? `rgba(244, 245, 250, ${Math.max(0.55, themeOpacity).toFixed(2)})`
+      : `rgba(18, 19, 24, ${Math.max(0.55, themeOpacity).toFixed(2)})`;
+  const previewAccent =
+    themeAccent === "custom" ? themeAccentColor : isLightPreview ? "#2563eb" : "#7c9cff";
+
   return (
     <>
+      <div className={`appearance-live-preview ${isLightPreview ? "is-light" : "is-dark"} style-${themeStyle}`}>
+        <div className="live-preview-stage">
+          <div
+            className={`live-mini-notch season-badge-${activeSeasonOption.value}`}
+            style={{
+              background: previewSurfaceBg,
+              borderColor: `${previewAccent}44`,
+            }}
+          >
+            <span className="mini-notch-dot" style={{ background: previewAccent }} />
+            <span className="mini-notch-time">12:15</span>
+            <span className="mini-notch-chip" style={{ color: previewAccent }}>18°C</span>
+          </div>
+
+          <div
+            className={`live-mini-dock season-badge-${activeSeasonOption.value}`}
+            style={{
+              background: previewSurfaceBg,
+              borderColor: `${previewAccent}33`,
+            }}
+          >
+            <span className="mini-dock-pill" style={{ background: previewAccent }} />
+            <span className="mini-dock-pill" />
+            <span className="mini-dock-pill" />
+            <span className="mini-dock-pill" />
+          </div>
+        </div>
+
+        <div className="live-preview-meta">
+          <span className="live-preview-tag">{t("appearance.preview.label")}</span>
+          <div className="live-preview-badges">
+            <span className="preview-chip">{themeStyle}</span>
+            <span className="preview-chip accent" style={{ borderColor: `${previewAccent}55` }}>
+              {activeSeasonOption.label}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <SettingSection id="appearance-theme" title={t("appearance.theme.group")} defaultOpen>
         {!legacyMode && (
           <>
@@ -192,20 +256,87 @@ export function AppearanceTab({
         </SettingRow>
 
         {!legacyMode && (
-          <SettingRow icon={Snowflake} label={t("appearance.season")} desc={t("appearance.season.desc")}>
-            <Dropdown
-              value={seasonTheme}
-              onChange={handleSeasonChange}
-              options={[
-                { value: "auto", label: t("appearance.season.auto") },
-                { value: "snow", label: t("appearance.season.snow") },
-                { value: "rain", label: t("appearance.season.rain") },
-                { value: "leaves", label: t("appearance.season.leaves") },
-                { value: "blossom", label: t("appearance.season.blossom") },
-                { value: "off", label: t("appearance.season.off") },
-              ]}
-            />
-          </SettingRow>
+          <div className="season-setting-block">
+            <SettingRow icon={Snowflake} label={t("appearance.season")} desc={t("appearance.season.desc")} divider={false} />
+            <div className="season-picker-grid" role="radiogroup" aria-label={t("appearance.season")}>
+              {seasonOptions.map((opt) => {
+                const selected = seasonTheme === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={`season-card season-tone-${opt.tone} ${selected ? "active" : ""}`}
+                    onClick={() => handleSeasonChange(opt.value)}
+                  >
+                    <span className="season-card-glyph" aria-hidden="true">
+                      {opt.value === "auto" && (
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <rect x="3" y="4" width="18" height="17" rx="3" />
+                          <path d="M8 2v4M16 2v4M3 10h18" />
+                          <circle cx="12" cy="15.5" r="1.5" fill="currentColor" stroke="none" />
+                        </svg>
+                      )}
+                      {opt.value === "snow" && (
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                          <path d="M12 2v20M4.9 6l14.2 12M19.1 6L4.9 18M9 4l3 3 3-3M9 20l3-3 3 3" />
+                        </svg>
+                      )}
+                      {opt.value === "rain" && (
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 19c2-7 8-12 14-14-1 7-6 13-14 14Z" fill="currentColor" fillOpacity="0.22" />
+                          <path d="M5 19c4-4 8-8 14-14" />
+                          <circle cx="16.5" cy="16.5" r="2" fill="currentColor" fillOpacity="0.4" />
+                        </svg>
+                      )}
+                      {opt.value === "leaves" && (
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3l2.2 4.5 4.8-1-2 4.3 3.5 2.7-4.5 1.8.8 3.7-4.8-2.5L7.2 19l.8-3.7L3.5 13.5 7 10.8l-2-4.3 4.8 1z" fill="currentColor" fillOpacity="0.22" />
+                          <path d="M12 15v6" />
+                        </svg>
+                      )}
+                      {opt.value === "blossom" && (
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6">
+                          <circle cx="12" cy="7" r="3" fill="currentColor" fillOpacity="0.24" />
+                          <circle cx="17" cy="11" r="3" fill="currentColor" fillOpacity="0.24" />
+                          <circle cx="15" cy="17" r="3" fill="currentColor" fillOpacity="0.24" />
+                          <circle cx="9" cy="17" r="3" fill="currentColor" fillOpacity="0.24" />
+                          <circle cx="7" cy="11" r="3" fill="currentColor" fillOpacity="0.24" />
+                          <circle cx="12" cy="12" r="2" fill="currentColor" />
+                        </svg>
+                      )}
+                      {opt.value === "off" && (
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                          <circle cx="12" cy="12" r="8" />
+                          <path d="m6.5 6.5 11 11" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="season-card-label">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {seasonTheme !== "off" && (
+              <SettingRow
+                icon={Zap}
+                label={t("appearance.fpsBoost")}
+                desc={t("appearance.fpsBoost.desc")}
+                divider={false}
+              >
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={fpsThrottled ?? false}
+                    onChange={toggleFpsThrottled}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </SettingRow>
+            )}
+            <div className="setting-divider" />
+          </div>
         )}
 
         <SettingRow icon={SwatchBook} label={t("appearance.presets")} desc={t("appearance.presets.desc")}>

@@ -69,7 +69,7 @@ async function checkCovered(root: HTMLElement) {
   showBackdrop(root);
 }
 
-function clearBackdrop(root: HTMLElement) {
+export function clearBackdrop(root: HTMLElement) {
   loaded = false;
   window.clearInterval(watch);
   watch = undefined;

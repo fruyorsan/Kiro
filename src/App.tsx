@@ -484,6 +484,7 @@ function App() {
   const [lowBatteryThreshold, setLowBatteryThreshold] = useState(() => parseInt(localStorage.getItem("kiro-low-battery-threshold") || "20"));
   const prevChargingRef = useRef<boolean | null>(null);
   const powerPulseTimeoutRef = useRef<any>(null);
+  const lowBatteryPulseTimeoutRef = useRef<any>(null);
   const lowBatteryPulseShownRef = useRef<boolean>(false);
 
   const [eventPeek, setEventPeek] = useState(false);
@@ -520,7 +521,8 @@ function App() {
       setShowLowBatteryPulse(true);
       if (notchMode === 'peek') triggerEventPeek(5000);
       lowBatteryPulseShownRef.current = true;
-      setTimeout(() => setShowLowBatteryPulse(false), 5000);
+      if (lowBatteryPulseTimeoutRef.current) clearTimeout(lowBatteryPulseTimeoutRef.current);
+      lowBatteryPulseTimeoutRef.current = setTimeout(() => setShowLowBatteryPulse(false), 5000);
     }
 
     // Reset the "shown" state if battery is charged or threshold is lowered
@@ -1009,7 +1011,7 @@ function App() {
       };
 
       let attempts = 0;
-      const interval = setInterval(async () => {
+      const interval = setVisibleInterval(async () => {
         attempts++;
         // Back off to one check every 5s after the first 5s so a notch window
         // that never becomes visible cannot keep waking the runtime at 1Hz.
@@ -2504,8 +2506,10 @@ function App() {
           density={14}
           pile={13}
           paused={isHidden}
-          radius={notchBottomRight ? (isImpacted ? 0 : 18) : isCalendarMode ? 28 : 18}
-          edge={notchBottomRight ? "top" : "bottom"}
+          edge={notchBottomRight ? "bottom" : "top"}
+          flare={notchBottomRight ? 0 : (isImpacted ? 13 : 0)}
+          radius={isCalendarMode ? 28 : 18}
+          edgeRadius={isImpacted && !notchBottomRight ? 0 : 18}
         />
 
 

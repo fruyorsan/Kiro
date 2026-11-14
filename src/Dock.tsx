@@ -17,6 +17,7 @@ import { appAttention } from "./attention";
 import { DockSearch, loadInstalledApps } from "./components/DockSearch";
 import { useKiroLogo } from "./kiroLogo";
 import { SeasonLayer } from "./components/SeasonLayer";
+import { Zap } from "lucide-react";
 interface AppInfo {
   name: string;
   path: string;
@@ -381,6 +382,17 @@ const Dock = memo(function Dock() {
   const [dockDrives, setDockDrives] = useState<string[]>(() => parseDrives(localStorage.getItem("kiro-dock-drives")));
   const [dockMenuHidden, setDockMenuHidden] = useState<string[]>(() => parseDrives(localStorage.getItem("kiro-dock-menu-hidden")));
   const [dockMenuShortcuts, setDockMenuShortcuts] = useState<DockMenuShortcut[]>(() => parseMenuShortcuts(localStorage.getItem("kiro-dock-menu-shortcuts")));
+  const [fpsThrottled, setFpsThrottled] = useState(() => localStorage.getItem("kiro-fps-boost-throttled") === "true");
+  useSettingsSync({
+    "kiro-fps-boost-throttled": (val) => setFpsThrottled(val === true || val === "true"),
+  });
+  const toggleFpsBoost = () => {
+    const next = !fpsThrottled;
+    setFpsThrottled(next);
+    localStorage.setItem("kiro-fps-boost-throttled", String(next));
+    invoke("save_setting", { key: "kiro-fps-boost-throttled", value: String(next) }).catch(console.error);
+    invoke("set_manual_perf", { enabled: next }).catch(console.error);
+  };
   const [dockIconOnly, setDockIconOnly] = useState(() => localStorage.getItem("kiro-dock-icon-only") === "true");
   const [dockAdaptive, setDockAdaptive] = useState(() => localStorage.getItem("kiro-dock-adaptive") === "true");
   // Keep the dock visible on the desktop. On by default: a taskbar replacement
@@ -509,7 +521,7 @@ const Dock = memo(function Dock() {
     // on later, but the cadence backs off hard: one IPC check every 5s after
     // the first few seconds instead of an uncapped 1s wakeup for the session.
     let attempts = 0;
-    const interval = setInterval(async () => {
+    const interval = setVisibleInterval(async () => {
       if (cleared) return;
       attempts++;
       if (attempts > 25 && attempts % 25 !== 0) return;
@@ -1481,7 +1493,15 @@ const Dock = memo(function Dock() {
           radius={(isImpacted || isExpanded) && !isHidden ? 18 : 17}
           edgeRadius={(isImpacted || isExpanded) && !isHidden ? 0 : 17}
         />
-        <SeasonLayer density={12} pile={10} paused={isHidden} />
+        <SeasonLayer
+          density={12}
+          pile={10}
+          paused={isHidden}
+          edge="bottom"
+          flare={isExpanded && !isHidden ? 13 : 0}
+          radius={(isImpacted || isExpanded) && !isHidden ? 18 : 17}
+          edgeRadius={(isImpacted || isExpanded) && !isHidden ? 0 : 17}
+        />
         <AnimatePresence>
           {isExpanded && (
             <motion.div
@@ -2049,6 +2069,18 @@ const Dock = memo(function Dock() {
               {menuVisible("settings") && (
                 <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
               )}
+              {menuVisible("fpsBoost") && (
+                <div
+                  className="menu-item"
+                  onClick={() => {
+                    toggleFpsBoost();
+                    closeMenu();
+                  }}
+                >
+                  <Zap size={14} style={{ marginRight: 6, color: fpsThrottled ? "#10b981" : "inherit" }} />
+                  {fpsThrottled ? t("dockmenu.fpsBoostActive") : t("dockmenu.fpsBoostInactive")}
+                </div>
+              )}
               {menuVisible("taskManager") && (
                 <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>
               )}
@@ -2089,6 +2121,18 @@ const Dock = memo(function Dock() {
               )}
               {menuVisible("settings") && (
                 <div className="menu-item" onClick={() => { invoke('open_settings_window'); closeMenu(); }}>{t("dockmenu.openSettings")}</div>
+              )}
+              {menuVisible("fpsBoost") && (
+                <div
+                  className="menu-item"
+                  onClick={() => {
+                    toggleFpsBoost();
+                    closeMenu();
+                  }}
+                >
+                  <Zap size={14} style={{ marginRight: 6, color: fpsThrottled ? "#10b981" : "inherit" }} />
+                  {fpsThrottled ? t("dockmenu.fpsBoostActive") : t("dockmenu.fpsBoostInactive")}
+                </div>
               )}
               {menuVisible("taskManager") && (
                 <div className="menu-item" onClick={() => { invoke('open_app', { appName: 'taskmgr' }); closeMenu(); }}>{t("dockmenu.taskManager")}</div>

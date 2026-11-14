@@ -90,10 +90,19 @@ export function applyGpuOffMode(on: boolean) {
   document.documentElement.classList.toggle("gpu-off", on);
 }
 
+let autoEngaged = false;
+let manualEngaged = typeof localStorage !== "undefined" && localStorage.getItem("kiro-fps-boost-throttled") === "true";
+
+function updateEffectiveMode() {
+  const active = autoEngaged || manualEngaged;
+  applyPerfMode(active);
+}
+
 /**
- * Auto performance mode listener. A fullscreen game makes the backend send
+ * Auto & manual performance mode listener. A fullscreen game makes the backend send
  * `perf-mode`; while it is on we drop the blur work the compositor would
- * otherwise do every frame for windows nobody can see.
+ * otherwise do every frame for windows nobody can see. Manual FPS Boost toggle
+ * syncs via `settings-changed` with key `kiro-fps-boost-throttled`.
  *
  * `pauseAnimations` is true for the dock/notch renderers (hidden during a
  * game) and false for the overlay, whose OSD has to stay visible.
@@ -101,14 +110,33 @@ export function applyGpuOffMode(on: boolean) {
 export function initPerfMode(pauseAnimationsForWindow = true) {
   pauseAnimations = pauseAnimationsForWindow;
   ensureStyle();
-  const unlisten = listen<boolean>("perf-mode", (event) => {
-    applyPerfMode(!!event.payload);
+
+  manualEngaged = typeof localStorage !== "undefined" && localStorage.getItem("kiro-fps-boost-throttled") === "true";
+
+  const unlistenPerf = listen<boolean>("perf-mode", (event) => {
+    autoEngaged = !!event.payload;
+    updateEffectiveMode();
   });
+
+  const unlistenSettings = listen<{ key: string; value: any }>("settings-changed", (event) => {
+    if (event.payload.key === "kiro-fps-boost-throttled") {
+      manualEngaged = event.payload.value === true || event.payload.value === "true";
+      updateEffectiveMode();
+    }
+  });
+
   // Sync in case the mode engaged before this window finished loading.
   invoke<boolean>("get_perf_mode")
-    .then((on) => applyPerfMode(!!on))
+    .then((on) => {
+      autoEngaged = !!on;
+      updateEffectiveMode();
+    })
     .catch(() => {});
+
+  updateEffectiveMode();
+
   return () => {
-    unlisten.then((off) => off()).catch(() => {});
+    unlistenPerf.then((off) => off()).catch(() => {});
+    unlistenSettings.then((off) => off()).catch(() => {});
   };
 }

@@ -204,6 +204,7 @@ fn main() {
             end_task,
             quit_kiro,
             get_perf_mode,
+            set_manual_perf,
             restart_kiro,
             uninstall_kiro,
             get_diagnostics,
@@ -373,6 +374,7 @@ fn main() {
             setup_audio_visualization(app.handle().clone());
             setup_settings_watcher(app.handle().clone());
             memory_saver::start_reclaim_worker(app.handle().clone());
+            perf::init(&app.handle());
 
             // Listen for second-instance signal to open settings
             if let Some(&h_event) = SINGLE_INSTANCE_EVENT_HANDLE.get() {

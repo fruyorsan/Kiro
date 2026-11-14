@@ -3295,6 +3295,11 @@ pub fn get_perf_mode() -> bool {
 }
 
 #[tauri::command]
+pub fn set_manual_perf(handle: AppHandle, enabled: bool) {
+    crate::perf::set_manual_perf(&handle, enabled);
+}
+
+#[tauri::command]
 pub async fn quit_kiro(handle: AppHandle) {
     restore_taskbar_and_exit(&handle);
 }

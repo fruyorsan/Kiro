@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Monitor, Eye, EyeOff, BellDot, Square, Search, Shuffle, MonitorCheck, CalendarDays, Maximize2, Keyboard, Sparkles, RotateCcw, LayoutGrid, Trash2, HardDrive, ChevronUp, TextSearch, Settings, ListChecks, Power, Plus, X } from "lucide-react";
+import { Monitor, Eye, EyeOff, BellDot, Square, Search, Shuffle, MonitorCheck, CalendarDays, Maximize2, Keyboard, Sparkles, RotateCcw, LayoutGrid, Trash2, HardDrive, ChevronUp, TextSearch, Settings, ListChecks, Power, Plus, X, Zap } from "lucide-react";
 import { SettingRow } from "./SettingRow";
 import { SettingSection } from "./SettingSection";
 import { Dropdown } from "./Dropdown";
@@ -20,6 +20,7 @@ const DOCK_MENU_ITEMS: { id: string; labelKey: string; icon: typeof Monitor }[] 
   { id: "addApp", labelKey: "dockmenu.addApp", icon: Plus },
   { id: "calendar", labelKey: "dockmenu.openCalendar", icon: CalendarDays },
   { id: "settings", labelKey: "dockmenu.openSettings", icon: Settings },
+  { id: "fpsBoost", labelKey: "dockmenu.fpsBoost", icon: Zap },
   { id: "taskManager", labelKey: "dockmenu.taskManager", icon: ListChecks },
   { id: "restart", labelKey: "general.restart", icon: RotateCcw },
   { id: "clearIcons", labelKey: "dockmenu.clearIconCache", icon: Trash2 },
@@ -171,6 +172,8 @@ interface DockTabProps {
   dockModeByMonitor: Record<string, string>;
   setDockModeForMonitor: (monitorId: string, mode: string | null) => void;
   replaceDockModes: (next: Record<string, string>) => void;
+  fpsThrottled?: boolean;
+  toggleFpsThrottled?: () => void;
 }
 
 export function DockTab({
@@ -230,6 +233,8 @@ export function DockTab({
   dockModeByMonitor,
   setDockModeForMonitor,
   replaceDockModes,
+  fpsThrottled,
+  toggleFpsThrottled,
 }: DockTabProps) {
   const t = useT();
   // The "Kiro" tile previews whatever logo the user picked.
@@ -422,6 +427,13 @@ export function DockTab({
             <SettingRow icon={CalendarDays} label={t("dock.calendar")} desc={t("dock.calendar.desc")}>
               <label className="toggle-switch">
                 <input type="checkbox" checked={dockCalendarEnabled} onChange={toggleDockCalendar} />
+                <span className="slider"></span>
+              </label>
+            </SettingRow>
+
+            <SettingRow icon={Zap} label={t("dock.fpsBoost")} desc={t("dock.fpsBoost.desc")}>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={fpsThrottled ?? false} onChange={toggleFpsThrottled} />
                 <span className="slider"></span>
               </label>
             </SettingRow>

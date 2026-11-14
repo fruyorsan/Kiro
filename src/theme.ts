@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { applyBackdrop, enableBackdrop, usesBackdrop } from "./backdrop";
+import { applyBackdrop, enableBackdrop, usesBackdrop, clearBackdrop } from "./backdrop";
 import { hydrateStorageFromSettings } from "./storage";
 import { applyGpuOffMode } from "./perfMode";
 
@@ -503,5 +503,7 @@ export function initTheme(options: { backdrop?: boolean } = {}) {
     externalPromise.then(f => f());
     monitorsPromise.then(f => f());
     darkScheme?.removeEventListener('change', onSchemeChange);
+    const root = document.documentElement;
+    clearBackdrop(root);
   };
 }

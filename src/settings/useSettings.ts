@@ -137,6 +137,9 @@ export function useSettings() {
   const [fpsBoost, setFpsBoost] = useState(
     () => localStorage.getItem("kiro-fps-boost") !== "false"
   );
+  const [fpsThrottled, setFpsThrottled] = useState(
+    () => localStorage.getItem("kiro-fps-boost-throttled") === "true"
+  );
   const [tempUnitFahrenheit, setTempUnitFahrenheit] = useState(false);
   const [cityName, setCityName] = useState("");
   const [cityQuery, setCityQuery] = useState("");
@@ -325,6 +328,7 @@ export function useSettings() {
       apply(getVal("kiro-auto-perf"), setAutoPerf, (v) => v !== "false");
       apply(getVal("kiro-game-boost"), setGameBoost, (v) => v !== "false");
       apply(getVal("kiro-fps-boost"), setFpsBoost, (v) => v !== "false");
+      apply(getVal("kiro-fps-boost-throttled"), setFpsThrottled, readBool);
       apply(getVal("kiro-auto-update"), setAutoUpdate, readBool);
       apply(getVal("kiro-update-channel"), setPrereleaseChannel, (v) => v === "prerelease");
       apply(getVal("kiro-volume-edge-enabled"), setVolumeEdgeEnabled, readBool);
@@ -500,6 +504,7 @@ export function useSettings() {
     "kiro-auto-perf": (v) => setAutoPerf(v !== false && v !== "false"),
     "kiro-game-boost": (v) => setGameBoost(v !== false && v !== "false"),
     "kiro-fps-boost": (v) => setFpsBoost(v !== false && v !== "false"),
+    "kiro-fps-boost-throttled": (v) => setFpsThrottled(v === true || v === "true"),
     "kiro-low-battery-threshold": setLowBatteryThreshold,
     "kiro-scale": setScale,
     "kiro-temp-unit": (v) => setTempUnitFahrenheit(v === "fahrenheit"),
@@ -824,6 +829,13 @@ export function useSettings() {
     const next = !fpsBoost;
     setFpsBoost(next);
     saveSetting("kiro-fps-boost", String(next));
+  };
+
+  const toggleFpsThrottled = () => {
+    const next = !fpsThrottled;
+    setFpsThrottled(next);
+    saveSetting("kiro-fps-boost-throttled", String(next));
+    invoke("set_manual_perf", { enabled: next }).catch(console.error);
   };
 
   const toggleTempUnit = () => {
@@ -1322,6 +1334,8 @@ export function useSettings() {
     toggleGameBoost,
     fpsBoost,
     toggleFpsBoost,
+    fpsThrottled,
+    toggleFpsThrottled,
     scale,
     handleScaleChange,
     cornersEnabled,
