@@ -2506,10 +2506,8 @@ function App() {
           density={14}
           pile={13}
           paused={isHidden}
-          edge={notchBottomRight ? "bottom" : "top"}
-          flare={notchBottomRight ? 0 : (isImpacted ? 13 : 0)}
-          radius={isCalendarMode ? 28 : 18}
-          edgeRadius={isImpacted && !notchBottomRight ? 0 : 18}
+          radius={notchBottomRight ? (isImpacted ? 0 : 18) : isCalendarMode ? 28 : 18}
+          edge={notchBottomRight ? "top" : "bottom"}
         />
 
 

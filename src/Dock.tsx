@@ -1493,15 +1493,7 @@ const Dock = memo(function Dock() {
           radius={(isImpacted || isExpanded) && !isHidden ? 18 : 17}
           edgeRadius={(isImpacted || isExpanded) && !isHidden ? 0 : 17}
         />
-        <SeasonLayer
-          density={12}
-          pile={10}
-          paused={isHidden}
-          edge="bottom"
-          flare={isExpanded && !isHidden ? 13 : 0}
-          radius={(isImpacted || isExpanded) && !isHidden ? 18 : 17}
-          edgeRadius={(isImpacted || isExpanded) && !isHidden ? 0 : 17}
-        />
+        <SeasonLayer density={12} pile={10} paused={isHidden} />
         <AnimatePresence>
           {isExpanded && (
             <motion.div
