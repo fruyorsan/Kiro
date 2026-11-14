@@ -290,8 +290,8 @@ function buildPerimeterMarkup(
   const pathB = `M ${strandB.join(" L ")} Z`;
 
   const ornaments: string[] = [];
-  const spacing = season === "rain" ? 17 : season === "leaves" ? 19 : 21;
-  const itemCount = Math.max(14, Math.floor(total / spacing));
+  const spacing = season === "rain" ? 14 : season === "leaves" ? 14 : 17;
+  const itemCount = Math.max(16, Math.floor(total / spacing));
 
   const leafShades =
     season === "rain"
@@ -307,19 +307,14 @@ function buildPerimeterMarkup(
 
     if (topFlush && p.zone === "top" && i % 3 !== 0) continue;
 
-    const isHorizontalEdge = p.zone === "top" || p.zone === "bottom";
-    const centerFrac = p.x / W;
-    const inCenterZone = isHorizontalEdge && centerFrac > 0.25 && centerFrac < 0.75;
     const isCornerOrSide = p.zone === "corner" || p.zone === "left" || p.zone === "right";
 
     const outAng = (Math.atan2(p.ny, p.nx) * 180) / Math.PI;
     const swingSign = i % 2 === 0 ? 1 : -1;
     const tilt = swingSign * (26 + seededNoise(i, 7) * 28);
     const scaleBase = isCornerOrSide
-      ? 0.9 + seededNoise(i, 11) * 0.34
-      : inCenterZone
-      ? 0.62 + seededNoise(i, 11) * 0.16
-      : 0.78 + seededNoise(i, 11) * 0.22;
+      ? 1.02 + seededNoise(i, 11) * 0.34
+      : 0.94 + seededNoise(i, 11) * 0.32;
 
     const pushOut = topFlush && p.zone === "top" ? 0.5 : isCornerOrSide ? 2.4 : 1.7;
     const ox = p.x + p.nx * pushOut;
@@ -385,7 +380,7 @@ function buildPerimeterMarkup(
       if (i % 2 === 0 || isCornerOrSide) {
         const bx = ox + p.nx * (isCornerOrSide ? 3.8 : 2.6);
         const by = oy + p.ny * (isCornerOrSide ? 3.8 : 2.6);
-        const fScale = scaleBase * (isCornerOrSide ? 0.95 : inCenterZone ? 0.72 : 0.85);
+        const fScale = scaleBase * (isCornerOrSide ? 1.0 : 0.92);
         const rot = outAng + i * 23;
         const petals = [0, 72, 144, 216, 288]
           .map(
