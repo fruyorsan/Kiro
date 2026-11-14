@@ -1,398 +1,185 @@
-/*
- * Seasonal decoration & accumulation physics for the notch and the dock.
- *
- * - `.season-stage`: holds the drift, falling weather from the top of the
- *   window (`y < 0`), and gravity-scattered particles (`y > 0`) that the
- *   pointer knocks loose.
- * - `.season-drift`: the settled mass, one smooth SVG path driven by a height
- *   field (snow bank / rain puddle). Rain adds an open surface line so only the
- *   water level is outlined, not the edge where it meets the bar.
- * - `.season-svg`: maple/oak leaves, cherry blossoms/petals, and 6-point
- *   snowflake crystals.
- * - `.season-snow-puff`: soft 3D snow puffs on the crest and in the air.
- * - `.season-rain-streak` / `.season-rain-drop`: fine raindrops, crest
- *   droplets, and `.season-ripple-ring` where a drop hits the puddle.
- */
-
 .season-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 6;
+  border-radius: var(--season-radius, 18px);
+  clip-path: inset(-80px -28px -80px -28px);
+}
+
+.season-layer.is-paused,
+html.perf-lite .season-layer {
+  display: none !important;
+}
+
+.season-perimeter {
+  position: absolute;
+  pointer-events: none;
   overflow: visible;
-  /* Let the decoration drape above and below the bar, but never spill past its
-     left and right ends: the vine and snow must stop at the bar's outline. */
-  clip-path: inset(-80px 0 -80px 0);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.34));
+}
+
+.season-snow-svg {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.season-drift-path {
+  filter: drop-shadow(0 1px 2px rgba(100, 155, 220, 0.32));
+}
+
+.season-icicle-node {
+  will-change: transform, opacity;
+  filter: drop-shadow(0 1px 2px rgba(100, 175, 240, 0.35));
 }
 
 .season-stage {
   position: absolute;
   inset: 0;
+  pointer-events: none;
   overflow: visible;
-  pointer-events: none;
 }
 
-.season-node {
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: block;
-  pointer-events: none;
-  will-change: transform, opacity;
-  opacity: 0;
-}
-
-.season-settled {
-  transform-origin: 50% 80%;
-}
-
-/* ------------------------------------------------------------------ drift */
-
-/* The settled mass. The path is regenerated from the height field each frame:
-   its origin is the rim, negative Y above it. The underside follows the bar's
-   own corner radius (read from --season-radius), so at both ends the bank
-   drapes down over the rounded edge instead of being cut off or poking out. */
-.season-drift {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  overflow: visible;
-  pointer-events: none;
-  /* Shadow on the bar below, not above: the drift must sit on the rim, not hover. */
-  filter: drop-shadow(0 1px 2px rgba(8, 22, 46, 0.35));
-}
-
-/* The settled mass. The path is regenerated from the height field each frame:
-   the coordinate system has its origin at the rim, negative Y above it. No
-   stroke: the outline lives on `.season-drift-surface` along the crest only, so
-   no bright hairline runs along the rim or past the rounded corners. */
-.season-drift-fill {
-  stroke: none;
-}
-
-/* Rain: a shallower puddle with a wet edge instead of a snow bank. */
-.season-rain .season-drift {
-  filter: drop-shadow(0 0 2px rgba(150, 205, 250, 0.3));
-}
-
-/* Surface highlight along the crest of the bank / water level of the puddle. */
-.season-drift-surface {
-  fill: none;
-  stroke: rgba(240, 251, 255, 0.62);
-  stroke-width: 0.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-  pointer-events: none;
-}
-
-/* The fold where the bank spills past the rim and hangs over the bar's face.
-   A single shaded tone: bright snow above the rim, its underside below it. */
-.season-drift-lip {
-  stroke: none;
-  pointer-events: none;
-}
-
-.season-snow .season-drift-lip {
-  fill: #c2daf1;
-  fill-opacity: 0.97;
-  filter: drop-shadow(0 0.8px 1px rgba(24, 52, 86, 0.28));
-}
-
-.season-rain .season-drift-lip {
-  fill: #6fa9d4;
-  fill-opacity: 0.55;
-}
-
-.season-leaves .season-drift-lip {
-  fill: #7d4c22;
-  fill-opacity: 0.95;
-}
-
-.season-blossom .season-drift-lip {
-  fill: #e490ae;
-  fill-opacity: 0.92;
-}
-
-/* Rain/autumn/spring garland: tendrils hang along the WHOLE rim, wrapping the
-   rounded ends, so the vine covers the bar face and the gaps between icons
-   instead of clustering at the two corners. */
-.season-garland,
-.season-drips {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.season-vine-runner {
-  position: absolute;
-  top: -2px;
-  left: 0;
-  width: 100%;
-  height: 18px;
-  background-repeat: repeat-x;
-  background-size: 180px 18px;
-  background-position: 0 0;
-  pointer-events: none;
-  opacity: 0.95;
-  filter: drop-shadow(0 1px 1.4px rgba(8, 20, 10, 0.4));
-}
-
-/* Rain: ivy starts exactly on the waterline, not above it. */
-.season-garland-rain .season-vine {
-  top: 0;
-}
-
-.season-vine {
-  position: absolute;
-  top: -3px;
-  left: var(--vine-x, 5%);
-  width: calc(17px * var(--vine-scale, 1));
-  height: var(--vine-len, 24px);
-  margin-left: calc(-8.5px * var(--vine-scale, 1));
-  pointer-events: none;
-}
-
-.season-vine-inner {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform-origin: 50% 0;
-  transform: rotate(var(--vine-lean, 0deg));
-  animation: season-vine-sway 6.4s ease-in-out infinite;
-  animation-delay: var(--vine-delay, 0s);
-}
-
-.season-vine-svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 1px 1.8px rgba(8, 20, 10, 0.5));
-}
-
-@keyframes season-vine-sway {
-  0%,
-  100% {
-    transform: rotate(calc(var(--vine-lean, 0deg) - 2.2deg));
-  }
-  50% {
-    transform: rotate(calc(var(--vine-lean, 0deg) + 2.6deg));
-  }
-}
-
-/* Snow/rain frozen edge: a continuous cap on the rim plus icicles hanging over
-   the bar face. Icicles are separate nodes with pixel sizes, so they keep their
-   shape on a narrow notch and on a wide dock alike. */
-.season-fringe {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  pointer-events: none;
-}
-
-.season-fringe-cap {
-  position: absolute;
-  top: 0;
-  left: var(--season-radius, 18px);
-  width: calc(100% - var(--season-radius, 18px) * 2);
-  height: 12px;
-  display: block;
-  overflow: visible;
-  filter: drop-shadow(0 1.4px 1.8px rgba(16, 38, 68, 0.3));
-}
-
-.season-icicle {
-  position: absolute;
-  top: 1px;
-  left: var(--ice-x, 10%);
-  width: var(--ice-w, 12px);
-  height: var(--ice-h, 18px);
-  margin-left: calc(var(--ice-w, 12px) * -0.5);
-  transform-origin: 50% 0;
-  animation: season-ice-sway 7.5s ease-in-out infinite;
-  animation-delay: var(--ice-delay, 0s);
-  pointer-events: none;
-}
-
-.season-icicle svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  overflow: visible;
-  filter: drop-shadow(0 1.5px 1.6px rgba(18, 44, 78, 0.34));
-}
-
-.season-rain .season-icicle {
-  display: none;
-}
-
-.season-rain .season-fringe-cap {
-  filter: drop-shadow(0 0 2px rgba(150, 205, 250, 0.4));
-}
-
-.ice-body {
-  fill: #f3faff;
-}
-
-.ice-core {
-  fill: #ffffff;
-  opacity: 0.95;
-}
-
-.season-rain .ice-body {
-  fill: #cfe8fb;
-  fill-opacity: 0.62;
-}
-
-.season-rain .ice-core {
-  fill: #ffffff;
-  opacity: 0.6;
-}
-
-@keyframes season-ice-sway {
-  0%,
-  100% {
-    transform: rotate(-0.5deg) translateY(0);
-  }
-  50% {
-    transform: rotate(0.7deg) translateY(0.4px);
-  }
-}
-
-/* On the top-of-screen notch the visible rim is the bar's bottom edge, so the
-   cap sits there and the ice hangs into the space below the bar. */
-.season-fringe-bottom {
-  top: auto;
-  bottom: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .season-icicle {
-    animation: none;
-  }
-}
-
-.season-fringe-rain {
-  opacity: 0.96;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .season-vine-inner {
-    animation: none;
-  }
-}
-
-/* Per-season tint for the crest outline. */
-.season-snow .season-drift-surface {
-  stroke: rgba(255, 255, 255, 0.8);
-}
-
-.season-leaves .season-drift-surface {
-  stroke: rgba(255, 196, 130, 0.55);
-}
-
-.season-blossom .season-drift-surface {
-  stroke: rgba(255, 208, 222, 0.6);
-}
-
-/* Splash rings where a raindrop meets the puddle. Squashed vertically in JS so
-   they read as rings lying on the water, not circles hanging off the rim. */
+.season-flake,
+.season-scattered,
 .season-ripple {
-  width: 14px;
-  height: 14px;
-  transform-origin: 50% 50%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
 }
 
-.season-ripple-ring {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 1px solid rgba(214, 240, 255, 0.85);
-  box-shadow: 0 0 4px rgba(180, 224, 255, 0.35);
-}
-
-/* --------------------------------------------------------- particle tokens */
-
-.season-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  overflow: visible;
-  filter: drop-shadow(0 1px 1.6px rgba(0, 0, 0, 0.36));
-}
-
-.season-snowflake-svg {
-  filter: drop-shadow(0 0 1.4px rgba(200, 230, 255, 0.6));
-}
-
-/* Crystals resting on the snow: white arms over a blue-grey outline so the
-   facets stay readable on white instead of glowing into a soft bead. */
-.season-crystal-svg {
-  filter: drop-shadow(0 0.7px 0.6px rgba(38, 78, 128, 0.55));
-}
-
-.season-snow-puff {
-  display: block;
-  width: 100%;
-  height: 100%;
+/* Snowflakes */
+.season-snow .season-flake {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: radial-gradient(
-    circle at 38% 35%,
-    #ffffff 0%,
-    #ebf4ff 68%,
-    rgba(218, 236, 255, 0.35) 100%
+    circle,
+    #ffffff 35%,
+    rgba(225, 242, 255, 0.72) 72%,
+    transparent 100%
   );
-  box-shadow:
-    0 1px 2px rgba(12, 28, 56, 0.28),
-    0 0 3.5px rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 4px rgba(210, 236, 255, 0.55);
 }
 
-/* Fine, soft, natural raindrop streak */
-.season-rain-streak {
-  display: block;
-  width: 0.9px;
-  height: 100%;
+.season-snow .season-flake.season-variant-2 {
+  width: 4px;
+  height: 4px;
+}
+
+.season-snow .season-flake.season-variant-3 {
+  width: 6px;
+  height: 6px;
+}
+
+/* Delicate light rain streaks */
+.season-rain .season-flake {
+  width: 1.4px;
+  height: 11px;
   border-radius: 999px;
   background: linear-gradient(
     180deg,
-    rgba(195, 228, 255, 0) 0%,
-    rgba(210, 236, 255, 0.52) 60%,
-    rgba(240, 250, 255, 0.82) 100%
+    rgba(195, 232, 255, 0) 0%,
+    rgba(185, 228, 255, 0.65) 55%,
+    rgba(235, 248, 255, 0.9) 100%
   );
 }
 
-/* Glistening water droplet resting on the rim or dripping down */
-.season-rain-drop {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 50% 50% 42% 42%;
-  background: radial-gradient(
-    circle at 35% 30%,
-    rgba(255, 255, 255, 0.94) 0%,
-    rgba(190, 228, 255, 0.72) 65%,
-    rgba(145, 200, 245, 0.35) 100%
-  );
-  box-shadow: 0 0.5px 1.5px rgba(10, 30, 60, 0.32);
+.season-rain .season-flake.season-variant-1 {
+  height: 9px;
 }
 
-/* --------------------------------------- top-of-screen notch compatibility */
-
-/* The notch hangs from the top of the screen, so the only visible edge is its
-   bottom one: anchor the decoration there in every state, including while the
-   panel is open, and let it drape into the transparent space below the bar. */
-.screen:not(.notch-bottom-right) .kiro .season-stage {
-  top: auto;
-  bottom: 0;
-  height: 0;
+.season-rain .season-flake.season-variant-3 {
+  height: 13px;
 }
 
-/* -------------------------------------------------------------- safeguards */
+/* Autumn leaves */
+.season-leaves .season-flake {
+  width: 9px;
+  height: 6.5px;
+  border-radius: 0 75% 0 75%;
+  background: linear-gradient(135deg, #f39c2b, #c94722);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+}
 
-html.perf-lite .season-layer {
-  display: none !important;
+.season-leaves .season-flake.season-variant-1 {
+  background: linear-gradient(135deg, #ffca3a, #d96b1f);
+}
+
+.season-leaves .season-flake.season-variant-2 {
+  background: linear-gradient(135deg, #e05428, #9c2419);
+}
+
+.season-leaves .season-flake.season-variant-3 {
+  width: 7.5px;
+  height: 5.5px;
+  background: linear-gradient(135deg, #eb8a24, #b5451d);
+}
+
+/* Sakura blossom petals */
+.season-blossom .season-flake {
+  width: 7px;
+  height: 5px;
+  border-radius: 70% 10% 70% 10%;
+  background: linear-gradient(135deg, #ffe2ee, #ffa8cb);
+  box-shadow: 0 0 3px rgba(255, 190, 218, 0.45);
+}
+
+.season-blossom .season-flake.season-variant-2 {
+  width: 5.5px;
+  height: 4px;
+  background: linear-gradient(135deg, #fff0f6, #ffbfd8);
+}
+
+/* Interactive cursor scatter sprites */
+.season-scattered[data-kind="snow"] {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 45%, rgba(215, 238, 255, 0.7) 100%);
+}
+
+.season-scattered[data-kind="shard"] {
+  width: 6px;
+  height: 8px;
+  clip-path: polygon(50% 0%, 100% 42%, 55% 100%, 0% 52%);
+  background: linear-gradient(135deg, #ffffff 10%, #c4e6ff 60%, #78b9ef 100%);
+  filter: drop-shadow(0 1px 2px rgba(120, 190, 255, 0.45));
+}
+
+.season-scattered[data-kind="droplet"] {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #99d8ff 65%, rgba(120, 200, 255, 0.25) 100%);
+}
+
+.season-scattered[data-kind="leaf"] {
+  width: 8px;
+  height: 6px;
+  border-radius: 0 75% 0 75%;
+  background: linear-gradient(135deg, #f59b2c, #c43f20);
+}
+
+.season-scattered[data-kind="leaf"][data-variant="1"] {
+  background: linear-gradient(135deg, #ffd046, #d96c1d);
+}
+
+.season-scattered[data-kind="petal"] {
+  width: 6px;
+  height: 4.5px;
+  border-radius: 75% 15% 75% 15%;
+  background: linear-gradient(135deg, #ffe5f0, #ff9fc5);
+}
+
+.season-ripple {
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  border: 1.2px solid rgba(185, 232, 255, 0.8);
 }
