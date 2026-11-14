@@ -2506,7 +2506,7 @@ function App() {
           density={14}
           pile={13}
           paused={isHidden}
-          radius={notchBottomRight ? (isImpacted ? 0 : 18) : isCalendarMode ? 28 : 18}
+          radius={isCalendarMode ? 28 : 18}
           edge={notchBottomRight ? "top" : "bottom"}
         />
 
