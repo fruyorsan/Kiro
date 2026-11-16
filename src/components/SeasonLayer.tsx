@@ -129,7 +129,10 @@ function buildDriftProfile(count: number): Float32Array {
 function resampleBins(src: Float32Array, count: number): Float32Array {
   const out = new Float32Array(count);
   if (src.length === 0) return out;
-  if (src.length === count) return out.set(src), out;
+  if (src.length === count) {
+    out.set(src);
+    return out;
+  }
   for (let i = 0; i < count; i++) {
     const u = (i / Math.max(1, count - 1)) * (src.length - 1);
     const a = Math.floor(u);
