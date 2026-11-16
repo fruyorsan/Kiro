@@ -723,6 +723,16 @@ function OverlayApp() {
   // blurred layer would re-read the game frame every tick.
   const [perfNotice, setPerfNotice] = useState(false);
   const perfNoticeTimerRef = useRef<any>(null);
+  // The banner is drawn inside this window, and this window sits hidden while
+  // nothing is on screen. A game boost notice therefore has to bring the window
+  // up by itself and take it away again when the banner is done — otherwise it
+  // renders into an invisible window and the player never sees it.
+  const modeRef = useRef<Mode>('idle');
+  modeRef.current = mode;
+  const hidePerfWindowRef = useRef<any>(null);
+  // Read inside the window-visibility effect without re-running it.
+  const perfNoticeRef = useRef(false);
+  perfNoticeRef.current = perfNotice;
   const [updateStatus, setUpdateStatus] = useState<string>('checking');
   const [updateProgress, setUpdateProgress] = useState(0);
 
@@ -797,21 +807,53 @@ function OverlayApp() {
   // movie or browsing. It shows once on engage and disappears after a moment.
   useEffect(() => {
     let alive = true;
+
+    // Show/hide this window around the banner. `sync_overlay_position` first, or
+    // the window can pop up at a stale spot on a multi-monitor setup.
+    const showPerfWindow = async () => {
+      try {
+        if (hidePerfWindowRef.current) {
+          clearTimeout(hidePerfWindowRef.current);
+          hidePerfWindowRef.current = null;
+        }
+        const appWindow = getCurrentWebviewWindow();
+        await invoke('sync_overlay_position');
+        await appWindow.show();
+      } catch (e) {
+        console.error("Perf notice window error:", e);
+      }
+    };
+
+    const hidePerfWindow = () => {
+      if (hidePerfWindowRef.current) clearTimeout(hidePerfWindowRef.current);
+      hidePerfWindowRef.current = setTimeout(() => {
+        // The volume/brightness card may have taken the window over meanwhile.
+        if (modeRef.current !== 'idle') return;
+        getCurrentWebviewWindow().hide().catch(() => {});
+      }, 600);
+    };
+
     const unlisten = listen<boolean>("perf-mode", (event) => {
       if (!alive) return;
       if (!event.payload) {
         setPerfNotice(false);
         if (perfNoticeTimerRef.current) clearTimeout(perfNoticeTimerRef.current);
+        hidePerfWindow();
         return;
       }
       setPerfNotice(true);
+      void showPerfWindow();
       if (perfNoticeTimerRef.current) clearTimeout(perfNoticeTimerRef.current);
-      perfNoticeTimerRef.current = setTimeout(() => setPerfNotice(false), 5200);
+      perfNoticeTimerRef.current = setTimeout(() => {
+        setPerfNotice(false);
+        hidePerfWindow();
+      }, 5200);
     });
     return () => {
       alive = false;
       unlisten.then((off) => off()).catch(() => {});
       if (perfNoticeTimerRef.current) clearTimeout(perfNoticeTimerRef.current);
+      if (hidePerfWindowRef.current) clearTimeout(hidePerfWindowRef.current);
     };
   }, []);
 
@@ -988,6 +1030,9 @@ function OverlayApp() {
         if (mode === 'idle') {
           // Wait for exit animation to finish before hiding
           hideWindowTimeoutRef.current = setTimeout(async () => {
+            // A game boost banner is drawn in this same window: hiding it here
+            // would swallow the notice the player is supposed to see.
+            if (perfNoticeRef.current) return;
             await appWindow.hide();
           }, 400);
         } else {
@@ -1067,7 +1112,7 @@ function OverlayApp() {
       {/* Game boost banner â€” no backdrop-filter on purpose: it would force a
           blur pass over the game frame every tick. */}
       <AnimatePresence>
-        {perfNotice && mode !== 'splash' && mode !== 'updating' && (
+        {perfNotice && mode !== 'updating' && (
           <motion.div
             className="perf-notice"
             initial={{ opacity: 0, y: -18, scale: 0.96 }}
