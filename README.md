@@ -82,12 +82,20 @@ chose.
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/control-center.webp" width="420" alt="Control Center" /><br /><sub><b>Control Center</b><br />Wi-Fi, Bluetooth, sound and light in one card you arrange yourself.</sub></td>
-    <td align="center"><img src="docs/screenshots/music.webp" width="420" alt="Music" /><br /><sub><b>Music</b><br />Album art, playback controls and a live visualizer.</sub></td>
+    <td align="center"><img src="docs/screenshots/control-center.webp" width="420" alt="Control Center" /></td>
+    <td align="center"><img src="docs/screenshots/music.webp" width="420" alt="Music" /></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/notes.webp" width="420" alt="Notes" /><br /><sub><b>Notes</b><br />A small notebook with colours, pictures and export.</sub></td>
-    <td align="center"><img src="docs/screenshots/game.webp" width="420" alt="Kiro over a fullscreen game" /><br /><sub><b>Over a game</b><br />Notch and dock, right where you left them.</sub></td>
+    <td align="center"><sub><b>Control Center</b> — Wi-Fi, Bluetooth, sound and light in one card you arrange yourself.</sub></td>
+    <td align="center"><sub><b>Music</b> — album art, playback controls and a live visualizer.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/notes.webp" width="420" alt="Notes" /></td>
+    <td align="center"><img src="docs/screenshots/game.webp" width="420" alt="Kiro over a fullscreen game" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Notes</b> — a small notebook with colours, pictures and export.</sub></td>
+    <td align="center"><sub><b>Over a game</b> — the notch and the dock, right where you left them.</sub></td>
   </tr>
 </table>
 </div>
