@@ -792,29 +792,42 @@ body,
 /* Blur-free on purpose: it sits on top of a running game, and any
    backdrop-filter here would force a blur pass over the game frame every tick.
    Depth comes from gradients and layered shadows instead. */
-.perf-notice {
+/* Centering shell: full-width, so the card stays dead-centre at the very top
+   of the screen (the notch position). The entry animation lives here instead
+   of on the card, because a motion transform on the card itself would override
+   its horizontal centering. */
+.perf-notice-wrap {
     position: absolute;
-    top: 40px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 8px;
+    left: 0;
+    right: 0;
     z-index: 10000;
     display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.perf-notice {
+    position: relative;
+    display: flex;
     align-items: center;
-    gap: 13px;
-    padding: 12px 18px 13px 13px;
+    gap: 12px;
+    padding: 11px 17px 12px 12px;
     border-radius: 16px;
     background:
-        linear-gradient(180deg, rgba(37, 40, 56, 0.975), rgba(17, 19, 27, 0.99));
-    border: 1px solid rgba(255, 255, 255, 0.085);
+        linear-gradient(180deg, rgba(30, 33, 47, 0.972), rgba(14, 16, 23, 0.988));
+    border: 1px solid rgba(255, 255, 255, 0.09);
     box-shadow:
-        0 22px 48px -8px rgba(0, 0, 0, 0.72),
-        0 4px 14px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(129, 158, 255, 0.09),
-        inset 0 1px 0 rgba(255, 255, 255, 0.09),
-        inset 0 -18px 30px -22px rgba(96, 165, 250, 0.35);
+        0 24px 54px -10px rgba(0, 0, 0, 0.78),
+        0 5px 16px rgba(0, 0, 0, 0.42),
+        0 0 0 1px rgba(129, 158, 255, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -18px 30px -22px rgba(96, 165, 250, 0.32);
     pointer-events: none;
     overflow: hidden;
-    min-width: 344px;
+    min-width: 336px;
+    transform-origin: top center;
+    animation: kiroPerfCardIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Specular hairline along the top edge: makes the card read as a real surface
@@ -875,19 +888,19 @@ body,
 }
 
 .perf-notice-title {
-    font-size: 13.5px;
-    font-weight: 650;
-    letter-spacing: -0.05px;
+    font-size: 13px;
+    font-weight: 620;
+    letter-spacing: 0.05px;
     color: #fff;
-    line-height: 1.25;
+    line-height: 1.22;
 }
 
 .perf-notice-sub {
-    font-size: 11px;
+    font-size: 10.8px;
     font-weight: 450;
-    color: rgba(226, 236, 255, 0.58);
-    letter-spacing: 0.1px;
-    line-height: 1.3;
+    color: rgba(226, 236, 255, 0.6);
+    letter-spacing: 0.15px;
+    line-height: 1.32;
 }
 
 /* Live pip: a steady dot plus a ring that keeps expanding out of it. */
@@ -925,6 +938,17 @@ body,
     animation: kiroPerfBar 5.2s linear forwards;
 }
 
+@keyframes kiroPerfCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.965);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 @keyframes kiroPerfIconPulse {
     0%, 100% {
         box-shadow:
@@ -959,6 +983,9 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .perf-notice {
+        animation: none;
+    }
     .perf-notice-icon,
     .perf-notice-live::after {
         animation: none;

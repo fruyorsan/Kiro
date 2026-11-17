@@ -18,7 +18,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 const MAX_PROMPT: usize = 4000;
 const CLI_TIMEOUT: Duration = Duration::from_secs(120);
@@ -64,7 +64,7 @@ fn http_client() -> Result<&'static reqwest::Client, String> {
 /// straight to a model that works.
 static GEMINI_MODEL: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Provider {
     Claude,
     OpenAI,
@@ -176,6 +176,176 @@ struct GeminiContent {
 struct GeminiPart {
     #[serde(default)]
     text: Option<String>,
+}
+
+/// One incremental token batch pushed to the webview while a provider is still
+/// writing. The frontend appends every `delta` for the matching `id`, so the
+/// answer starts appearing in the notch after the first token instead of after
+/// the whole response (which could take many seconds).
+#[derive(Clone, serde::Serialize)]
+struct AiStreamEvent {
+    id: String,
+    delta: String,
+}
+
+struct StreamSink<'a> {
+    app: &'a AppHandle,
+    id: &'a str,
+    /// Number of non-empty deltas pushed for this request. Used to avoid
+    /// retrying another model after part of an answer is already on screen.
+    emitted: std::sync::atomic::AtomicUsize,
+}
+
+impl StreamSink<'_> {
+    fn emit(&self, delta: &str) {
+        if delta.is_empty() {
+            return;
+        }
+        self.emitted
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let _ = self.app.emit(
+            "ai-stream",
+            AiStreamEvent {
+                id: self.id.to_string(),
+                delta: delta.to_string(),
+            },
+        );
+    }
+
+    fn emitted(&self) -> usize {
+        self.emitted.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+/// Read a server-sent-event response line by line. Chunks can split a UTF-8
+/// character in half, so the buffer stays as bytes and only complete lines are
+/// decoded.
+async fn read_sse<F>(response: &mut reqwest::Response, mut on_data: F) -> Result<(), String>
+where
+    F: FnMut(&str) + Send,
+{
+    let mut buffer: Vec<u8> = Vec::new();
+    loop {
+        let chunk = response
+            .chunk()
+            .await
+            .map_err(|e| format!("Bağlantı hatası: {e}"))?;
+        let Some(chunk) = chunk else { break };
+        buffer.extend_from_slice(&chunk);
+        while let Some(position) = buffer.iter().position(|byte| *byte == b'\n') {
+            let line: Vec<u8> = buffer.drain(..=position).collect();
+            if let Some(data) = sse_data(&line) {
+                on_data(data);
+            }
+        }
+    }
+    if let Some(data) = sse_data(&buffer) {
+        on_data(data);
+    }
+    Ok(())
+}
+
+fn sse_data(line: &[u8]) -> Option<&str> {
+    let text = std::str::from_utf8(line).ok()?.trim();
+    text.strip_prefix("data:")
+        .map(str::trim)
+        .filter(|data| !data.is_empty() && *data != "[DONE]")
+}
+
+/// Text + stop reason from one Anthropic stream event. Pure so the SSE wiring
+/// can be tested without a live key.
+fn anthropic_stream_event(data: &str) -> (String, Option<String>) {
+    let Ok(event) = serde_json::from_str::<AnthropicStreamEvent>(data) else {
+        return (String::new(), None);
+    };
+    match event.kind.as_str() {
+        "content_block_delta" => match event.delta {
+            Some(delta) if delta.kind == "text_delta" => {
+                (delta.text.unwrap_or_default(), None)
+            }
+            _ => (String::new(), None),
+        },
+        "message_delta" => (
+            String::new(),
+            event.delta.and_then(|delta| delta.stop_reason),
+        ),
+        _ => (String::new(), None),
+    }
+}
+
+fn openai_stream_chunk(data: &str) -> (String, Option<String>) {
+    let Ok(chunk) = serde_json::from_str::<OpenAiStreamChunk>(data) else {
+        return (String::new(), None);
+    };
+    let mut text = String::new();
+    let mut finish_reason = None;
+    for choice in chunk.choices {
+        if let Some(delta) = choice.delta {
+            if let Some(content) = delta.content {
+                text.push_str(&content);
+            }
+        }
+        if choice.finish_reason.is_some() {
+            finish_reason = choice.finish_reason;
+        }
+    }
+    (text, finish_reason)
+}
+
+fn gemini_stream_chunk(data: &str) -> (String, Option<String>) {
+    let Ok(chunk) = serde_json::from_str::<GeminiResponse>(data) else {
+        return (String::new(), None);
+    };
+    let Some(candidate) = chunk.candidates.unwrap_or_default().into_iter().next() else {
+        return (String::new(), None);
+    };
+    let text = candidate
+        .content
+        .map(|content| content.parts.unwrap_or_default())
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|part| part.text)
+        .collect::<Vec<_>>()
+        .join("");
+    (text, candidate.finish_reason)
+}
+
+#[derive(Deserialize)]
+struct AnthropicStreamEvent {
+    #[serde(default, rename = "type")]
+    kind: String,
+    #[serde(default)]
+    delta: Option<AnthropicStreamDelta>,
+}
+
+#[derive(Deserialize)]
+struct AnthropicStreamDelta {
+    #[serde(default, rename = "type")]
+    kind: String,
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    stop_reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiStreamChunk {
+    #[serde(default)]
+    choices: Vec<OpenAiStreamChoice>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiStreamChoice {
+    #[serde(default)]
+    delta: Option<OpenAiStreamDelta>,
+    #[serde(default)]
+    finish_reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiStreamDelta {
+    #[serde(default)]
+    content: Option<String>,
 }
 
 fn setting(app: &AppHandle, key: &str) -> Option<String> {
@@ -327,6 +497,7 @@ async fn ask_anthropic(
     model: &str,
     prompt: &str,
     images: &[InlineImage],
+    stream: Option<&StreamSink<'_>>,
 ) -> Result<String, String> {
     let content = if images.is_empty() {
         serde_json::json!(prompt)
@@ -355,6 +526,7 @@ async fn ask_anthropic(
         let body = serde_json::json!({
             "model": model,
             "max_tokens": MAX_OUTPUT_TOKENS,
+            "stream": stream.is_some(),
             "messages": messages
         });
         let response = client
@@ -366,12 +538,13 @@ async fn ask_anthropic(
             .send()
             .await
             .map_err(|e| format!("Bağlantı hatası: {e}"));
-        let parsed = match response {
-            Ok(response) => {
+
+        let (text, stop_reason) = match response {
+            Ok(mut response) => {
                 let status = response.status();
-                let text = response.text().await.map_err(|e| e.to_string())?;
                 if !status.is_success() {
-                    let error = friendly_error("Claude", status.as_u16(), &text);
+                    let body = response.text().await.unwrap_or_default();
+                    let error = friendly_error("Claude", status.as_u16(), &body);
                     // A failed continuation must not throw away the part that
                     // already arrived on screen.
                     if round > 0 && !answer.trim().is_empty() {
@@ -379,14 +552,49 @@ async fn ask_anthropic(
                     }
                     return Err(error);
                 }
-                match serde_json::from_str::<AnthropicResponse>(&text) {
-                    Ok(parsed) => parsed,
-                    Err(error) => {
-                        if round > 0 && !answer.trim().is_empty() {
+                if let Some(sink) = stream {
+                    let mut round_text = String::new();
+                    let mut stop_reason: Option<String> = None;
+                    let read = read_sse(&mut response, |data| {
+                        let (text, reason) = anthropic_stream_event(data);
+                        if !text.is_empty() {
+                            round_text.push_str(&text);
+                            sink.emit(&text);
+                        }
+                        if reason.is_some() {
+                            stop_reason = reason;
+                        }
+                    })
+                    .await;
+                    if let Err(error) = read {
+                        if !round_text.trim().is_empty() {
+                            answer.push_str(&round_text);
+                        }
+                        if !answer.trim().is_empty() {
                             break;
                         }
-                        return Err(error.to_string());
+                        return Err(error);
                     }
+                    (round_text, stop_reason)
+                } else {
+                    let body = response.text().await.map_err(|e| e.to_string())?;
+                    let parsed = match serde_json::from_str::<AnthropicResponse>(&body) {
+                        Ok(parsed) => parsed,
+                        Err(error) => {
+                            if round > 0 && !answer.trim().is_empty() {
+                                break;
+                            }
+                            return Err(error.to_string());
+                        }
+                    };
+                    let text = parsed
+                        .content
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|block| block.text)
+                        .collect::<Vec<_>>()
+                        .join("");
+                    (text, parsed.stop_reason)
                 }
             }
             Err(error) => {
@@ -396,13 +604,7 @@ async fn ask_anthropic(
                 return Err(error);
             }
         };
-        let text = parsed
-            .content
-            .unwrap_or_default()
-            .into_iter()
-            .map(|block| block.text)
-            .collect::<Vec<_>>()
-            .join("");
+
         if text.trim().is_empty() {
             if answer.trim().is_empty() {
                 return Err("Claude boş yanıt döndürdü".into());
@@ -410,7 +612,7 @@ async fn ask_anthropic(
             break;
         }
         answer.push_str(&text);
-        if parsed.stop_reason.as_deref() != Some("max_tokens") {
+        if stop_reason.as_deref() != Some("max_tokens") {
             break;
         }
         messages.push(serde_json::json!({ "role": "assistant", "content": text }));
@@ -425,6 +627,7 @@ async fn ask_openai(
     model: &str,
     prompt: &str,
     images: &[InlineImage],
+    stream: Option<&StreamSink<'_>>,
 ) -> Result<String, String> {
     let content = if images.is_empty() {
         serde_json::json!(prompt)
@@ -451,6 +654,7 @@ async fn ask_openai(
         let body = serde_json::json!({
             "model": model,
             "max_tokens": MAX_OUTPUT_TOKENS,
+            "stream": stream.is_some(),
             "messages": messages
         });
         let response = client
@@ -461,25 +665,61 @@ async fn ask_openai(
             .send()
             .await
             .map_err(|e| format!("Bağlantı hatası: {e}"));
-        let parsed = match response {
-            Ok(response) => {
+
+        let (text, finish_reason) = match response {
+            Ok(mut response) => {
                 let status = response.status();
-                let text = response.text().await.map_err(|e| e.to_string())?;
                 if !status.is_success() {
-                    let error = friendly_error("ChatGPT", status.as_u16(), &text);
+                    let body = response.text().await.unwrap_or_default();
+                    let error = friendly_error("ChatGPT", status.as_u16(), &body);
                     if round > 0 && !answer.trim().is_empty() {
                         break;
                     }
                     return Err(error);
                 }
-                match serde_json::from_str::<OpenAiResponse>(&text) {
-                    Ok(parsed) => parsed,
-                    Err(error) => {
-                        if round > 0 && !answer.trim().is_empty() {
+                if let Some(sink) = stream {
+                    let mut round_text = String::new();
+                    let mut finish_reason: Option<String> = None;
+                    let read = read_sse(&mut response, |data| {
+                        let (text, reason) = openai_stream_chunk(data);
+                        if !text.is_empty() {
+                            round_text.push_str(&text);
+                            sink.emit(&text);
+                        }
+                        if reason.is_some() {
+                            finish_reason = reason;
+                        }
+                    })
+                    .await;
+                    if let Err(error) = read {
+                        if !round_text.trim().is_empty() {
+                            answer.push_str(&round_text);
+                        }
+                        if !answer.trim().is_empty() {
                             break;
                         }
-                        return Err(error.to_string());
+                        return Err(error);
                     }
+                    (round_text, finish_reason)
+                } else {
+                    let body = response.text().await.map_err(|e| e.to_string())?;
+                    let parsed = match serde_json::from_str::<OpenAiResponse>(&body) {
+                        Ok(parsed) => parsed,
+                        Err(error) => {
+                            if round > 0 && !answer.trim().is_empty() {
+                                break;
+                            }
+                            return Err(error.to_string());
+                        }
+                    };
+                    let choice = parsed.choices.unwrap_or_default().into_iter().next();
+                    let Some(choice) = choice else {
+                        if answer.trim().is_empty() {
+                            return Err("ChatGPT boş yanıt döndürdü".into());
+                        }
+                        break;
+                    };
+                    (choice.message.content.unwrap_or_default(), choice.finish_reason)
                 }
             }
             Err(error) => {
@@ -489,15 +729,8 @@ async fn ask_openai(
                 return Err(error);
             }
         };
-        let choice = parsed.choices.unwrap_or_default().into_iter().next();
-        let Some(choice) = choice else {
-            if answer.trim().is_empty() {
-                return Err("ChatGPT boş yanıt döndürdü".into());
-            }
-            break;
-        };
-        let truncated = choice.finish_reason.as_deref() == Some("length");
-        let text = choice.message.content.unwrap_or_default();
+
+        let truncated = finish_reason.as_deref() == Some("length");
         if text.trim().is_empty() {
             if answer.trim().is_empty() {
                 return Err("ChatGPT boş yanıt döndürdü".into());
@@ -520,6 +753,7 @@ async fn ask_gemini(
     model: &str,
     prompt: &str,
     images: &[InlineImage],
+    stream: Option<&StreamSink<'_>>,
 ) -> Result<String, String> {
     let mut parts: Vec<serde_json::Value> = images
         .iter()
@@ -535,10 +769,17 @@ async fn ask_gemini(
     parts.push(serde_json::json!({ "text": prompt }));
     let mut contents = vec![serde_json::json!({ "role": "user", "parts": parts })];
     let client = http_client()?;
-    let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
-        model
-    );
+    let url = if stream.is_some() {
+        format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse",
+            model
+        )
+    } else {
+        format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+            model
+        )
+    };
     let mut answer = String::new();
 
     for round in 0..=MAX_CONTINUATIONS {
@@ -558,25 +799,69 @@ async fn ask_gemini(
             .send()
             .await
             .map_err(|e| format!("Bağlantı hatası: {e}"));
-        let parsed = match response {
-            Ok(response) => {
+
+        let (text, finish_reason) = match response {
+            Ok(mut response) => {
                 let status = response.status();
-                let text = response.text().await.map_err(|e| e.to_string())?;
                 if !status.is_success() {
-                    let error = friendly_error("Gemini", status.as_u16(), &text);
+                    let body = response.text().await.unwrap_or_default();
+                    let error = friendly_error("Gemini", status.as_u16(), &body);
                     if round > 0 && !answer.trim().is_empty() {
                         break;
                     }
                     return Err(error);
                 }
-                match serde_json::from_str::<GeminiResponse>(&text) {
-                    Ok(parsed) => parsed,
-                    Err(error) => {
-                        if round > 0 && !answer.trim().is_empty() {
+                if let Some(sink) = stream {
+                    let mut round_text = String::new();
+                    let mut finish_reason: Option<String> = None;
+                    let read = read_sse(&mut response, |data| {
+                        let (text, reason) = gemini_stream_chunk(data);
+                        if !text.is_empty() {
+                            round_text.push_str(&text);
+                            sink.emit(&text);
+                        }
+                        if reason.is_some() {
+                            finish_reason = reason;
+                        }
+                    })
+                    .await;
+                    if let Err(error) = read {
+                        if !round_text.trim().is_empty() {
+                            answer.push_str(&round_text);
+                        }
+                        if !answer.trim().is_empty() {
                             break;
                         }
-                        return Err(error.to_string());
+                        return Err(error);
                     }
+                    (round_text, finish_reason)
+                } else {
+                    let body = response.text().await.map_err(|e| e.to_string())?;
+                    let parsed = match serde_json::from_str::<GeminiResponse>(&body) {
+                        Ok(parsed) => parsed,
+                        Err(error) => {
+                            if round > 0 && !answer.trim().is_empty() {
+                                break;
+                            }
+                            return Err(error.to_string());
+                        }
+                    };
+                    let candidate = parsed.candidates.unwrap_or_default().into_iter().next();
+                    let Some(candidate) = candidate else {
+                        if answer.trim().is_empty() {
+                            return Err("Gemini boş yanıt döndürdü".into());
+                        }
+                        break;
+                    };
+                    let text = candidate
+                        .content
+                        .map(|content| content.parts.unwrap_or_default())
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter_map(|part| part.text)
+                        .collect::<Vec<_>>()
+                        .join("");
+                    (text, candidate.finish_reason)
                 }
             }
             Err(error) => {
@@ -586,22 +871,8 @@ async fn ask_gemini(
                 return Err(error);
             }
         };
-        let candidate = parsed.candidates.unwrap_or_default().into_iter().next();
-        let Some(candidate) = candidate else {
-            if answer.trim().is_empty() {
-                return Err("Gemini boş yanıt döndürdü".into());
-            }
-            break;
-        };
-        let truncated = candidate.finish_reason.as_deref() == Some("MAX_TOKENS");
-        let text = candidate
-            .content
-            .map(|content| content.parts.unwrap_or_default())
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|part| part.text)
-            .collect::<Vec<_>>()
-            .join("");
+
+        let truncated = finish_reason.as_deref() == Some("MAX_TOKENS");
         if text.trim().is_empty() {
             if answer.trim().is_empty() {
                 return Err("Gemini boş yanıt döndürdü".into());
@@ -711,9 +982,13 @@ pub async fn ai_ask(
     app: AppHandle,
     prompt: String,
     images: Option<Vec<String>>,
+    stream_id: Option<String>,
 ) -> Result<String, String> {
     let images = parse_images(images.unwrap_or_default());
-    let result = ask_provider(app, prompt, images).await;
+    // An empty id would make every event target nobody; treat it like "no
+    // streaming" and use the plain request path.
+    let stream_id = stream_id.filter(|id| !id.trim().is_empty());
+    let result = ask_provider(app, prompt, images, stream_id.as_deref()).await;
     // The response body, the JSON parse, the base64 images and the answer
     // string are the only big allocations in this path. They are dropped by
     // now; ask the idle reclaim worker to push the freed pages out once the
@@ -726,21 +1001,121 @@ async fn ask_provider(
     app: AppHandle,
     prompt: String,
     images: Vec<InlineImage>,
+    stream_id: Option<&str>,
 ) -> Result<String, String> {
     let prompt: String = prompt.trim().chars().take(MAX_PROMPT).collect();
     if prompt.is_empty() && images.is_empty() {
         return Err("Boş mesaj".into());
     }
 
-    let provider =
+    let sink = stream_id.map(|id| StreamSink {
+        app: &app,
+        id,
+        emitted: std::sync::atomic::AtomicUsize::new(0),
+    });
+    let sink = sink.as_ref();
+
+    let requested =
         Provider::from_setting(&setting(&app, "kiro-ai-provider").unwrap_or_default());
     let backend = setting(&app, "kiro-ai-backend").unwrap_or_else(|| "auto".into());
 
+    // Claude without a key silently degrades to the local Claude Code CLI. That
+    // CLI can be logged out (or missing), and then the notch sits on
+    // "Düşünüyor…" for several seconds only to show a login error. If the user
+    // already stored a key for another provider, answer with that instead —
+    // and if that key turns out to be dead too, try the next one.
+    let candidates = provider_candidates(requested, &backend, |candidate| {
+        provider_key(&app, candidate).is_some()
+    });
+    let total = candidates.len();
+
+    let mut last_error = String::new();
+    for (index, provider) in candidates.into_iter().enumerate() {
+        let more = index + 1 < total;
+        // Tell the notch which assistant is really answering when the backend
+        // had to substitute; the header would otherwise keep the old brand.
+        if provider != requested {
+            let _ = app.emit("ai-provider-used", ProviderId::of(provider));
+        }
+        match ask_one(&app, provider, &backend, &prompt, &images, sink).await {
+            Ok(answer) => return Ok(answer),
+            Err(error) => {
+                if more && is_provider_switchable(&error) {
+                    last_error = error;
+                    continue;
+                }
+                return Err(error);
+            }
+        }
+    }
+    Err(last_error)
+}
+
+/// Provider ids cross the IPC boundary as the same lowercase strings the
+/// settings file uses.
+struct ProviderId;
+
+impl ProviderId {
+    fn of(provider: Provider) -> &'static str {
+        match provider {
+            Provider::Claude => "claude",
+            Provider::OpenAI => "openai",
+            Provider::Gemini => "gemini",
+        }
+    }
+}
+
+/// A dead key on an automatically chosen provider must not be the end of the
+/// question: switch to the next keyed provider instead. Only key/auth problems
+/// qualify — a quota error or a network blip would just repeat on the next
+/// provider.
+fn is_provider_switchable(error: &str) -> bool {
+    let lower = error.to_ascii_lowercase();
+    lower.contains("anahtar geçersiz")
+        || lower.contains("invalid api key")
+        || lower.contains("invalid_key")
+        || lower.contains("incorrect api key")
+        || lower.contains("unauthorized")
+        || lower.contains("yetkisiz")
+        || lower.contains("api key not valid")
+        || lower.contains("api anahtarı yok")
+}
+
+/// Providers to try, in order. Normally just the configured one; when Claude
+/// has no key and the CLI was not pinned, every keyed HTTP provider in
+/// preference order.
+fn provider_candidates(
+    requested: Provider,
+    backend: &str,
+    has_key: impl Fn(Provider) -> bool + Copy,
+) -> Vec<Provider> {
+    if requested != Provider::Claude || backend == "cli" || has_key(Provider::Claude) {
+        return vec![requested];
+    }
+    let mut out: Vec<Provider> = [Provider::Gemini, Provider::OpenAI]
+        .into_iter()
+        .filter(|candidate| has_key(*candidate))
+        .collect();
+    if out.is_empty() {
+        out.push(Provider::Claude);
+    }
+    out
+}
+
+/// One provider, one answer.
+async fn ask_one(
+    app: &AppHandle,
+    provider: Provider,
+    backend: &str,
+    prompt: &str,
+    images: &[InlineImage],
+    sink: Option<&StreamSink<'_>>,
+) -> Result<String, String> {
     // Claude can run through the local Code CLI when there is no API key.
     if provider == Provider::Claude && backend != "cli" {
-        if let Some(key) = provider_key(&app, provider) {
-            let model = provider_model(&app, provider);
-            return ask_anthropic(&key, &model, &prompt, &images).await;
+        if let Some(key) = provider_key(app, provider) {
+            let model = provider_model(app, provider);
+            return ask_anthropic(&key, &model, prompt, images, sink).await;
         }
         if backend == "api" || !images.is_empty() {
             // The CLI takes a plain text prompt only, so an attached screenshot
@@ -756,20 +1131,21 @@ async fn ask_provider(
         }
     }
     if provider == Provider::Claude {
+        let prompt = prompt.to_string();
         return tauri::async_runtime::spawn_blocking(move || ask_cli(&prompt))
             .await
             .map_err(|error| error.to_string())?;
     }
 
-    let key = provider_key(&app, provider).ok_or_else(|| {
+    let key = provider_key(app, provider).ok_or_else(|| {
         format!(
             "{} API anahtarı yok. Çentikteki anahtar simgesine tıklayıp ekleyebilirsin.",
             provider.label()
         )
     })?;
-    let model = provider_model(&app, provider);
+    let model = provider_model(app, provider);
     match provider {
-        Provider::OpenAI => ask_openai(&key, &model, &prompt, &images).await,
+        Provider::OpenAI => ask_openai(&key, &model, prompt, images, sink).await,
         Provider::Gemini => {
             // Google retires ids without notice. Try the model that answered
             // last time first (a retired id costs two failed round-trips on
@@ -790,7 +1166,8 @@ async fn ask_provider(
             let mut index = 0;
             loop {
                 let current = candidates[index].clone();
-                match ask_gemini(&key, &current, &prompt, &images).await {
+                let emitted_before = sink.map(|sink| sink.emitted()).unwrap_or(0);
+                match ask_gemini(&key, &current, prompt, images, sink).await {
                     Ok(answer) => {
                         // Remember the winner so the next question skips the
                         // fallback chain entirely.
@@ -802,6 +1179,12 @@ async fn ask_provider(
                         return Ok(answer);
                     }
                     Err(error) => {
+                        // Once part of an answer reached the screen, switching
+                        // to another model would append a second beginning to
+                        // it. Stop with the partial answer instead.
+                        if sink.map(|sink| sink.emitted()).unwrap_or(0) > emitted_before {
+                            return Err(error);
+                        }
                         // Retired/unknown ids and overloaded models can be
                         // retried; a bad key or a quota error cannot.
                         let retryable = is_retired_model_error(&error)
@@ -857,6 +1240,189 @@ fn is_retired_model_error(message: &str) -> bool {
         || lower.contains("not found")
         || lower.contains("does not exist")
         || lower.contains("not supported")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sse_data_strips_prefix_and_skips_terminators() {
+        assert_eq!(sse_data(b"data: {\"a\":1}\n"), Some("{\"a\":1}"));
+        assert_eq!(sse_data(b"data:{\"a\":1}\r\n"), Some("{\"a\":1}"));
+        assert_eq!(sse_data(b"data: [DONE]\n"), None);
+        assert_eq!(sse_data(b"event: message\n"), None);
+        assert_eq!(sse_data(b"\n"), None);
+        // A chunk split through a multi-byte character decodes to None instead
+        // of panicking; the next complete line still gets through.
+        assert_eq!(sse_data(&[0xC3]), None);
+    }
+
+    #[test]
+    fn anthropic_events_yield_text_and_stop_reason() {
+        let (text, stop) = anthropic_stream_event(
+            r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Mer"}}"#,
+        );
+        assert_eq!(text, "Mer");
+        assert_eq!(stop, None);
+
+        let (text, stop) = anthropic_stream_event(
+            r#"{"type":"message_delta","delta":{"stop_reason":"max_tokens"}}"#,
+        );
+        assert!(text.is_empty());
+        assert_eq!(stop.as_deref(), Some("max_tokens"));
+
+        // Ping/other events must be ignored silently.
+        let (text, stop) = anthropic_stream_event(r#"{"type":"ping"}"#);
+        assert!(text.is_empty());
+        assert_eq!(stop, None);
+        let (text, stop) = anthropic_stream_event("not json");
+        assert!(text.is_empty());
+        assert_eq!(stop, None);
+    }
+
+    #[test]
+    fn openai_events_yield_deltas_and_finish_reason() {
+        let (text, finish) =
+            openai_stream_chunk(r#"{"choices":[{"delta":{"content":"hello"},"finish_reason":null}]}"#);
+        assert_eq!(text, "hello");
+        assert_eq!(finish, None);
+
+        let (text, finish) = openai_stream_chunk(r#"{"choices":[{"delta":{},"finish_reason":"length"}]}"#);
+        assert!(text.is_empty());
+        assert_eq!(finish.as_deref(), Some("length"));
+    }
+
+    #[test]
+    fn gemini_events_yield_parts_and_finish_reason() {
+        let (text, finish) = gemini_stream_chunk(
+            r#"{"candidates":[{"content":{"parts":[{"text":"a"},{"text":"b"}]}}]}"#,
+        );
+        assert_eq!(text, "ab");
+        assert_eq!(finish, None);
+
+        let (text, finish) =
+            gemini_stream_chunk(r#"{"candidates":[{"content":{"parts":[]},"finishReason":"MAX_TOKENS"}]}"#);
+        assert!(text.is_empty());
+        assert_eq!(finish.as_deref(), Some("MAX_TOKENS"));
+    }
+
+    #[test]
+    fn provider_chain_prefers_keyed_http_providers() {
+        // Claude has no key: Gemini wins over OpenAI.
+        let chain = provider_candidates(Provider::Claude, "auto", |candidate| {
+            matches!(candidate, Provider::Gemini | Provider::OpenAI)
+        });
+        assert_eq!(chain, vec![Provider::Gemini, Provider::OpenAI]);
+
+        let chain = provider_candidates(Provider::Claude, "auto", |candidate| {
+            matches!(candidate, Provider::OpenAI)
+        });
+        assert_eq!(chain, vec![Provider::OpenAI]);
+
+        // A pinned CLI keeps the CLI even when other keys exist.
+        let chain = provider_candidates(Provider::Claude, "cli", |candidate| {
+            candidate == Provider::OpenAI
+        });
+        assert_eq!(chain, vec![Provider::Claude]);
+
+        // A Claude key is used as-is; explicit providers are never rewritten.
+        let chain = provider_candidates(Provider::Claude, "auto", |_| true);
+        assert_eq!(chain, vec![Provider::Claude]);
+        let chain = provider_candidates(Provider::OpenAI, "auto", |_| true);
+        assert_eq!(chain, vec![Provider::OpenAI]);
+
+        // No keys at all: keep Claude so the CLI path still gets a chance.
+        let chain = provider_candidates(Provider::Claude, "auto", |_| false);
+        assert_eq!(chain, vec![Provider::Claude]);
+    }
+
+    #[test]
+    fn only_key_problems_switch_providers() {
+        assert!(is_provider_switchable(
+            "Gemini API hatası: anahtar geçersiz ya da yetkisiz. Anahtar düğmesinden yenile (API key not valid)"
+        ));
+        assert!(is_provider_switchable("401 Unauthorized"));
+        // Quota and network errors would repeat on the next provider.
+        assert!(!is_provider_switchable("kota doldu"));
+        assert!(!is_provider_switchable("Bağlantı hatası: timed out"));
+        assert!(!is_provider_switchable("seçili model kullanılamıyor"));
+    }
+
+    #[test]
+    fn retired_gemini_ids_are_mapped_to_current_default() {
+        assert_eq!(normalize_model(Provider::Gemini, "gemini-2.5-flash"), "gemini-3.5-flash");
+        assert_eq!(normalize_model(Provider::Gemini, "gemini-3.5-flash"), "gemini-3.5-flash");
+        assert_eq!(
+            next_gemini_model(
+                "models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash",
+                "gemini-2.0-flash"
+            )
+            .as_deref(),
+            Some("gemini-3.8-flash")
+        );
+    }
+
+    /// End-to-end check of the SSE reader against a local socket: the body is
+    /// written in pieces and one multi-byte character is split across two
+    /// writes, which is exactly what a real TLS stream does.
+    #[test]
+    fn sse_reader_reassembles_split_utf8_and_lines() {
+        use std::io::Write as _;
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        std::thread::spawn(move || {
+            use std::io::Read as _;
+            let (mut socket, _) = listener.accept().unwrap();
+            // Read the request head first: answering before hyper has sent its
+            // request makes the client reject the response as unexpected.
+            let mut request = Vec::new();
+            let mut byte = [0u8; 1];
+            while !request.ends_with(b"\r\n\r\n") {
+                match socket.read(&mut byte) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => request.push(byte[0]),
+                }
+            }
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n",
+                )
+                .unwrap();
+            // "data: {\"text\":\"Gün\"}\n\ndata: [DONE]\n\n" as two chunks, with
+            // the two bytes of `ü` split across the chunk boundary.
+            let first: &[u8] = b"data: {\"text\":\"G\xc3";
+            let second: &[u8] = b"\xbcn\"}\n\ndata: [DONE]\n\n";
+            socket
+                .write_all(format!("{:x}\r\n", first.len()).as_bytes())
+                .unwrap();
+            socket.write_all(first).unwrap();
+            socket.write_all(b"\r\n").unwrap();
+            socket.flush().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            socket
+                .write_all(format!("{:x}\r\n", second.len()).as_bytes())
+                .unwrap();
+            socket.write_all(second).unwrap();
+            socket.write_all(b"\r\n0\r\n\r\n").unwrap();
+            socket.flush().unwrap();
+        });
+
+        let collected = tauri::async_runtime::block_on(async move {
+            let client = reqwest::Client::new();
+            let mut response = client.get(format!("http://{addr}/")).send().await.unwrap();
+            let mut out = Vec::new();
+            read_sse(&mut response, |data| out.push(data.to_string()))
+                .await
+                .unwrap();
+            out
+        });
+
+        assert_eq!(collected, vec!["{\"text\":\"Gün\"}".to_string()]);
+    }
 }
 
 /// Open the provider's key page from the notch. Only these URLs can be opened,

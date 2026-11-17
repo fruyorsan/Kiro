@@ -3333,6 +3333,32 @@ img {
   overflow-wrap: anywhere;
 }
 
+/* Streaming footer: shown under a partially streamed answer so the stop button
+   stays reachable while text keeps arriving. */
+.ai-stream-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
+  font-size: 11px;
+  color: var(--kiro-text-muted, rgba(255, 255, 255, 0.55));
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Provider auto-switch note. Informational, not an error: blue tint. */
+.ai-notice {
+  margin-bottom: 8px;
+  padding: 6px 9px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(219, 234, 254, 0.9);
+  background: rgba(96, 165, 250, 0.12);
+  border: 0.5px solid rgba(96, 165, 250, 0.24);
+  border-radius: 8px;
+  white-space: normal;
+}
+
 .ai-md {
   white-space: normal;
 }

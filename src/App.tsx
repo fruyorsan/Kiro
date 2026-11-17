@@ -638,6 +638,9 @@ function App() {
   // a freeze ("Düşünüyor…" for a minute with no sign of life).
   const [aiElapsed, setAiElapsed] = useState(0);
   const [aiError, setAiError] = useState<string | null>(null);
+  // One-line note shown under an automatic provider switch ("Claude anahtarı
+  // yok, Gemini kullanılıyor"), so the header never changes without a reason.
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [aiProvider, setAiProvider] = useState(() => localStorage.getItem("kiro-ai-provider") || "claude");
   // Screenshots attached to the next question. They live only until the answer
   // arrives: the base64 copy is the biggest thing the webview holds, so it is
@@ -658,6 +661,21 @@ function App() {
   // switched) while a request was in flight, the late reply must not repopulate
   // the answer we just dropped for memory, or show up under a different provider.
   const aiRequestRef = useRef(0);
+  // Id of the stream currently allowed to write into `aiAnswer`. Deltas from an
+  // old/aborted request carry a different id and are ignored.
+  const aiStreamRef = useRef<string | null>(null);
+  // Deltas are batched: reparsing the Markdown on every token made long answers
+  // stutter. 70 ms keeps it looking live while cutting the work ~10x.
+  const aiStreamBufferRef = useRef("");
+  const aiStreamFlushRef = useRef<number | null>(null);
+  const clearAiStream = useCallback(() => {
+    aiStreamRef.current = null;
+    aiStreamBufferRef.current = "";
+    if (aiStreamFlushRef.current !== null) {
+      window.clearTimeout(aiStreamFlushRef.current);
+      aiStreamFlushRef.current = null;
+    }
+  }, []);
   const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem("kiro-dock-enabled") !== "false");
   const [isNotchHovered, setIsNotchHovered] = useState(false);
   const [agentActivity, setAgentActivity] = useState<AgentActivity | null>(null);
@@ -797,23 +815,52 @@ function App() {
     // describe it when the user sent no text.
     const prompt = typed || (images.length ? t("ai.attach.prompt") : "");
     if ((!prompt && !images.length) || aiBusy || aiImageBusy) return;
+    setAiNotice(null);
+
+    // Claude with no key is answered by the local Claude Code CLI. That CLI is
+    // often logged out and then takes seconds to fail, so when the user already
+    // stored another provider's key, ask that provider instead. A user who
+    // pinned `cli` in the settings keeps the CLI.
+    let provider = aiProvider;
+    const backend = localStorage.getItem("kiro-ai-backend") ?? "auto";
+    if (provider === "claude" && !aiHasKey("claude") && backend !== "cli") {
+      const fallback = (["gemini", "openai"] as const).find((id) => aiHasKey(id));
+      if (fallback) {
+        provider = fallback;
+        setAiProvider(fallback);
+        localStorage.setItem("kiro-ai-provider", fallback);
+        invoke("save_setting", { key: "kiro-ai-provider", value: fallback }).catch(() => {});
+        setAiNotice(t("ai.switched", { provider: aiProviderName(fallback) }));
+      }
+    }
     // ChatGPT and Gemini cannot work without a key: ask for it right here
     // instead of sending the request just to show an error.
-    if (aiProvider !== "claude" && !aiHasKey(aiProvider)) {
-      openAiSetup(aiProvider);
+    if (provider !== "claude" && !aiHasKey(provider)) {
+      openAiSetup(provider);
       return;
     }
+
     setAiBusy(true);
     setAiElapsed(0);
     setAiError(null);
     setAiAnswer("");
     const request = ++aiRequestRef.current;
+    // The backend streams tokens for HTTP providers. A random id keeps a late
+    // event from an aborted question out of the next answer.
+    const streamId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${request}`;
+    aiStreamRef.current = streamId;
     try {
       const answer = await invoke<string>("ai_ask", {
         prompt,
         images: images.map((image) => image.dataUrl),
+        streamId,
       });
       if (request !== aiRequestRef.current) return;
+      // Authoritative final text: trims edges and covers providers without
+      // streaming (Claude CLI).
       setAiAnswer(answer);
       setAiPrompt("");
       setAiImages([]);
@@ -824,22 +871,86 @@ function App() {
       // A missing key or a retired model id both need the setup panel, not a
       // dead-end error message.
       if (/anahtar|api key|no longer available|not found|does not exist/i.test(message)) {
-        openAiSetup(aiProvider);
+        openAiSetup(provider);
       }
     } finally {
-      if (request === aiRequestRef.current) setAiBusy(false);
+      if (request === aiRequestRef.current) {
+        setAiBusy(false);
+        clearAiStream();
+      }
     }
-  }, [aiPrompt, aiImages, aiBusy, aiImageBusy, aiProvider, openAiSetup, t]);
+  }, [aiPrompt, aiImages, aiBusy, aiImageBusy, aiProvider, openAiSetup, t, clearAiStream]);
 
   const cancelAi = useCallback(() => {
     // Bumping the request id makes the in-flight answer land in the void. The
     // backend request is allowed to finish (its result is dropped and memory
     // is trimmed), so the panel reacts instantly instead of waiting it out.
     aiRequestRef.current += 1;
+    clearAiStream();
     setAiBusy(false);
     setAiElapsed(0);
     setAiError(null);
+  }, [clearAiStream]);
+
+  // Append streamed tokens. The final `ai_ask` result replaces the text once
+  // the request completes, so a dropped event cannot leave a permanent gap.
+  useEffect(() => {
+    let alive = true;
+    let unlisten: (() => void) | undefined;
+    listen<{ id: string; delta: string }>("ai-stream", (event) => {
+      if (!alive || !event.payload) return;
+      if (event.payload.id !== aiStreamRef.current) return;
+      const delta = event.payload.delta;
+      if (!delta) return;
+      aiStreamBufferRef.current += delta;
+      if (aiStreamFlushRef.current !== null) return;
+      aiStreamFlushRef.current = window.setTimeout(() => {
+        aiStreamFlushRef.current = null;
+        const pending = aiStreamBufferRef.current;
+        aiStreamBufferRef.current = "";
+        if (!pending) return;
+        setAiAnswer((current) => current + pending);
+      }, 70);
+    })
+      .then((off) => {
+        if (alive) unlisten = off;
+        else off();
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (unlisten) unlisten();
+    };
   }, []);
+
+  // The backend may have to substitute another provider (a dead key on the
+  // automatic choice). Reflect that in the header and persist it, so the next
+  // question skips the failing provider entirely.
+  useEffect(() => {
+    let alive = true;
+    let unlisten: (() => void) | undefined;
+    listen<string>("ai-provider-used", (event) => {
+      if (!alive || !event.payload) return;
+      const provider = event.payload;
+      if (!AI_PROVIDERS.includes(provider as (typeof AI_PROVIDERS)[number])) return;
+      setAiProvider((current) => {
+        if (current === provider) return current;
+        localStorage.setItem("kiro-ai-provider", provider);
+        invoke("save_setting", { key: "kiro-ai-provider", value: provider }).catch(() => {});
+        setAiNotice(t("ai.switched", { provider: aiProviderName(provider) }));
+        return provider;
+      });
+    })
+      .then((off) => {
+        if (alive) unlisten = off;
+        else off();
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (unlisten) unlisten();
+    };
+  }, [t]);
 
   useEffect(() => {
     if (!aiBusy) return;
@@ -886,26 +997,30 @@ function App() {
     // Invalidate an in-flight request: its answer would otherwise land in the
     // state we are about to clear and be shown the next time the panel opens.
     aiRequestRef.current += 1;
+    clearAiStream();
     setAiBusy(false);
     setAiOpen(false);
     setAiSetup(false);
     setAiError(null);
+    setAiNotice(null);
     // Closing the panel is the point where the attachments and the rendered
     // answer stop being useful; dropping them here keeps an idle notch at its
     // baseline memory instead of holding the last conversation forever.
     setAiImages([]);
     setAiAnswer("");
-  }, []);
+  }, [clearAiStream]);
 
   const chooseAiProvider = useCallback(
     (provider: string) => {
       setAiProvider(provider);
       // A reply for the previous provider must not appear under the new one.
       aiRequestRef.current += 1;
+      clearAiStream();
       setAiBusy(false);
       localStorage.setItem("kiro-ai-provider", provider);
       invoke("save_setting", { key: "kiro-ai-provider", value: provider }).catch(() => {});
       setAiError(null);
+      setAiNotice(null);
       setAiAnswer("");
       // No key yet? Show the setup right away instead of letting the first
       // question fail. Claude may still run through its local CLI, so only the
@@ -917,14 +1032,16 @@ function App() {
         setAiSetup(false);
       }
     },
-    [aiSetup, openAiSetup]
+    [aiSetup, openAiSetup, clearAiStream]
   );
 
   // A new answer has to start at the top: the container keeps its scroll offset
-  // between questions, which cut the first line off under the header.
+  // between questions, which cut the first line off under the header. Only run
+  // on request start/finish; following every streamed delta would pin the view
+  // to the first line while the answer grows.
   useEffect(() => {
     if (aiBodyRef.current) aiBodyRef.current.scrollTop = 0;
-  }, [aiAnswer, aiBusy]);
+  }, [aiBusy]);
 
   // The notch window is normally click-through and does not take the keyboard;
   // borrow it only while the AI input is on screen.
@@ -3128,7 +3245,7 @@ function App() {
                         ) : (
                           <>
                             <div className="ai-body" ref={aiBodyRef}>
-                              {aiBusy ? (
+                              {aiBusy && !aiAnswer ? (
                                 <div className="ai-thinking">
                                   <span className="ai-thinking-dot" />
                                   <span>
@@ -3144,11 +3261,25 @@ function App() {
                               ) : aiError ? (
                                 <div className="ai-error">{aiError}</div>
                               ) : aiAnswer ? (
-                                <div className="ai-answer">
-                                  <AiMarkdown text={aiAnswer} />
-                                </div>
+                                <>
+                                  <div className="ai-answer">
+                                    <AiMarkdown text={aiAnswer} />
+                                  </div>
+                                  {aiBusy && (
+                                    <div className="ai-stream-status">
+                                      <span className="ai-thinking-dot" />
+                                      <span>{t("ai.writing")}</span>
+                                      <button type="button" className="ai-stop" onClick={cancelAi}>
+                                        {t("ai.stop")}
+                                      </button>
+                                    </div>
+                                  )}
+                                </>
                               ) : (
-                                <div className="ai-hint">{t("ai.hint")}</div>
+                                <>
+                                  {aiNotice && <div className="ai-notice">{aiNotice}</div>}
+                                  <div className="ai-hint">{t("ai.hint")}</div>
+                                </>
                               )}
                             </div>
                             {aiImages.length > 0 && (

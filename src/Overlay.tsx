@@ -706,6 +706,24 @@ function BrightnessNotch({
 
 // â”€â”€â”€ Main Overlay Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+const PERF_NOTICE_SEEN_KEY = "kiro-perf-notice-seen-at";
+const PERF_NOTICE_COOLDOWN_MS = 30 * 60 * 1000;
+
+function shouldShowPerfNotice() {
+  try {
+    const last = Number(localStorage.getItem(PERF_NOTICE_SEEN_KEY));
+    return !Number.isFinite(last) || last <= 0 || Date.now() - last > PERF_NOTICE_COOLDOWN_MS;
+  } catch {
+    return true;
+  }
+}
+
+function markPerfNoticeShown() {
+  try {
+    localStorage.setItem(PERF_NOTICE_SEEN_KEY, String(Date.now()));
+  } catch {}
+}
+
 function OverlayApp() {
   const t = useT();
   // Splash and update screens use the same picture as the dock, so a custom
@@ -723,6 +741,13 @@ function OverlayApp() {
   // blurred layer would re-read the game frame every tick.
   const [perfNotice, setPerfNotice] = useState(false);
   const perfNoticeTimerRef = useRef<any>(null);
+  // A game that is alt-tabbed out of and back into re-engages performance mode
+  // every time, so this banner used to flash on every single alt-tab. It is
+  // informational, not an alert: once per app run (with a persisted cooldown
+  // for quick restarts) is plenty.
+  const perfNoticeShownRef = useRef(false);
+  // True only while this banner is the reason the overlay window is up.
+  const perfWindowShownRef = useRef(false);
   // The banner is drawn inside this window, and this window sits hidden while
   // nothing is on screen. A game boost notice therefore has to bring the window
   // up by itself and take it away again when the banner is done — otherwise it
@@ -838,14 +863,26 @@ function OverlayApp() {
       if (!event.payload) {
         setPerfNotice(false);
         if (perfNoticeTimerRef.current) clearTimeout(perfNoticeTimerRef.current);
-        hidePerfWindow();
+        // Only take the window down if this banner was what brought it up;
+        // otherwise a perf-mode toggle could hide a window we never showed.
+        if (perfWindowShownRef.current) {
+          perfWindowShownRef.current = false;
+          hidePerfWindow();
+        }
         return;
       }
+      // Already on screen, or already shown recently: don't re-announce it.
+      if (perfNoticeRef.current || perfNoticeShownRef.current) return;
+      if (!shouldShowPerfNotice()) return;
+      perfNoticeShownRef.current = true;
+      perfWindowShownRef.current = true;
+      markPerfNoticeShown();
       setPerfNotice(true);
       void showPerfWindow();
       if (perfNoticeTimerRef.current) clearTimeout(perfNoticeTimerRef.current);
       perfNoticeTimerRef.current = setTimeout(() => {
         setPerfNotice(false);
+        perfWindowShownRef.current = false;
         hidePerfWindow();
       }, 5200);
     });
@@ -1114,25 +1151,27 @@ function OverlayApp() {
       <AnimatePresence>
         {perfNotice && mode !== 'updating' && (
           <motion.div
-            className="perf-notice"
-            initial={{ opacity: 0, y: -18, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            className="perf-notice-wrap"
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="perf-notice-glow" />
-            <div className="perf-notice-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 2 4.5 13.2h5.3L9.6 22 19 10.4h-5.6L13 2Z" />
-              </svg>
+            <div className="perf-notice">
+              <div className="perf-notice-glow" />
+              <div className="perf-notice-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2 4.5 13.2h5.3L9.6 22 19 10.4h-5.6L13 2Z" />
+                </svg>
+              </div>
+              <div className="perf-notice-copy">
+                <span className="perf-notice-title">{t("perf.notice.title")}</span>
+                <span className="perf-notice-sub">{t("perf.notice.sub")}</span>
+              </div>
+              <span className="perf-notice-live" />
+              {/* Times out in step with the 5.2 s hide timer in the listener. */}
+              <span className="perf-notice-progress" aria-hidden="true" />
             </div>
-            <div className="perf-notice-copy">
-              <span className="perf-notice-title">{t("perf.notice.title")}</span>
-              <span className="perf-notice-sub">{t("perf.notice.sub")}</span>
-            </div>
-            <span className="perf-notice-live" />
-            {/* Times out in step with the 5.2 s hide timer in the listener. */}
-            <span className="perf-notice-progress" aria-hidden="true" />
           </motion.div>
         )}
       </AnimatePresence>
