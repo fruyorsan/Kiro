@@ -20,7 +20,7 @@ the way the moment a game goes fullscreen.
 
 <img src="docs/screenshots/desktop.webp" alt="Kiro's notch, dock and Control Center over a fullscreen game" />
 
-<div align="center"><sub>Fullscreen game, zero frames lost: the notch and the dock hide themselves at the OS level while Kiro keeps boosting the game.</sub></div>
+<div align="center"><sub>The notch, the dock and the Control Center, drawn on top of whatever is running. Go fullscreen and they step aside at the OS level, so the game keeps its direct-to-screen flip.</sub></div>
 
 ## Why Kiro
 
@@ -43,7 +43,7 @@ Kiro's FPS work is a capability, not a checklist you configure per game. It has
 two halves: silent, self-reverting work while a game runs, and an honest hardware
 audit that says what is actually costing frames.
 
-<img src="docs/screenshots/fps-boost.webp" width="680" alt="FPS Boost settings in Kiro" />
+<img src="docs/screenshots/fps-boost.webp" width="820" alt="FPS Boost settings in Kiro" />
 
 | While a game is fullscreen | Why it matters |
 | --- | --- |
@@ -87,7 +87,7 @@ chose.
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/notes.webp" width="420" alt="Notes" /><br /><sub><b>Notes</b><br />A small notebook with colours, pictures and export.</sub></td>
-    <td align="center"><img src="docs/screenshots/notch.webp" width="420" alt="Notch" /><br /><sub><b>The notch</b><br />Collapsed, always there, never in the way.</sub></td>
+    <td align="center"><img src="docs/screenshots/game.webp" width="420" alt="Kiro over a fullscreen game" /><br /><sub><b>Over a game</b><br />Notch and dock, right where you left them.</sub></td>
   </tr>
 </table>
 </div>
