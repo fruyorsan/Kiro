@@ -1131,6 +1131,8 @@ function OverlayApp() {
               <span className="perf-notice-sub">{t("perf.notice.sub")}</span>
             </div>
             <span className="perf-notice-live" />
+            {/* Times out in step with the 5.2 s hide timer in the listener. */}
+            <span className="perf-notice-progress" aria-hidden="true" />
           </motion.div>
         )}
       </AnimatePresence>
