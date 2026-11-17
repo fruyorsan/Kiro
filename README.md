@@ -1,30 +1,26 @@
 <div align="center">
 
-<img src="docs/logo.png" width="112" alt="Kiro" />
+<img src="docs/screenshots/hero.webp" alt="Kiro" />
 
-# Kiro
+<br />
 
-**Your Windows desktop, rebuilt around a notch and a dock.**
+### A notch, a dock and a performance layer for Windows.
 
-A spring-animated notch. A dock that replaces the taskbar. Real work behind the
-scenes while you game, and AI one click away.
+It replaces your taskbar with a spring-animated notch and dock — then gets out of
+the way the moment a game goes fullscreen.
 
 [![Latest release](https://shieldcn.dev/badge/release-v1.9.3.svg?logo=lu:Tag)](https://github.com/fruyorsan/Kiro/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/fruyorsan/Kiro/total.svg)](https://github.com/fruyorsan/Kiro/releases)
 [![License](https://shieldcn.dev/github/license/fruyorsan/Kiro.svg?logo=lu:Scale)](LICENSE)
-[![Platform](https://shieldcn.dev/badge/platform-Windows.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)
+[![Platform](https://shieldcn.dev/badge/platform-Windows%2010%20%7C%2011-0078D4.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)
 
-[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [FPS Boost](#fps-boost) &nbsp;·&nbsp; [AI](#ai-in-the-notch) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
-
-<br />
-
-<img src="docs/screenshots/desktop.webp" width="900" alt="Kiro's notch and dock on a Windows desktop" />
+[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [FPS Boost](#fps-boost) &nbsp;·&nbsp; [Screenshots](#screenshots) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
 
 </div>
 
-<br />
+<img src="docs/screenshots/desktop.webp" alt="Kiro's notch, dock and Control Center over a fullscreen game" />
 
-> **Antivirus warnings:** Windows, Avast and Kaspersky may flag Kiro because the executable is not code-signed yet. Kiro is open source, has no telemetry or tracking, and you can read every line or build it yourself from this repository.
+<div align="center"><sub>Fullscreen game, zero frames lost: the notch and the dock hide themselves at the OS level while Kiro keeps boosting the game.</sub></div>
 
 ## Why Kiro
 
@@ -41,39 +37,13 @@ that gets out of the way the moment a game goes fullscreen.
   boosts the game while you play, then puts everything back.
 - **Yours.** Your logo, your accent colour, your layout, your monitor.
 
-## Features
-
-| What you get | How it works |
-| --- | --- |
-| **A notch that does things** | Music, a Control Center you arrange yourself, status, a calendar and a file shelf in one spring-animated island. |
-| **A dock that replaces your taskbar** | Mirrors your real taskbar, same pinned apps and order, with real icons and names, and a dot on apps that want your attention. |
-| **Native where it counts** | The tray opens the real Windows flyout, and Quit ends an app like Task Manager's End task. |
-| **Out of your way** | Fixed, Smart or Peek modes, and both stay hidden over fullscreen games. |
-| **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent colour. English and Turkish. Every option lives in a plain `settings.json`. |
-| **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. Memory Saver hands unused RAM back to Windows. |
-| **Ask AI from the notch** | Ask Claude, ChatGPT or Gemini a question, with screenshots attached. The panel shows elapsed time and can be stopped at any moment. |
-| **Make it yours** | Pick your own picture for the Kiro mascot; it is cropped and scaled automatically and appears on the notch, dock, splash and settings at once. |
-| **Notes with pictures** | A small notebook in the dock: name a note, give it a colour, attach up to six pictures and export it as text. Pictures are downscaled so the notebook stays light. |
-| **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, stops trimming memory, and hides its always-on-top windows at the OS level so the game keeps direct-to-screen flip. Everything returns on exit. |
-
-<div align="center">
-<table>
-  <tr>
-    <td align="center"><img src="docs/screenshots/island.png" height="140" alt="The Kiro notch" /></td>
-    <td align="center"><img src="docs/screenshots/dock.png" height="140" alt="The Kiro dock" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>The notch</sub></td>
-    <td align="center"><sub>The dock</sub></td>
-  </tr>
-</table>
-</div>
-
 ## FPS Boost
 
 Kiro's FPS work is a capability, not a checklist you configure per game. It has
 two halves: silent, self-reverting work while a game runs, and an honest hardware
 audit that says what is actually costing frames.
+
+<img src="docs/screenshots/fps-boost.webp" width="680" alt="FPS Boost settings in Kiro" />
 
 | While a game is fullscreen | Why it matters |
 | --- | --- |
@@ -102,6 +72,8 @@ Claude, ChatGPT and Gemini, keeps the last working model warm, shows how long a
 request has been running, and lets you stop it at any time. Attach a screenshot
 or an image with the paperclip; the image is sent with the question.
 
+<img src="docs/screenshots/ai.webp" width="560" alt="Asking an AI model from the notch" />
+
 Provider keys stay in your local settings and are only sent to the provider you
 chose.
 
@@ -110,11 +82,35 @@ chose.
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/island.png" width="420" alt="Notch" /><br /><sub>Notch and Control Center</sub></td>
-    <td align="center"><img src="docs/screenshots/dock.png" width="420" alt="Dock" /><br /><sub>Dock with live previews</sub></td>
+    <td align="center"><img src="docs/screenshots/control-center.webp" width="420" alt="Control Center" /><br /><sub><b>Control Center</b><br />Wi-Fi, Bluetooth, sound and light in one card you arrange yourself.</sub></td>
+    <td align="center"><img src="docs/screenshots/music.webp" width="420" alt="Music" /><br /><sub><b>Music</b><br />Album art, playback controls and a live visualizer.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/notes.webp" width="420" alt="Notes" /><br /><sub><b>Notes</b><br />A small notebook with colours, pictures and export.</sub></td>
+    <td align="center"><img src="docs/screenshots/notch.webp" width="420" alt="Notch" /><br /><sub><b>The notch</b><br />Collapsed, always there, never in the way.</sub></td>
   </tr>
 </table>
 </div>
+
+<div align="center">
+<img src="docs/screenshots/dock-menu.webp" width="240" alt="Dock right-click menu" />
+<br /><sub><b>Dock menu</b> — pin, add an app, open Settings, toggle FPS Boost or restart, all one right-click away.</sub>
+</div>
+
+## Features
+
+| What you get | How it works |
+| --- | --- |
+| **A notch that does things** | Music, a Control Center you arrange yourself, status, a calendar and a file shelf in one spring-animated island. |
+| **A dock that replaces your taskbar** | Mirrors your real taskbar, same pinned apps and order, with real icons and names, and a dot on apps that want your attention. |
+| **Native where it counts** | The tray opens the real Windows flyout, and Quit ends an app like Task Manager's End task. |
+| **Out of your way** | Fixed, Smart or Peek modes, and both stay hidden over fullscreen games. |
+| **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent colour. English and Turkish. Every option lives in a plain `settings.json`. |
+| **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. Memory Saver hands unused RAM back to Windows. |
+| **Ask AI from the notch** | Ask Claude, ChatGPT or Gemini a question, with screenshots attached. The panel shows elapsed time and can be stopped at any moment. |
+| **Make it yours** | Pick your own picture for the Kiro mascot; it is cropped and scaled automatically and appears on the notch, dock, splash and settings at once. |
+| **Notes with pictures** | A small notebook in the dock: name a note, give it a colour, attach up to six pictures and export it as text. Pictures are downscaled so the notebook stays light. |
+| **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, stops trimming memory, and hides its always-on-top windows at the OS level so the game keeps direct-to-screen flip. Everything returns on exit. |
 
 ## Install
 
@@ -124,16 +120,17 @@ chose.
 
 Kiro updates itself: a green dot on the notch means an update is ready, and **Auto Update** in **Settings › About** installs it for you. Turn on **Get pre-releases** there to receive early builds before the weekly release. **Uninstall** from Windows Settings › Apps or from **Settings › About** puts your taskbar back.
 
+> **Antivirus warnings:** Windows, Avast and Kaspersky may flag Kiro because the executable is not code-signed yet. Kiro is open source, has no telemetry or tracking, and you can read every line or build it yourself from this repository.
+
 <details>
-<summary>Verify your download</summary>
+<summary>Only download from this repository</summary>
 
 <br />
 
-Only download Kiro from the [releases page](https://github.com/fruyorsan/Kiro/releases) of this repository. Each release has a `SHA256SUMS.txt`. Compare the output of this command with the matching line:
-
-```powershell
-Get-FileHash .\Kiro-Setup-<version>.exe -Algorithm SHA256
-```
+Every installer is built by the release workflow in this repository and attached
+to a [GitHub release](https://github.com/fruyorsan/Kiro/releases). Builds that
+arrive from anywhere else are not ours. If you would rather not trust a binary
+at all, [build it from source](#build-from-source) — it takes two commands.
 
 </details>
 
