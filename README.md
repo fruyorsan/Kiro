@@ -10,7 +10,6 @@ It replaces your taskbar with a spring-animated notch and dock — then gets out
 the way the moment a game goes fullscreen.
 
 [![Latest release](https://shieldcn.dev/badge/release-v1.9.3.svg?logo=lu:Tag)](https://github.com/fruyorsan/Kiro/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/fruyorsan/Kiro/total.svg)](https://github.com/fruyorsan/Kiro/releases)
 [![License](https://shieldcn.dev/github/license/fruyorsan/Kiro.svg?logo=lu:Scale)](LICENSE)
 [![Platform](https://shieldcn.dev/badge/platform-Windows%2010%20%7C%2011-0078D4.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)
 
@@ -18,9 +17,9 @@ the way the moment a game goes fullscreen.
 
 </div>
 
-<img src="docs/screenshots/desktop.webp" alt="Kiro's notch, dock and Control Center over a fullscreen game" />
+<img src="docs/screenshots/season-winter.webp" alt="Kiro's notch, dock and Control Center with the winter theme over a fullscreen game" />
 
-<div align="center"><sub>The notch, the dock and the Control Center, drawn on top of whatever is running. Go fullscreen and they step aside at the OS level, so the game keeps its direct-to-screen flip.</sub></div>
+<div align="center"><sub>Winter on the notch rim and the dock edge — one of four seasons, each with its own rim decoration and falling particles. Go fullscreen and it all steps aside at the OS level, so the game keeps its direct-to-screen flip.</sub></div>
 
 ## Why Kiro
 
@@ -91,18 +90,21 @@ chose.
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/notes.webp" width="420" alt="Notes" /></td>
-    <td align="center"><img src="docs/screenshots/game.webp" width="420" alt="Kiro over a fullscreen game" /></td>
+    <td align="center"><img src="docs/screenshots/game.webp" width="420" alt="Kiro with the autumn theme over a fullscreen game" /></td>
   </tr>
   <tr>
     <td align="center"><sub><b>Notes</b> — a small notebook with colours, pictures and export.</sub></td>
-    <td align="center"><sub><b>Over a game</b> — the notch and the dock, right where you left them.</sub></td>
+    <td align="center"><sub><b>Autumn</b> — vines, leaves and a media card, over the game.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/season-blossom.webp" width="261" alt="The notch with the blossom theme" /></td>
+    <td align="center"><img src="docs/screenshots/dock-menu.webp" width="240" alt="Dock right-click menu" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Blossom</b> — petals drifting over the notch.</sub></td>
+    <td align="center"><sub><b>Dock menu</b> — pin, add an app, open Settings or toggle FPS Boost.</sub></td>
   </tr>
 </table>
-</div>
-
-<div align="center">
-<img src="docs/screenshots/dock-menu.webp" width="240" alt="Dock right-click menu" />
-<br /><sub><b>Dock menu</b> — pin, add an app, open Settings, toggle FPS Boost or restart, all one right-click away.</sub>
 </div>
 
 ## Features
