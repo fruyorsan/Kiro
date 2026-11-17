@@ -326,6 +326,14 @@ fn boostable(exe: &str) -> bool {
             | "slack.exe"
             | "teams.exe"
             | "ms-teams.exe"
+            // Desktop AI assistants are chat windows, not games. Claude ships
+            // from WindowsApps, so it used to pass the foreground check and
+            // switched Kiro into game mode on every focus.
+            | "claude.exe"
+            | "chatgpt.exe"
+            | "perplexity.exe"
+            | "copilot.exe"
+            | "gemini.exe"
             | "zoom.exe"
             | "powerpnt.exe"
             | "acrobat.exe"
@@ -1444,3 +1452,32 @@ pub async fn fps_boost_audit(exe: Option<String>) -> Result<AuditReport, String>
     .await
     .map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_name_handles_both_separators() {
+        assert_eq!(file_name(r"C:\Games\Doom\doom.exe"), "doom.exe");
+        assert_eq!(file_name("C:/Games/Doom/DOOM.exe"), "DOOM.exe");
+    }
+
+    #[test]
+    fn chat_apps_never_trigger_game_mode() {
+        for exe in [
+            r"C:\Program Files\WindowsApps\Claude_5.11492.5.0_x64__pzs8sxrjxfjjc\app\Claude.exe",
+            r"C:\Program Files\WindowsApps\OpenAI.ChatGPT\ChatGPT.exe",
+            r"C:\Users\me\AppData\Local\Discord\app\Discord.exe",
+        ] {
+            assert!(!boostable(exe), "{exe} must not be boosted");
+        }
+    }
+
+    #[test]
+    fn games_are_still_boostable() {
+        assert!(boostable(r"D:\SteamLibrary\steamapps\common\Elden Ring\eldenring.exe"));
+        assert!(boostable(r"C:\Games\Valorant\VALORANT.exe"));
+    }
+}
+

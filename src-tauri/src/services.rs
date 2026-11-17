@@ -2813,6 +2813,13 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                                     let scale = main_win.scale_factor().unwrap_or(1.0);
                                     let pad_x = (20.0 * scale) as i32;
                                     let pad_y_bottom = (5.0 * scale) as i32;
+                                    // Winter pile sits on the visible ridge. On the
+                                    // floating bottom-right pill that ridge is the
+                                    // element's top border, so the snow lives *above*
+                                    // the documented rect. Without this strip the
+                                    // window stays click-through there and the snow
+                                    // can only be swept away after opening the notch.
+                                    let pad_y_top = (24.0 * scale) as i32;
                                     // Hysteresis keeps the notch interactive a little past
                                     // its bounds once grabbed, so removing the edge-forced
                                     // interactivity doesn't reintroduce boundary flicker.
@@ -2822,8 +2829,8 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                                     // bottom edge in bottom-right mode.
                                     let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;
                                     let rw = (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2);
-                                    let ry_top = win_pos.y + (r.y as f64 * scale) as i32;
-                                    let ry_bottom = ry_top + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
+                                    let ry_top = win_pos.y + (r.y as f64 * scale) as i32 - pad_y_top;
+                                    let ry_bottom = ry_top + pad_y_top + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
 
                                     // A hidden notch must not eat clicks, in smart/peek it's off screen most of the time.
                                     let notch_hidden = crate::state::get_flag(crate::state::notch_hidden(), "main");
@@ -3198,12 +3205,15 @@ fn hit_test_extra_notch_windows(app_handle: &AppHandle, cursor: windows::Win32::
             if let Some(r) = crate::state::notch_rects().lock().ok().and_then(|m| m.get(&label).copied()) {
                 let pad_x = (20.0 * scale) as i32;
                 let pad_y_bottom = (5.0 * scale) as i32;
+                // Same winter-pile strip as the primary notch: the floating pill
+                // carries its snow on top of the element rect.
+                let pad_y_top = (24.0 * scale) as i32;
                 let last_ignore = crate::state::get_i32(crate::state::notch_extra_last_ignore(), &label, -1);
                 let hyst = if last_ignore == 0 { (10.0 * scale) as i32 } else { 0 };
                 let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;
                 let rw = (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2);
-                let ry_top = win_pos.y;
-                let ry_bottom = win_pos.y + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
+                let ry_top = win_pos.y + (r.y as f64 * scale) as i32 - pad_y_top;
+                let ry_bottom = ry_top + pad_y_top + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
 
                 let notch_hidden = crate::state::get_flag(crate::state::notch_hidden(), &label);
                 let hover_active = is_notch_hovered

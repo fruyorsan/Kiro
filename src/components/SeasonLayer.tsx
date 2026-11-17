@@ -1402,7 +1402,7 @@ export function SeasonLayer({
       const rx = e.clientX - rect.left;
       const ry = e.clientY - rect.top;
 
-      if (rx < -22 || rx > sim.w + 22 || ry < -26 || ry > sim.h + 24) {
+      if (rx < -22 || rx > sim.w + 22 || ry < -34 || ry > sim.h + 24) {
         sim.hasPointer = false;
         return;
       }

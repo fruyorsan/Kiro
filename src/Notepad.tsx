@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { StrictMode, useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Effect, EffectState } from "@tauri-apps/api/window";
@@ -75,8 +75,47 @@ function NotepadWindow() {
 
   useEffect(() => initTheme(), []);
 
+  // The window is transparent and acrylic-blurred. Windows recomputes the blur
+  // for every frame while a window moves, which is what made dragging trail the
+  // cursor. Lift the effect for the duration of the move and bring it back once
+  // the window settles, so a still window still looks blurred.
+  const applyAcrylic = useCallback(() => {
+    appWindow
+      .setEffects({ effects: [Effect.Acrylic], state: EffectState.Active, color: [10, 10, 15, 20] })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
-    appWindow.setEffects({ effects: [Effect.Acrylic], state: EffectState.Active, color: [10, 10, 15, 20] }).catch(() => {});
+    applyAcrylic();
+
+    let settle = 0;
+    let lifted = false;
+    const unlisten = appWindow.onMoved(() => {
+      if (!lifted) {
+        lifted = true;
+        appWindow.clearEffects().catch(() => {});
+      }
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        lifted = false;
+        applyAcrylic();
+      }, 200);
+    });
+    return () => {
+      window.clearTimeout(settle);
+      void unlisten.then((fn) => fn());
+    };
+  }, [applyAcrylic]);
+
+  // Start the drag ourselves instead of relying on `data-tauri-drag-region`.
+  // The built-in handler fires on mousedown for every nested drag region, so a
+  // single press could start (and restart) the native move loop. One explicit
+  // call per press keeps the drag steady.
+  const onTitleBarPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button, input, textarea, a")) return;
+    event.preventDefault();
+    appWindow.startDragging().catch(() => {});
   }, []);
 
   const flash = useCallback((message: string) => {
@@ -279,11 +318,11 @@ function NotepadWindow() {
     <div className={`np${noteColor ? " has-color" : ""}`} style={pageStyle}>
       {noteColor && <span className="np-glow" key={noteColor} aria-hidden />}
 
-      <div className="np-titlebar" data-tauri-drag-region>
-        <span className="np-title-text" data-tauri-drag-region>
+      <div className="np-titlebar" onPointerDown={onTitleBarPointerDown}>
+        <span className="np-title-text">
           {t("notepad.title")}
         </span>
-        <span className="np-status" data-tauri-drag-region>
+        <span className="np-status">
           {status}
         </span>
         <WindowControls />

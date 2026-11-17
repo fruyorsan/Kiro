@@ -176,6 +176,58 @@ struct GeminiContent {
 struct GeminiPart {
     #[serde(default)]
     text: Option<String>,
+    /// Thought summaries are flagged separately. They are never shown as the
+    /// answer, and with thinking switched off this stays false.
+    #[serde(default)]
+    thought: bool,
+}
+
+/// How to ask a Gemini model not to think. Gemini 3 Flash has `thinking: true`,
+/// so every question first spends its budget on invisible reasoning: the notch
+/// sits on "Düşünüyor…" for ten seconds and the thoughts are charged against
+/// `maxOutputTokens`, which can leave no visible answer at all. Custom ids
+/// disagree about the field name, so the next form is tried when the API
+/// rejects this one.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ThinkingMode {
+    BudgetZero,
+    LevelLow,
+    Off,
+}
+
+impl ThinkingMode {
+    fn next(self) -> Self {
+        match self {
+            ThinkingMode::BudgetZero => ThinkingMode::LevelLow,
+            ThinkingMode::LevelLow | ThinkingMode::Off => ThinkingMode::Off,
+        }
+    }
+}
+
+/// Gemini can spend the whole visible budget on reasoning and return no text at
+/// all. When that happens the request is retried with a bigger budget before the
+/// question is declared empty.
+const MAX_GEMINI_TOKENS: u32 = 16_384;
+
+fn gemini_body(contents: &[serde_json::Value], thinking: ThinkingMode, max_tokens: u32) -> serde_json::Value {
+    let mut config = serde_json::json!({ "maxOutputTokens": max_tokens });
+    match thinking {
+        ThinkingMode::BudgetZero => {
+            config["thinkingConfig"] = serde_json::json!({ "thinkingBudget": 0 });
+        }
+        ThinkingMode::LevelLow => {
+            config["thinkingConfig"] = serde_json::json!({ "thinkingLevel": "low" });
+        }
+        ThinkingMode::Off => {}
+    }
+    serde_json::json!({ "contents": contents, "generationConfig": config })
+}
+
+/// Did the API reject the request over the thinking field? Only then is a retry
+/// without it worth the extra round-trip.
+fn thinking_rejected(body: &str) -> bool {
+    let lower = body.to_ascii_lowercase();
+    lower.contains("thinking") || lower.contains("thought")
 }
 
 /// One incremental token batch pushed to the webview while a provider is still
@@ -304,6 +356,7 @@ fn gemini_stream_chunk(data: &str) -> (String, Option<String>) {
         .map(|content| content.parts.unwrap_or_default())
         .unwrap_or_default()
         .into_iter()
+        .filter(|part| !part.thought)
         .filter_map(|part| part.text)
         .collect::<Vec<_>>()
         .join("");
@@ -783,93 +836,123 @@ async fn ask_gemini(
     let mut answer = String::new();
 
     for round in 0..=MAX_CONTINUATIONS {
-        let body = serde_json::json!({
-            "contents": contents,
-            "generationConfig": { "maxOutputTokens": MAX_OUTPUT_TOKENS }
-        });
-        let response = client
-            .post(&url)
-            // Header auth works for both classic `AIza…` keys and the newer
-            // keys AI Studio hands out; the query parameter is deprecated for
-            // some key formats and failed silently as a slow 403.
-            .header("x-goog-api-key", key)
-            .header("content-type", "application/json")
-            .timeout(Duration::from_secs(45))
-            .body(body.to_string())
-            .send()
-            .await
-            .map_err(|e| format!("Bağlantı hatası: {e}"));
+        // Ask the model not to think first. Gemini 3 Flash reports
+        // `thinking: true`, so by default every question spends its whole
+        // budget on invisible reasoning: the notch sits on "Düşünüyor..."
+        // for ten-plus seconds, and the thoughts are charged against
+        // `maxOutputTokens`, which can leave no visible answer at all.
+        // Custom ids disagree about the field name, so a rejected request
+        // downgrades the setting and tries the same round again.
+        let mut thinking = ThinkingMode::BudgetZero;
+        let mut budget = MAX_OUTPUT_TOKENS;
+        let (text, finish_reason) = 'attempt: loop {
+            let response = client
+                .post(&url)
+                // Header auth works for both classic `AIza...` keys and the
+                // newer keys AI Studio hands out; the query parameter is
+                // deprecated for some key formats and failed silently as a
+                // slow 403.
+                .header("x-goog-api-key", key)
+                .header("content-type", "application/json")
+                .timeout(Duration::from_secs(45))
+                .body(gemini_body(&contents, thinking, budget).to_string())
+                .send()
+                .await
+                .map_err(|e| format!("Bağlantı hatası: {e}"));
 
-        let (text, finish_reason) = match response {
-            Ok(mut response) => {
-                let status = response.status();
-                if !status.is_success() {
-                    let body = response.text().await.unwrap_or_default();
-                    let error = friendly_error("Gemini", status.as_u16(), &body);
+            let mut response = match response {
+                Ok(response) => response,
+                Err(error) => {
                     if round > 0 && !answer.trim().is_empty() {
-                        break;
+                        break 'attempt (String::new(), None);
                     }
                     return Err(error);
                 }
-                if let Some(sink) = stream {
-                    let mut round_text = String::new();
-                    let mut finish_reason: Option<String> = None;
-                    let read = read_sse(&mut response, |data| {
-                        let (text, reason) = gemini_stream_chunk(data);
-                        if !text.is_empty() {
-                            round_text.push_str(&text);
-                            sink.emit(&text);
-                        }
-                        if reason.is_some() {
-                            finish_reason = reason;
-                        }
-                    })
-                    .await;
-                    if let Err(error) = read {
-                        if !round_text.trim().is_empty() {
-                            answer.push_str(&round_text);
-                        }
-                        if !answer.trim().is_empty() {
-                            break;
-                        }
-                        return Err(error);
-                    }
-                    (round_text, finish_reason)
-                } else {
-                    let body = response.text().await.map_err(|e| e.to_string())?;
-                    let parsed = match serde_json::from_str::<GeminiResponse>(&body) {
-                        Ok(parsed) => parsed,
-                        Err(error) => {
-                            if round > 0 && !answer.trim().is_empty() {
-                                break;
-                            }
-                            return Err(error.to_string());
-                        }
-                    };
-                    let candidate = parsed.candidates.unwrap_or_default().into_iter().next();
-                    let Some(candidate) = candidate else {
-                        if answer.trim().is_empty() {
-                            return Err("Gemini boş yanıt döndürdü".into());
-                        }
-                        break;
-                    };
-                    let text = candidate
-                        .content
-                        .map(|content| content.parts.unwrap_or_default())
-                        .unwrap_or_default()
-                        .into_iter()
-                        .filter_map(|part| part.text)
-                        .collect::<Vec<_>>()
-                        .join("");
-                    (text, candidate.finish_reason)
+            };
+
+            let status = response.status();
+            if !status.is_success() {
+                let body = response.text().await.unwrap_or_default();
+                if thinking != ThinkingMode::Off && thinking_rejected(&body) {
+                    thinking = thinking.next();
+                    continue;
                 }
-            }
-            Err(error) => {
                 if round > 0 && !answer.trim().is_empty() {
-                    break;
+                    break 'attempt (String::new(), None);
                 }
-                return Err(error);
+                return Err(friendly_error("Gemini", status.as_u16(), &body));
             }
+
+            if let Some(sink) = stream {
+                let mut round_text = String::new();
+                let mut reason: Option<String> = None;
+                let read = read_sse(&mut response, |data| {
+                    let (text, stop) = gemini_stream_chunk(data);
+                    if !text.is_empty() {
+                        round_text.push_str(&text);
+                        sink.emit(&text);
+                    }
+                    if stop.is_some() {
+                        reason = stop;
+                    }
+                })
+                .await;
+                if let Err(error) = read {
+                    if !round_text.trim().is_empty() {
+                        answer.push_str(&round_text);
+                    }
+                    if !answer.trim().is_empty() {
+                        break 'attempt (String::new(), None);
+                    }
+                    return Err(error);
+                }
+                // Reasoning can eat the whole budget before a single visible
+                // token is written. Ask again with more room instead of
+                // reporting an empty answer.
+                if round_text.trim().is_empty()
+                    && reason.as_deref() == Some("MAX_TOKENS")
+                    && budget < MAX_GEMINI_TOKENS
+                {
+                    budget = (budget * 4).min(MAX_GEMINI_TOKENS);
+                    continue;
+                }
+                break 'attempt (round_text, reason);
+            }
+
+            let body = response.text().await.map_err(|e| e.to_string())?;
+            let parsed = match serde_json::from_str::<GeminiResponse>(&body) {
+                Ok(parsed) => parsed,
+                Err(error) => {
+                    if round > 0 && !answer.trim().is_empty() {
+                        break 'attempt (String::new(), None);
+                    }
+                    return Err(error.to_string());
+                }
+            };
+            let candidate = parsed.candidates.unwrap_or_default().into_iter().next();
+            let Some(candidate) = candidate else {
+                if answer.trim().is_empty() {
+                    return Err("Gemini boş yanıt döndürdü".into());
+                }
+                break 'attempt (String::new(), None);
+            };
+            let text = candidate
+                .content
+                .map(|content| content.parts.unwrap_or_default())
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|part| !part.thought)
+                .filter_map(|part| part.text)
+                .collect::<Vec<_>>()
+                .join("");
+            if text.trim().is_empty()
+                && candidate.finish_reason.as_deref() == Some("MAX_TOKENS")
+                && budget < MAX_GEMINI_TOKENS
+            {
+                budget = (budget * 4).min(MAX_GEMINI_TOKENS);
+                continue;
+            }
+            break 'attempt (text, candidate.finish_reason);
         };
 
         let truncated = finish_reason.as_deref() == Some("MAX_TOKENS");
@@ -1305,6 +1388,57 @@ mod tests {
             gemini_stream_chunk(r#"{"candidates":[{"content":{"parts":[]},"finishReason":"MAX_TOKENS"}]}"#);
         assert!(text.is_empty());
         assert_eq!(finish.as_deref(), Some("MAX_TOKENS"));
+    }
+
+    #[test]
+    fn gemini_events_ignore_thought_parts() {
+        // Reasoning summaries arrive in their own parts; showing them as the
+        // answer is what made the notch paint nothing while the model thought.
+        let (text, finish) = gemini_stream_chunk(
+            r#"{"candidates":[{"content":{"parts":[{"text":"secret","thought":true},{"text":"answer"}]}}]}"#,
+        );
+        assert_eq!(text, "answer");
+        assert_eq!(finish, None);
+
+        let (text, _) = gemini_stream_chunk(
+            r#"{"candidates":[{"content":{"parts":[{"text":"only thought","thought":true}]},"finishReason":"STOP"}]}"#,
+        );
+        assert!(text.is_empty());
+    }
+
+    #[test]
+    fn gemini_bodies_switch_thinking_off() {
+        let contents = vec![serde_json::json!({ "role": "user", "parts": [{ "text": "hi" }] })];
+
+        let body = gemini_body(&contents, ThinkingMode::BudgetZero, MAX_OUTPUT_TOKENS);
+        assert_eq!(body["generationConfig"]["thinkingConfig"]["thinkingBudget"], 0);
+        assert_eq!(body["generationConfig"]["maxOutputTokens"], MAX_OUTPUT_TOKENS);
+        assert_eq!(body["contents"][0]["role"], "user");
+
+        let body = gemini_body(&contents, ThinkingMode::LevelLow, MAX_OUTPUT_TOKENS);
+        assert_eq!(body["generationConfig"]["thinkingConfig"]["thinkingLevel"], "low");
+        assert!(body["generationConfig"]["thinkingConfig"].get("thinkingBudget").is_none());
+
+        // A model that rejects both forms still gets a plain request.
+        let body = gemini_body(&contents, ThinkingMode::Off, 1024);
+        assert!(body["generationConfig"].get("thinkingConfig").is_none());
+        assert_eq!(body["generationConfig"]["maxOutputTokens"], 1024);
+
+        assert_eq!(ThinkingMode::BudgetZero.next(), ThinkingMode::LevelLow);
+        assert_eq!(ThinkingMode::LevelLow.next(), ThinkingMode::Off);
+        assert_eq!(ThinkingMode::Off.next(), ThinkingMode::Off);
+    }
+
+    #[test]
+    fn only_thinking_errors_trigger_a_downgrade() {
+        assert!(thinking_rejected(
+            r#"{"error":{"code":400,"message":"Invalid JSON payload received. Unknown name \"thinkingConfig\" at 'generation_config'."}}"#
+        ));
+        assert!(thinking_rejected(
+            r#"{"error":{"message":"Thinking level is not supported for this model."}}"#
+        ));
+        assert!(!thinking_rejected(r#"{"error":{"message":"API key not valid."}}"#));
+        assert!(!thinking_rejected(r#"{"error":{"message":"Quota exceeded."}}"#));
     }
 
     #[test]
