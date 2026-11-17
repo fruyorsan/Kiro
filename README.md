@@ -9,6 +9,12 @@
 It replaces your taskbar with a spring-animated notch and dock — then gets out of
 the way the moment a game goes fullscreen.
 
+<br />
+
+[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-1.9.3-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/fruyorsan/Kiro/releases/latest)
+
+<br />
+
 [![Latest release](https://shieldcn.dev/badge/release-v1.9.3.svg?logo=lu:Tag)](https://github.com/fruyorsan/Kiro/releases/latest)
 [![License](https://shieldcn.dev/github/license/fruyorsan/Kiro.svg?logo=lu:Scale)](LICENSE)
 [![Platform](https://shieldcn.dev/badge/platform-Windows%2010%20%7C%2011-0078D4.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)
