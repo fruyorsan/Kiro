@@ -15,10 +15,10 @@ the way the moment a game goes fullscreen.
 
 <br />
 
-[![License](https://shieldcn.dev/github/license/fruyorsan/Kiro.svg?logo=lu:Scale)](LICENSE)
-[![Platform](https://shieldcn.dev/badge/platform-Windows%2010%20%7C%2011-0078D4.svg?logo=ri:FaWindows)](https://www.microsoft.com/windows)
+[![License](https://img.shields.io/badge/License-GPL--3.0-3DA639?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 
-[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [FPS Boost](#fps-boost) &nbsp;·&nbsp; [Screenshots](#screenshots) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
+[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [FPS Boost](#fps-boost) &nbsp;·&nbsp; [Screenshots](#screenshots) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Support](#support) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
 
 </div>
 
@@ -86,27 +86,27 @@ chose.
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/control-center.webp" width="420" alt="Control Center" /></td>
-    <td align="center"><img src="docs/screenshots/music.webp" width="420" alt="Music" /></td>
+    <td align="center"><img src="docs/screenshots/control-center.webp" height="250" alt="Control Center" /></td>
+    <td align="center"><img src="docs/screenshots/notes.webp" height="250" alt="Notes" /></td>
   </tr>
   <tr>
     <td align="center"><sub><b>Control Center</b> — Wi-Fi, Bluetooth, sound and light in one card you arrange yourself.</sub></td>
-    <td align="center"><sub><b>Music</b> — album art, playback controls and a live visualizer.</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/notes.webp" width="420" alt="Notes" /></td>
-    <td align="center"><img src="docs/screenshots/game.webp" width="420" alt="Kiro with the autumn theme over a fullscreen game" /></td>
-  </tr>
-  <tr>
     <td align="center"><sub><b>Notes</b> — a small notebook with colours, pictures and export.</sub></td>
-    <td align="center"><sub><b>Autumn</b> — vines, leaves and a media card, over the game.</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/season-blossom.webp" width="261" alt="The notch with the blossom theme" /></td>
-    <td align="center"><img src="docs/screenshots/dock-menu.webp" width="240" alt="Dock right-click menu" /></td>
+    <td align="center"><img src="docs/screenshots/music.webp" height="140" alt="Music" /></td>
+    <td align="center"><img src="docs/screenshots/season-blossom.webp" height="140" alt="The notch with the blossom theme" /></td>
   </tr>
   <tr>
+    <td align="center"><sub><b>Music</b> — album art, playback controls and a live visualizer.</sub></td>
     <td align="center"><sub><b>Blossom</b> — petals drifting over the notch.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/game.webp" height="330" alt="Kiro with the autumn theme over a fullscreen game" /></td>
+    <td align="center"><img src="docs/screenshots/dock-menu.webp" height="330" alt="Dock right-click menu" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Autumn</b> — vines, leaves and a media card, over the game.</sub></td>
     <td align="center"><sub><b>Dock menu</b> — pin, add an app, open Settings or toggle FPS Boost.</sub></td>
   </tr>
 </table>
@@ -135,7 +135,7 @@ chose.
 
 Kiro updates itself: a green dot on the notch means an update is ready, and **Auto Update** in **Settings › About** installs it for you. Turn on **Get pre-releases** there to receive early builds before the weekly release. **Uninstall** from Windows Settings › Apps or from **Settings › About** puts your taskbar back.
 
-> **Antivirus warnings:** Windows, Avast and Kaspersky may flag Kiro because the executable is not code-signed yet. Kiro is open source, has no telemetry or tracking, and you can read every line or build it yourself from this repository.
+> **Antivirus warnings:** Windows, Avast and Kaspersky may flag Kiro because the executable is not code-signed yet. Kiro is open source, has no telemetry or tracking, and you can read every line or build it yourself from this repository. You can also drop the installer into [VirusTotal](https://www.virustotal.com/) yourself before running it.
 
 <details>
 <summary>Only download from this repository</summary>
@@ -255,6 +255,23 @@ See the [open issues](https://github.com/fruyorsan/Kiro/issues) for requests and
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 
+## Support
+
+Kiro is free, open source and built in the open. If it makes your desktop nicer,
+you can put something back into its development.
+
+<p align="center">
+  <a href="https://github.com/sponsors/fruyorsan"><img src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
+  <a href="https://buymeacoffee.com/fruyorsan"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee" /></a>
+</p>
+
+Sponsorships pay for a code-signing certificate, the machines that build and test
+each release, and the hours that go into it. Nothing is locked behind them: every
+feature ships to everyone, sponsored or not.
+
+If you would rather help without money, a star, a bug report and a screenshot of
+your setup help just as much.
+
 ## License
 
 Kiro is open source under the [GPLv3](LICENSE). Third-party notices are listed in
@@ -264,3 +281,4 @@ Kiro is open source under the [GPLv3](LICENSE). Third-party notices are listed i
 <br />
 <sub>Built for Windows 10 and 11. No telemetry. No account. No taskbar.</sub>
 </div>
+
