@@ -275,7 +275,7 @@ Kiro is free, open source and built in the open. If it makes your desktop nicer,
 you can put something back into its development.
 
 <p align="center">
-  <a href="https://github.com/sponsors/fruyorsan"><img src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
+  <a href="https://github.com/sponsors/fruyorsan"><img src="https://img.shields.io/badge/Sponsor-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" /></a>
   <a href="https://buymeacoffee.com/fruyorsan"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee" /></a>
 </p>
 
