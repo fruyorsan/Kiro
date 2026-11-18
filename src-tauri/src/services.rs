@@ -2819,7 +2819,7 @@ unsafe fn process_mouse_move(app_handle: &AppHandle, cursor: windows::Win32::Fou
                                     // the documented rect. Without this strip the
                                     // window stays click-through there and the snow
                                     // can only be swept away after opening the notch.
-                                    let pad_y_top = (24.0 * scale) as i32;
+                                    let pad_y_top = (40.0 * scale) as i32;
                                     // Hysteresis keeps the notch interactive a little past
                                     // its bounds once grabbed, so removing the edge-forced
                                     // interactivity doesn't reintroduce boundary flicker.
@@ -3207,7 +3207,7 @@ fn hit_test_extra_notch_windows(app_handle: &AppHandle, cursor: windows::Win32::
                 let pad_y_bottom = (5.0 * scale) as i32;
                 // Same winter-pile strip as the primary notch: the floating pill
                 // carries its snow on top of the element rect.
-                let pad_y_top = (24.0 * scale) as i32;
+                let pad_y_top = (40.0 * scale) as i32;
                 let last_ignore = crate::state::get_i32(crate::state::notch_extra_last_ignore(), &label, -1);
                 let hyst = if last_ignore == 0 { (10.0 * scale) as i32 } else { 0 };
                 let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;

@@ -1402,7 +1402,7 @@ export function SeasonLayer({
       const rx = e.clientX - rect.left;
       const ry = e.clientY - rect.top;
 
-      if (rx < -22 || rx > sim.w + 22 || ry < -34 || ry > sim.h + 24) {
+      if (rx < -22 || rx > sim.w + 22 || ry < -40 || ry > sim.h + 24) {
         sim.hasPointer = false;
         return;
       }
@@ -1439,7 +1439,12 @@ export function SeasonLayer({
           }
         }
 
-        if (Math.abs(ry - ridgeY) < 24 && rx >= 0 && rx <= sim.w && sim.bins.length > 0) {
+        // The bank has height, and on a top ridge it grows *upwards* out of the
+        // surface. Sweeping across the visible mound has to carve even when the
+        // cursor is above the ridge line, otherwise the pile only reacts when
+        // the pointer is on the very edge.
+        const carveTop = ridgeY === 0 ? ridgeY - 34 : ridgeY - 24;
+        if (ry >= carveTop && ry <= ridgeY + 24 && rx >= 0 && rx <= sim.w && sim.bins.length > 0) {
           const idxCenter = (rx / sim.w) * (sim.bins.length - 1);
           const carveRadiusBins = 9;
           let removed = 0;
