@@ -11,7 +11,7 @@ the way the moment a game goes fullscreen.
 
 <br />
 
-[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-1.9.3-0078D4?style=for-the-badge&logo=windows&logoColor=white&labelColor=0078D4)](https://github.com/fruyorsan/Kiro/releases/latest)
+[![Download for Windows](https://img.shields.io/github/v/release/fruyorsan/Kiro?style=for-the-badge&label=Download%20for%20Windows&color=0078D4&labelColor=0078D4&logo=windows&logoColor=white)](https://github.com/fruyorsan/Kiro/releases/latest)
 
 <br />
 
