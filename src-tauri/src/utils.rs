@@ -1,15 +1,27 @@
+#[cfg(kiro_windows)]
 use windows::Win32::Foundation::{HWND, HGLOBAL};
+#[cfg(kiro_windows)]
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL, IPersistFile, CLSCTX_INPROC_SERVER};
+#[cfg(kiro_windows)]
 use windows::Win32::System::Com::StructuredStorage::{CreateStreamOnHGlobal, GetHGlobalFromStream};
+#[cfg(kiro_windows)]
 use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
+#[cfg(kiro_windows)]
 use windows::core::Interface;
+#[cfg(kiro_windows)]
 use windows::Win32::UI::WindowsAndMessaging::HICON;
+#[cfg(kiro_windows)]
 use windows::Win32::Graphics::Imaging::{IWICImagingFactory, CLSID_WICImagingFactory, GUID_ContainerFormatPng, WICBitmapEncoderNoCache, GUID_WICPixelFormat32bppPBGRA};
+#[cfg(kiro_windows)]
 use base64::{Engine as _, engine::general_purpose};
+#[cfg(kiro_windows)]
 use std::path::PathBuf;
+#[cfg(kiro_windows)]
 use std::sync::OnceLock;
+#[cfg(kiro_windows)]
 use tauri::Manager;
 
+#[cfg(kiro_windows)]
 pub fn resolve_shortcut(path: &str) -> Option<(String, String)> {
     unsafe {
         let shell_link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_ALL).ok()?;
@@ -34,12 +46,17 @@ pub fn resolve_shortcut(path: &str) -> Option<(String, String)> {
     }
 }
 
+#[cfg(kiro_windows)]
 pub static ORIGINAL_TRAY_RECT: std::sync::Mutex<Option<windows::Win32::Foundation::RECT>> = std::sync::Mutex::new(None);
+#[cfg(kiro_windows)]
 static ORIGINAL_SEC_TRAY_RECTS: std::sync::Mutex<Vec<(isize, windows::Win32::Foundation::RECT)>> = std::sync::Mutex::new(Vec::new());
+#[cfg(kiro_windows)]
 static ORIGINAL_TASKBAR_STATE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
 
+#[cfg(kiro_windows)]
 static TASKBAR_MARKER: OnceLock<PathBuf> = OnceLock::new();
 
+#[cfg(kiro_windows)]
 /// Point the crash-recovery marker at this user's app config dir (called from setup).
 pub fn init_taskbar_marker(app: &tauri::AppHandle) {
     if let Ok(dir) = app.path().app_config_dir() {
@@ -47,14 +64,17 @@ pub fn init_taskbar_marker(app: &tauri::AppHandle) {
     }
 }
 
+#[cfg(kiro_windows)]
 pub fn taskbar_marker_exists() -> bool {
     TASKBAR_MARKER.get().is_some_and(|p| p.exists())
 }
 
+#[cfg(kiro_windows)]
 fn rect_is_on_screen(r: &windows::Win32::Foundation::RECT) -> bool {
     r.left > -5000 && r.top > -5000
 }
 
+#[cfg(kiro_windows)]
 unsafe fn monitor_rects() -> Vec<(windows::Win32::Foundation::RECT, bool)> {
     use windows::Win32::Foundation::{LPARAM, RECT};
     use windows::Win32::Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO};
@@ -72,6 +92,7 @@ unsafe fn monitor_rects() -> Vec<(windows::Win32::Foundation::RECT, bool)> {
     monitors
 }
 
+#[cfg(kiro_windows)]
 fn taskbar_monitor(monitors: &[(windows::Win32::Foundation::RECT, bool)], primary: bool, taskbar: &windows::Win32::Foundation::RECT) -> Option<windows::Win32::Foundation::RECT> {
     if primary {
         monitors.iter().find(|(_, is_primary)| *is_primary).map(|(r, _)| *r)
@@ -84,6 +105,7 @@ fn taskbar_monitor(monitors: &[(windows::Win32::Foundation::RECT, bool)], primar
     }
 }
 
+#[cfg(kiro_windows)]
 unsafe fn park_below_monitor(hwnd: windows::Win32::Foundation::HWND, primary: bool) {
     use windows::Win32::Foundation::RECT;
     use windows::Win32::UI::WindowsAndMessaging::{GetWindowRect, SetWindowPos, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER};
@@ -96,6 +118,7 @@ unsafe fn park_below_monitor(hwnd: windows::Win32::Foundation::HWND, primary: bo
     let _ = SetWindowPos(hwnd, None, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+#[cfg(kiro_windows)]
 unsafe fn restore_tray_position(hwnd: windows::Win32::Foundation::HWND, primary: bool, saved: Option<windows::Win32::Foundation::RECT>) {
     use windows::Win32::Foundation::RECT;
     use windows::Win32::UI::WindowsAndMessaging::{GetWindowRect, SetWindowPos, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER};
@@ -119,16 +142,19 @@ unsafe fn restore_tray_position(hwnd: windows::Win32::Foundation::HWND, primary:
     }
 }
 
+#[cfg(kiro_windows)]
 /// The marker stores the user's own taskbar state from before we forced auto-hide,
 /// so a crash can't lose it. Old markers just have "1".
 fn marker_contents(original_state: i32) -> String {
     format!("abstate={original_state}")
 }
 
+#[cfg(kiro_windows)]
 fn parse_marker_state(contents: &str) -> Option<i32> {
     contents.trim().strip_prefix("abstate=")?.parse().ok()
 }
 
+#[cfg(kiro_windows)]
 /// Restores the taskbar after a session died with it hidden, using the state saved in the marker.
 pub fn restore_taskbar_after_crash() {
     let saved = TASKBAR_MARKER
@@ -141,6 +167,7 @@ pub fn restore_taskbar_after_crash() {
     set_taskbar_visibility(true, true);
 }
 
+#[cfg(kiro_windows)]
 pub fn secondary_taskbars() -> Vec<windows::Win32::Foundation::HWND> {
     use windows::Win32::UI::WindowsAndMessaging::FindWindowExA;
     let mut taskbars = Vec::new();
@@ -160,6 +187,7 @@ pub fn secondary_taskbars() -> Vec<windows::Win32::Foundation::HWND> {
     taskbars
 }
 
+#[cfg(kiro_windows)]
 /// Real Windows build number, e.g. 19045 (10 22H2) or 22631 (11 23H2).
 ///
 /// `GetVersionEx` reports 6.2 unless the process carries a compatibility
@@ -194,11 +222,13 @@ pub fn windows_build() -> u32 {
     })
 }
 
+#[cfg(kiro_windows)]
 /// Windows 11 is NT 10.0 build 22000 and up. Win10 tops out at 19045.
 pub fn is_windows_11() -> bool {
     windows_build() >= 22000
 }
 
+#[cfg(kiro_windows)]
 /// Development switch: `KIRO_KEEP_TASKBAR=1` keeps the Windows taskbar in place
 /// while the dock runs, so working on Kiro never leaves you without a taskbar.
 /// Debug builds only — a release build ignores the variable entirely.
@@ -206,6 +236,7 @@ pub fn keep_taskbar_unhidden() -> bool {
     cfg!(debug_assertions) && std::env::var_os("KIRO_KEEP_TASKBAR").is_some()
 }
 
+#[cfg(kiro_windows)]
 pub fn set_taskbar_visibility(visible: bool, always_on_top: bool) {
     // Never touch the taskbar in a dev session that asked to keep it. Nothing is
     // hidden, so the shutdown path has nothing to undo and stays untouched.
@@ -356,6 +387,7 @@ pub fn set_taskbar_visibility(visible: bool, always_on_top: bool) {
     }
 }
 
+#[cfg(kiro_windows)]
 pub fn exe_description(path: &str) -> Option<String> {
     use windows::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
     static CACHE: OnceLock<std::sync::Mutex<std::collections::HashMap<String, Option<String>>>> = OnceLock::new();
@@ -397,6 +429,7 @@ pub fn exe_description(path: &str) -> Option<String> {
     result
 }
 
+#[cfg(kiro_windows)]
 pub unsafe fn icon_from_absolute_pidl(pidl: *const windows::Win32::UI::Shell::Common::ITEMIDLIST) -> Option<String> {
     use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON, SHGFI_PIDL};
     use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
@@ -417,6 +450,7 @@ pub unsafe fn icon_from_absolute_pidl(pidl: *const windows::Win32::UI::Shell::Co
     }
 }
 
+#[cfg(kiro_windows)]
 pub unsafe fn icon_from_parsing_name(name: &str) -> Option<String> {
     use windows::Win32::System::Com::CoTaskMemFree;
     use windows::Win32::UI::Shell::SHParseDisplayName;
@@ -429,6 +463,7 @@ pub unsafe fn icon_from_parsing_name(name: &str) -> Option<String> {
     icon
 }
 
+#[cfg(kiro_windows)]
 pub unsafe fn icon_to_base64(hicon: HICON) -> Option<String> {
     let factory: IWICImagingFactory = CoCreateInstance(&CLSID_WICImagingFactory, None, CLSCTX_INPROC_SERVER).ok()?;
     let bitmap = factory.CreateBitmapFromHICON(hicon).ok()?;
@@ -468,6 +503,7 @@ pub unsafe fn icon_to_base64(hicon: HICON) -> Option<String> {
     Some(format!("data:image/png;base64,{}", base64_str))
 }
 
+#[cfg(kiro_windows)]
 /// Icons pulled from the shell are not consistent: some fill the whole canvas,
 /// others (especially Store apps and PWAs) come with a huge transparent border.
 /// This crops the empty border and re-centres the artwork so every icon has a
@@ -609,6 +645,7 @@ pub fn get_setting_str(_app: &tauri::AppHandle, key: &str) -> Option<String> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Re-assert HWND_TOPMOST without activating the window.
 pub fn re_assert_topmost(hwnd: HWND) {
     unsafe {
@@ -634,10 +671,12 @@ pub fn re_assert_topmost(hwnd: HWND) {
     }
 }
 
+#[cfg(kiro_windows)]
 fn mostly_painted(pixels: &[u8]) -> bool {
     pixels.chunks_exact(4).step_by(7).filter(|c| c[0] != 0 || c[1] != 0 || c[2] != 0).count() * 50 > pixels.len() / 28
 }
 
+#[cfg(kiro_windows)]
 fn encode_thumbnail(mut pixels: Vec<u8>, width: u32, height: u32, max_width: u32, max_height: u32) -> Option<String> {
     for chunk in pixels.chunks_exact_mut(4) {
         chunk.swap(0, 2);
@@ -654,6 +693,7 @@ fn encode_thumbnail(mut pixels: Vec<u8>, width: u32, height: u32, max_width: u32
     Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(buf.into_inner())))
 }
 
+#[cfg(kiro_windows)]
 /// Captures an HWND to a base64-encoded PNG thumbnail, scaling it down if it exceeds max_width x max_height.
 pub fn capture_hwnd_to_base64(hwnd: HWND, max_width: u32, max_height: u32) -> Option<String> {
     unsafe {
@@ -761,6 +801,7 @@ pub fn capture_hwnd_to_base64(hwnd: HWND, max_width: u32, max_height: u32) -> Op
     }
 }
 
+#[cfg(kiro_windows)]
 /// Icon file a shortcut declares for itself (Firefox web apps, customized shortcuts).
 /// Only real image files, icon references into exes/DLLs are ignored.
 pub fn get_shortcut_icon_location(path: &str) -> Option<String> {
@@ -785,6 +826,7 @@ pub fn get_shortcut_icon_location(path: &str) -> Option<String> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Expands %VAR% from the process environment.
 fn expand_env_vars(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
@@ -819,6 +861,7 @@ fn expand_env_vars(input: &str) -> String {
     result
 }
 
+#[cfg(kiro_windows)]
 fn parse_guid(text: &str) -> Option<windows::core::GUID> {
     let body = text.trim().trim_start_matches('{').trim_end_matches('}');
     let mut parts = body.split('-');
@@ -845,6 +888,7 @@ fn parse_guid(text: &str) -> Option<windows::core::GUID> {
     })
 }
 
+#[cfg(kiro_windows)]
 /// The shell lists apps that live inside a known folder as
 /// `{6D809377-...}\Mem Reduct\memreduct.exe` instead of a drive path, which
 /// neither launching nor icon extraction can use. Swap the GUID prefix for the
@@ -865,6 +909,7 @@ pub fn expand_known_folder_prefix(path: &str) -> String {
         format!("{}{}", dir.trim_end_matches('\\'), rest)    }
 }
 
+#[cfg(kiro_windows)]
 /// Reads an image file and returns it as a base64 PNG data URI.
 pub fn image_file_to_base64(path: &str) -> Option<String> {
     let bytes = std::fs::read(path).ok()?;
@@ -882,6 +927,7 @@ pub fn image_file_to_base64(path: &str) -> Option<String> {
     Some(format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(&png)))
 }
 
+#[cfg(kiro_windows)]
 /// True for real fullscreen: client area covers the monitor and it isn't a captioned maximized window.
 pub fn is_window_fullscreen(hwnd: HWND) -> bool {
     unsafe {
@@ -911,6 +957,7 @@ pub fn is_window_fullscreen(hwnd: HWND) -> bool {
     }
 }
 
+#[cfg(kiro_windows)]
 pub fn resolve_executable_path(name: &str) -> Option<String> {
     let trimmed = name.trim().trim_matches('"');
     if trimmed.is_empty() || trimmed.contains('\\') || trimmed.contains('/') { return None; }
@@ -930,6 +977,7 @@ pub fn resolve_executable_path(name: &str) -> Option<String> {
     known_install_location(&file)
 }
 
+#[cfg(kiro_windows)]
 /// App Paths registry lookup (HKCU, then HKLM).
 fn app_paths_lookup(file: &str) -> Option<String> {
     use windows::Win32::System::Registry::{HKEY, RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ};
@@ -965,6 +1013,7 @@ fn app_paths_lookup(file: &str) -> Option<String> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// PATH, System32, Windows.
 fn search_system_path(file: &str) -> Option<String> {
     use windows::Win32::Storage::FileSystem::SearchPathW;
@@ -980,6 +1029,7 @@ fn search_system_path(file: &str) -> Option<String> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Last resort for apps not in App Paths or PATH.
 fn known_install_location(file: &str) -> Option<String> {
     let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
@@ -1008,6 +1058,7 @@ fn known_install_location(file: &str) -> Option<String> {
     candidates.into_iter().find(|c| std::path::Path::new(c).exists())
 }
 
+#[cfg(kiro_windows)]
 /// The window's AppUserModelID, same identity the taskbar groups by
 /// (package id for Store apps, web app id for browser web apps).
 pub fn get_window_app_user_model_id(hwnd: HWND) -> Option<String> {
@@ -1036,6 +1087,7 @@ pub fn get_window_app_user_model_id(hwnd: HWND) -> Option<String> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// HBITMAP to base64 PNG.
 pub unsafe fn hbitmap_to_base64(hbitmap: windows::Win32::Graphics::Gdi::HBITMAP) -> Option<String> {
     let factory: IWICImagingFactory = CoCreateInstance(&CLSID_WICImagingFactory, None, CLSCTX_INPROC_SERVER).ok()?;
@@ -1043,6 +1095,7 @@ pub unsafe fn hbitmap_to_base64(hbitmap: windows::Win32::Graphics::Gdi::HBITMAP)
     wic_bitmap_to_base64(&factory, &bitmap)
 }
 
+#[cfg(kiro_windows)]
 unsafe fn wic_bitmap_to_base64(factory: &IWICImagingFactory, bitmap: &windows::Win32::Graphics::Imaging::IWICBitmapSource) -> Option<String> {
     let stream = CreateStreamOnHGlobal(HGLOBAL(std::ptr::null_mut()), true).ok()?;
     let encoder = factory.CreateEncoder(&GUID_ContainerFormatPng, std::ptr::null()).ok()?;
@@ -1076,10 +1129,51 @@ unsafe fn wic_bitmap_to_base64(factory: &IWICImagingFactory, bitmap: &windows::W
     Some(format!("data:image/png;base64,{}", base64_str))
 }
 
-#[cfg(test)]
+// ---------------------------------------------------------------------------
+// Linux (and every other non-Windows target)
+//
+// Windows reserves a screen edge for the taskbar, parks the tray in it and can
+// re-show it from a watchdog. None of that exists here: the dock is a normal
+// always-on-top window, so the taskbar-reservation plumbing collapses into
+// no-ops that keep the exact same shape as their Windows counterparts. That way
+// the shared call sites (setup hook, quit path, tray menu) do not need a second
+// code path.
+// ---------------------------------------------------------------------------
+
+/// Nothing to remember: there is no taskbar to hide, so no crash to recover from.
+#[cfg(not(kiro_windows))]
+pub fn init_taskbar_marker(_app: &tauri::AppHandle) {}
+
+#[cfg(not(kiro_windows))]
+pub fn taskbar_marker_exists() -> bool {
+    false
+}
+
+#[cfg(not(kiro_windows))]
+pub fn restore_taskbar_after_crash() {}
+
+#[cfg(not(kiro_windows))]
+pub fn set_taskbar_visibility(_visible: bool, _always_on_top: bool) {}
+
+/// `PRETTY_NAME` from os-release, e.g. "Ubuntu 24.04.1 LTS". Used by the
+/// diagnostics report where Windows prints its edition and build number.
+#[cfg(not(kiro_windows))]
+pub fn os_name() -> String {
+    std::fs::read_to_string("/etc/os-release")
+        .ok()
+        .and_then(|release| {
+            release.lines().find_map(|line| {
+                line.strip_prefix("PRETTY_NAME=")
+                    .map(|value| value.trim().trim_matches('"').to_string())
+            })
+        })
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| std::env::consts::OS.to_string())
+}
+
+#[cfg(all(test, kiro_windows))]
 mod tests {
     use super::{expand_env_vars, expand_known_folder_prefix, parse_guid};
-
     #[test]
     fn known_folder_prefix_is_expanded() {
         // {6D809377-...} is FOLDERID_ProgramFiles.
@@ -1157,5 +1251,25 @@ mod tests {
         assert_eq!(resolve_executable_path("C:\\Windows\\notepad.exe"), None);
         assert_eq!(resolve_executable_path("kiro-definitely-not-installed"), None);
         assert_eq!(resolve_executable_path(""), None);
+    }
+}
+
+/// Portable helpers still get tested on Linux, so the Linux build has its own
+/// (much smaller) test module instead of silently skipping every test.
+#[cfg(all(test, not(kiro_windows)))]
+mod linux_tests {
+    use super::*;
+
+    #[test]
+    fn os_name_is_never_empty() {
+        assert!(!os_name().trim().is_empty());
+    }
+
+    #[test]
+    fn windows_only_plumbing_is_inert() {
+        assert!(!taskbar_marker_exists());
+        set_taskbar_visibility(true, true);
+        restore_taskbar_after_crash();
+        assert!(!taskbar_marker_exists());
     }
 }

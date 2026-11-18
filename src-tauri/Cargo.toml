@@ -1,6 +1,6 @@
 [package]
 name = "kiro"
-version = "1.9.5"
+version = "1.10.0"
 description = ""
 authors = ["fruyorsan"]
 edition = "2021"
@@ -28,6 +28,24 @@ tauri = { version = "2.11", features = ["tray-icon", "image-png"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+base64 = "0.22"
+tauri-plugin-autostart = "2.5.1"
+tauri-plugin-updater = "2"
+tokio = { version = "1", features = ["time", "sync"] }
+image = "0.25"
+tauri-plugin-drag = "2.1.1"
+tauri-plugin-dialog = "2"
+rustfft = "6"
+reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
+roxmltree = "0.20"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+rrule = "0.14"
+chrono-tz = "0.10"
+
+# Everything below talks to Win32/WebView2 directly and therefore only exists on
+# Windows. Keeping it out of a Linux dependency graph is what makes a Linux
+# build possible at all: these crates do not compile there.
+[target.'cfg(windows)'.dependencies]
 windows-core = "0.61"
 windows = { version = "0.61", features = [
   "Win32_UI_Input_KeyboardAndMouse",
@@ -89,23 +107,15 @@ windows = { version = "0.61", features = [
   "Win32_System_WinRT_Direct3D11",
   "Win32_System_WinRT_Graphics_Capture"
 ] }
-base64 = "0.22"
-tauri-plugin-autostart = "2.5.1"
-tauri-plugin-updater = "2"
-window-vibrancy = "0.7.1"
 wmi = "0.14"
-tokio = { version = "1", features = ["time", "sync"] }
 webview2-com = "0.38"
-image = "0.25"
-tauri-plugin-drag = "2.1.1"
-tauri-plugin-dialog = "2"
-rustfft = "6"
-reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
-roxmltree = "0.20"
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+window-vibrancy = "0.7.1"
+# Credentials (CalDAV/ICS passwords) go through the OS keychain. The Windows
+# backend is Win32 Credential Manager; Linux uses the Secret Service over DBus.
 keyring = { version = "3", features = ["windows-native"] }
-rrule = "0.14"
-chrono-tz = "0.10"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["linux-native-sync-persistent"] }
 
 
 [dev-dependencies]

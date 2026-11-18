@@ -99,6 +99,7 @@ fn build(app: &AppHandle, spec: &Spec) -> Option<WebviewWindow> {
             let _ = window_vibrancy::apply_acrylic(&window, Some((10, 10, 15, 20)));
         }
     }
+    #[cfg(kiro_windows)]
     if let Ok(hwnd) = window.hwnd() {
         crate::active_look::keep_active_look(hwnd);
     }
@@ -147,6 +148,9 @@ fn present(win: &WebviewWindow) {
     let _ = win.show();
     let _ = win.unminimize();
     let _ = win.set_focus();
+    // Forcing a foreground activation needs a Win32 hint that has no equivalent
+    // in the X11/Wayland protocols; `set_focus` above is the portable part.
+    #[cfg(kiro_windows)]
     if let Ok(hwnd) = win.hwnd() {
         unsafe {
             use windows::Win32::UI::WindowsAndMessaging::{
@@ -160,6 +164,7 @@ fn present(win: &WebviewWindow) {
 }
 
 fn set_memory_level(win: &WebviewWindow, low: bool) {
+    #[cfg(kiro_windows)]
     let _ = win.with_webview(move |webview| unsafe {
         use webview2_com::Microsoft::Web::WebView2::Win32::{
             ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW,
@@ -180,9 +185,15 @@ fn set_memory_level(win: &WebviewWindow, low: bool) {
         };
         let _ = core.SetMemoryUsageTargetLevel(level);
     });
+    // WebKitGTK has no per-webview memory target level. Windows are still hidden
+    // so the compositor can stop rendering them; the flags below keep the shared
+    // bookkeeping accurate.
+    #[cfg(not(kiro_windows))]
+    let _ = (win, low);
 }
 
 fn set_suspended(win: &WebviewWindow, suspend: bool) {
+    #[cfg(kiro_windows)]
     let _ = win.with_webview(move |webview| unsafe {
         use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_3;
         use windows_core::Interface;
@@ -202,4 +213,6 @@ fn set_suspended(win: &WebviewWindow, suspend: bool) {
             let _ = core.Resume();
         }
     });
+    #[cfg(not(kiro_windows))]
+    let _ = (win, suspend);
 }

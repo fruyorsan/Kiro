@@ -993,41 +993,71 @@ async fn ask_gemini(
 
 fn claude_candidates() -> Vec<PathBuf> {
     let mut out = Vec::new();
-    if let Some(appdata) = std::env::var_os("APPDATA") {
-        out.push(PathBuf::from(&appdata).join("npm").join("claude.cmd"));
+    #[cfg(kiro_windows)]
+    {
+        if let Some(appdata) = std::env::var_os("APPDATA") {
+            out.push(PathBuf::from(&appdata).join("npm").join("claude.cmd"));
+        }
+        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+            out.push(PathBuf::from(&local).join("Programs").join("claude").join("claude.exe"));
+            out.push(PathBuf::from(&local).join("Programs").join("Claude").join("claude.exe"));
+        }
     }
-    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
-        out.push(PathBuf::from(&local).join("Programs").join("claude").join("claude.exe"));
-        out.push(PathBuf::from(&local).join("Programs").join("Claude").join("claude.exe"));
+    // Node installs the CLI next to the npm prefix, which is ~/.local/bin for a
+    // default per-user prefix and /usr/local/bin for a system-wide one; distro
+    // packages and `bun` land in the other usual places.
+    #[cfg(not(kiro_windows))]
+    {
+        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+            out.push(home.join(".local").join("bin").join("claude"));
+            out.push(home.join(".npm-global").join("bin").join("claude"));
+            out.push(home.join(".bun").join("bin").join("claude"));
+        }
+        out.push(PathBuf::from("/usr/local/bin/claude"));
+        out.push(PathBuf::from("/usr/bin/claude"));
+        out.push(PathBuf::from("/snap/bin/claude"));
     }
     out
 }
 
 fn ask_cli(prompt: &str) -> Result<String, String> {
+    #[cfg(kiro_windows)]
     use std::os::windows::process::CommandExt;
+    #[cfg(kiro_windows)]
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
     let exe = claude_candidates()
         .into_iter()
         .find(|path| path.is_file())
         .unwrap_or_else(|| PathBuf::from("claude"));
+    #[cfg(kiro_windows)]
     let is_script = exe
         .extension()
         .map(|ext| ext.eq_ignore_ascii_case("cmd") || ext.eq_ignore_ascii_case("bat"))
         .unwrap_or(false);
-    let mut command = if is_script {
-        let mut cmd = std::process::Command::new("cmd");
-        cmd.arg("/C").arg(&exe);
-        cmd
-    } else {
-        std::process::Command::new(&exe)
+    let mut command = {
+        #[cfg(kiro_windows)]
+        {
+            if is_script {
+                let mut cmd = std::process::Command::new("cmd");
+                cmd.arg("/C").arg(&exe);
+                cmd
+            } else {
+                std::process::Command::new(&exe)
+            }
+        }
+        #[cfg(not(kiro_windows))]
+        {
+            std::process::Command::new(&exe)
+        }
     };
     command
         .args(["-p", "--output-format", "text"])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .creation_flags(CREATE_NO_WINDOW);
+        .stderr(std::process::Stdio::piped());
+    #[cfg(kiro_windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
 
     let mut child = command.spawn().map_err(|_| {
         "Claude Code CLI bulunamadı. Ayarlardan bir API anahtarı girebilirsin.".to_string()
@@ -1594,23 +1624,37 @@ pub fn ai_open_console(provider: String) -> Result<(), String> {
 }
 
 fn open_url(url: &str) -> Result<(), String> {
-    use windows::Win32::UI::Shell::ShellExecuteW;
-    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-    let verb: Vec<u16> = "open".encode_utf16().chain(std::iter::once(0)).collect();
-    let target: Vec<u16> = url.encode_utf16().chain(std::iter::once(0)).collect();
-    let result = unsafe {
-        ShellExecuteW(
-            None,
-            windows::core::PCWSTR(verb.as_ptr()),
-            windows::core::PCWSTR(target.as_ptr()),
-            None,
-            None,
-            SW_SHOWNORMAL,
-        )
-    };
-    if result.0 as usize <= 32 {
-        Err(format!("Tarayıcı açılamadı (kod {})", result.0 as usize))
-    } else {
-        Ok(())
+    #[cfg(kiro_windows)]
+    {
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        let verb: Vec<u16> = "open".encode_utf16().chain(std::iter::once(0)).collect();
+        let target: Vec<u16> = url.encode_utf16().chain(std::iter::once(0)).collect();
+        let result = unsafe {
+            ShellExecuteW(
+                None,
+                windows::core::PCWSTR(verb.as_ptr()),
+                windows::core::PCWSTR(target.as_ptr()),
+                None,
+                None,
+                SW_SHOWNORMAL,
+            )
+        };
+        return if result.0 as usize <= 32 {
+            Err(format!("Tarayıcı açılamadı (kod {})", result.0 as usize))
+        } else {
+            Ok(())
+        };
+    }
+
+    // xdg-open is the freedesktop entry point every desktop ships; it honours the
+    // user's default browser.
+    #[cfg(not(kiro_windows))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("Tarayıcı açılamadı: {e}"))
     }
 }

@@ -284,14 +284,25 @@ async fn install_inner(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     // Windows: `download_and_install` launches the installer and exits inside
-    // the plugin, so this is only reached on other platforms.
-    #[cfg(not(windows))]
+    // the plugin, so this is only reached on other platforms. There the updater
+    // rewrites the running AppImage (or hands the .deb to dpkg) and returns, so
+    // the restart is ours to do.
+    //
+    // Both arms key off `kiro_windows` rather than `windows` so the Linux arm is
+    // still type-checked on a Windows host by the KIRO_FORCE_UNIX=1 check.
+    #[cfg(not(kiro_windows))]
     {
+        crate::state::SHUTTING_DOWN.store(true, Ordering::Relaxed);
         let _ = app.emit("auto-update-status", serde_json::json!({ "status": "done" }));
+        // The restart spawns the new binary while this process is still alive,
+        // so the single-instance lock has to go first or the new build sees a
+        // live PID and exits immediately.
+        crate::single_instance::release();
+        app.cleanup_before_exit();
         app.restart()
     }
 
-    #[cfg(windows)]
+    #[cfg(kiro_windows)]
     Ok(())
 }
 
@@ -471,7 +482,21 @@ mod tests {
                 &std::fs::read_to_string(locate(&manifest_path)).expect("read manifest"),
             )
             .expect("parse manifest");
-            let signature_b64 = manifest["platforms"]["windows-x86_64"]["signature"]
+            // The manifest key is the one the updater looks up on this platform
+            // (`linux-x86_64`, `windows-x86_64`, ...); tests that only pass a raw
+            // `.sig` do not need it.
+            let platform = std::env::var("KIRO_UPDATE_PLATFORM").unwrap_or_else(|_| {
+                let os = if cfg!(windows) {
+                    "windows"
+                } else if cfg!(target_os = "macos") {
+                    "darwin"
+                } else {
+                    "linux"
+                };
+                let arch = if cfg!(target_arch = "x86_64") { "x86_64" } else { "aarch64" };
+                format!("{os}-{arch}")
+            });
+            let signature_b64 = manifest["platforms"][&platform]["signature"]
                 .as_str()
                 .expect("signature");
             let decoded = base64::engine::general_purpose::STANDARD

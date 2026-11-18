@@ -60,7 +60,30 @@ struct Activity {
 }
 
 pub fn data_dir() -> Option<PathBuf> {
-    std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("com.fruyorsan.kiro"))
+    // Same directory Tauri uses for the app config on each platform.
+    #[cfg(kiro_windows)]
+    {
+        std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("com.fruyorsan.kiro"))
+    }
+    #[cfg(not(kiro_windows))]
+    {
+        let base = std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
+        Some(base.join("com.fruyorsan.kiro"))
+    }
+}
+
+/// The user's home directory, which is where Claude Code keeps its settings.
+fn home_dir() -> Option<PathBuf> {
+    #[cfg(kiro_windows)]
+    {
+        std::env::var_os("USERPROFILE").map(PathBuf::from)
+    }
+    #[cfg(not(kiro_windows))]
+    {
+        std::env::var_os("HOME").map(PathBuf::from)
+    }
 }
 
 fn config_path() -> Option<PathBuf> {
@@ -86,9 +109,17 @@ fn clean(text: Option<String>, limit: usize) -> Option<String> {
 }
 
 fn random_token() -> Option<String> {
-    use windows::Win32::Security::Cryptography::{BCryptGenRandom, BCRYPT_USE_SYSTEM_PREFERRED_RNG};
     let mut bytes = [0u8; 24];
-    unsafe { BCryptGenRandom(None, &mut bytes, BCRYPT_USE_SYSTEM_PREFERRED_RNG) }.ok().ok()?;
+    #[cfg(kiro_windows)]
+    {
+        use windows::Win32::Security::Cryptography::{BCryptGenRandom, BCRYPT_USE_SYSTEM_PREFERRED_RNG};
+        unsafe { BCryptGenRandom(None, &mut bytes, BCRYPT_USE_SYSTEM_PREFERRED_RNG) }.ok().ok()?;
+    }
+    #[cfg(not(kiro_windows))]
+    {
+        use std::io::Read;
+        std::fs::File::open("/dev/urandom").ok()?.read_exact(&mut bytes).ok()?;
+    }
     Some(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 
@@ -288,7 +319,7 @@ fn is_ours(group: &serde_json::Value) -> bool {
 }
 
 fn sync_claude_hooks(enable: bool) {
-    let Some(path) = std::env::var_os("USERPROFILE").map(|d| PathBuf::from(d).join(".claude").join("settings.json")) else { return };
+    let Some(path) = home_dir().map(|d| d.join(".claude").join("settings.json")) else { return };
     let text = std::fs::read_to_string(&path)
         .ok()
         // Claude Code's own settings may be saved with a BOM by an editor; keep
@@ -352,7 +383,7 @@ pub fn set_hooks(enable: bool) {
     if cfg!(debug_assertions) || is_build_output {
         return;
     }
-    if enable && !std::env::var_os("USERPROFILE").is_some_and(|d| PathBuf::from(d).join(".claude").is_dir()) {
+    if enable && !home_dir().is_some_and(|d| d.join(".claude").is_dir()) {
         return;
     }
     let _guard = HOOK_SYNC.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -402,6 +433,7 @@ fn project_name() -> Option<String> {
     dir.file_name().map(|n| n.to_string_lossy().into_owned())
 }
 
+#[cfg(kiro_windows)]
 fn ancestor_window() -> Option<u64> {
     use windows::core::BOOL;
     use windows::Win32::Foundation::{HWND, LPARAM};
@@ -451,6 +483,15 @@ fn ancestor_window() -> Option<u64> {
         let _ = EnumWindows(Some(visit), LPARAM(&mut search as *mut Search as isize));
     }
     search.found.into_iter().min_by_key(|(rank, _)| *rank).map(|(_, hwnd)| hwnd)
+}
+
+/// Associating the hook with the terminal window that launched it needs the
+/// window manager's window list, which is not reachable from the X11/Wayland
+/// protocols Kiro is allowed to use. Activity is still published; it is simply
+/// not tied to a specific window.
+#[cfg(not(kiro_windows))]
+fn ancestor_window() -> Option<u64> {
+    None
 }
 
 fn flags(args: &[String]) -> (Option<String>, Option<String>) {

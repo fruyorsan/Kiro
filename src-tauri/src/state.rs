@@ -47,6 +47,7 @@ label_map!(notch_extra_last_edge_hover, i32);
 label_map!(dock_extra_expiry_ms, i64);
 label_map!(notch_extra_expiry_ms, i64);
 
+#[cfg(kiro_windows)]
 pub fn get_flag(map: &'static Mutex<HashMap<String, bool>>, label: &str) -> bool {
     map.lock().ok().and_then(|m| m.get(label).copied()).unwrap_or(false)
 }
@@ -57,30 +58,36 @@ pub fn set_flag(map: &'static Mutex<HashMap<String, bool>>, label: &str, value: 
     }
 }
 
+#[cfg(kiro_windows)]
 pub fn get_overlap(map: &'static Mutex<HashMap<String, i32>>, label: &str) -> i32 {
     map.lock().ok().and_then(|m| m.get(label).copied()).unwrap_or(-1)
 }
 
+#[cfg(kiro_windows)]
 pub fn set_overlap(map: &'static Mutex<HashMap<String, i32>>, label: &str, value: i32) {
     if let Ok(mut m) = map.lock() {
         m.insert(label.to_string(), value);
     }
 }
 
+#[cfg(kiro_windows)]
 pub fn get_i32(map: &'static Mutex<HashMap<String, i32>>, label: &str, default: i32) -> i32 {
     map.lock().ok().and_then(|m| m.get(label).copied()).unwrap_or(default)
 }
 
+#[cfg(kiro_windows)]
 pub fn set_i32(map: &'static Mutex<HashMap<String, i32>>, label: &str, value: i32) {
     if let Ok(mut m) = map.lock() {
         m.insert(label.to_string(), value);
     }
 }
 
+#[cfg(kiro_windows)]
 pub fn get_i64(map: &'static Mutex<HashMap<String, i64>>, label: &str, default: i64) -> i64 {
     map.lock().ok().and_then(|m| m.get(label).copied()).unwrap_or(default)
 }
 
+#[cfg(kiro_windows)]
 pub fn set_i64(map: &'static Mutex<HashMap<String, i64>>, label: &str, value: i64) {
     if let Ok(mut m) = map.lock() {
         m.insert(label.to_string(), value);
@@ -145,20 +152,29 @@ pub static CURRENT_BRIGHTNESS: AtomicU32 = AtomicU32::new(50);
 pub static CURRENT_VOLUME: AtomicU32 = AtomicU32::new(50);
 pub static LAST_BRIGHTNESS_CHANGE: AtomicI64 = AtomicI64::new(0);
 pub static ANY_MEDIA_PLAYING: AtomicBool = AtomicBool::new(false);
+#[cfg(kiro_windows)]
 pub static LAST_START_TOGGLE_MS: AtomicI64 = AtomicI64::new(0);
 pub static OVERLAY_IN_SPLASH: AtomicBool = AtomicBool::new(false);
+#[cfg(kiro_windows)]
 pub static CURRENT_FOREGROUND_FULLSCREEN: AtomicBool = AtomicBool::new(false);
+#[cfg(kiro_windows)]
 /// Fullscreen AND a real game (not a video player, browser or shell surface).
 /// The overlay stays interactive for the video case so the volume and
 /// brightness cards can be dragged while a movie is playing.
 pub static CURRENT_FOREGROUND_GAME_FULLSCREEN: AtomicBool = AtomicBool::new(false);
+#[cfg(kiro_windows)]
 pub static CURRENT_FOREGROUND_FULLSCREEN_ON_DOCK: AtomicBool = AtomicBool::new(false);
+#[cfg(kiro_windows)]
 pub static CURRENT_FOREGROUND_SHELL_ON_DOCK: AtomicBool = AtomicBool::new(false);
+#[cfg(kiro_windows)]
 pub static CURRENT_FOREGROUND_MAXIMIZED: AtomicBool = AtomicBool::new(false);
 
+#[cfg(kiro_windows)]
 pub static SINGLE_INSTANCE_MUTEX_HANDLE: OnceLock<isize> = OnceLock::new();
+#[cfg(kiro_windows)]
 pub static SINGLE_INSTANCE_EVENT_HANDLE: OnceLock<isize> = OnceLock::new();
 
+#[cfg(kiro_windows)]
 pub fn close_single_instance_handles() {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::Foundation::HANDLE;
@@ -174,12 +190,18 @@ pub fn close_single_instance_handles() {
     }
 }
 
+/// The Linux single-instance lock is a file owned by `single_instance`, which
+/// releases it when the process exits — there is no handle to close here.
+#[cfg(not(kiro_windows))]
+pub fn close_single_instance_handles() {}
+
 pub static DISPLAY_MONITOR_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 pub static LAST_DISPLAY_CHANGE_MS: AtomicI64 = AtomicI64::new(0);
 
 /// Mixer panel bounds (x, y, w, h) in overlay CSS px, None when collapsed.
 pub static VOLUME_MIXER_RECT: Mutex<Option<(f64, f64, f64, f64)>> = Mutex::new(None);
 
+#[cfg(kiro_windows)]
 /// Exe path to friendly name (FileDescription). Cached since the mixer polls every 2s.
 pub static PROCESS_NAME_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 

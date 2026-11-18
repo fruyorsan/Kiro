@@ -22,17 +22,42 @@ fn catalog() -> &'static HashMap<&'static str, Messages> {
 }
 
 fn system_language() -> String {
-    use windows::Win32::Globalization::GetUserDefaultLocaleName;
-    let mut buf = [0u16; 85];
-    let len = unsafe { GetUserDefaultLocaleName(&mut buf) };
-    if len <= 0 {
-        return "en".into();
+    #[cfg(kiro_windows)]
+    {
+        use windows::Win32::Globalization::GetUserDefaultLocaleName;
+        let mut buf = [0u16; 85];
+        let len = unsafe { GetUserDefaultLocaleName(&mut buf) };
+        if len <= 0 {
+            return "en".into();
+        }
+        return String::from_utf16_lossy(&buf[..len as usize - 1])
+            .split('-')
+            .next()
+            .unwrap_or("en")
+            .to_lowercase();
     }
-    String::from_utf16_lossy(&buf[..len as usize - 1])
-        .split('-')
-        .next()
-        .unwrap_or("en")
-        .to_lowercase()
+
+    // POSIX locale: LC_ALL wins over LC_MESSAGES over LANG, and the value looks
+    // like "tr_TR.UTF-8@euro" — the language is the part before the first "_".
+    #[cfg(not(kiro_windows))]
+    {
+        for key in ["LC_ALL", "LC_MESSAGES", "LANG"] {
+            let Ok(value) = std::env::var(key) else { continue };
+            let value = value.trim();
+            if value.is_empty() || value == "C" || value == "POSIX" {
+                continue;
+            }
+            let language = value
+                .split(['_', '.', '@'])
+                .next()
+                .unwrap_or_default()
+                .to_lowercase();
+            if !language.is_empty() {
+                return language;
+            }
+        }
+        "en".into()
+    }
 }
 
 fn language(app: &AppHandle) -> String {

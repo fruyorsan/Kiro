@@ -1,38 +1,84 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+#[cfg(kiro_windows)]
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Manager};
 
+#[cfg(kiro_windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const MAX_LOG_BYTES: u64 = 1_000_000;
 const LOG_FILE: &str = "kiro.log";
 const REPORT_FILE: &str = "diagnostics.txt";
+#[cfg(kiro_windows)]
 const HITBOX_INTERVAL_MS: i64 = 250;
+/// Longest slice of the log embedded in the report, in bytes.
+const REPORT_LOG_BYTES: usize = 24_000;
 
 static LOG_DIR: OnceLock<PathBuf> = OnceLock::new();
 static LOG_LOCK: Mutex<()> = Mutex::new(());
 static HITBOX_LOGGING: AtomicBool = AtomicBool::new(false);
+#[cfg(kiro_windows)]
 static LAST_HITBOX_MS: [AtomicI64; 2] = [AtomicI64::new(0), AtomicI64::new(0)];
 
 pub static HOOK_EVENTS: AtomicI64 = AtomicI64::new(0);
 pub static HOOK_LAST_EVENT_MS: AtomicI64 = AtomicI64::new(0);
 
+/// Base directory for logs and the report, matching the app's own config root.
+fn log_root() -> Option<PathBuf> {
+    #[cfg(kiro_windows)]
+    {
+        std::env::var("APPDATA")
+            .ok()
+            .map(|appdata| PathBuf::from(appdata).join("com.fruyorsan.kiro"))
+    }
+    #[cfg(not(kiro_windows))]
+    {
+        // XDG_STATE_HOME is where logs and crash reports belong (as opposed to
+        // configuration), so a profile sync never ships them around.
+        let base = std::env::var_os("XDG_STATE_HOME")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .map(|home| PathBuf::from(home).join(".local").join("state"))
+            })?;
+        Some(base.join("kiro"))
+    }
+}
+
+fn platform_label() -> String {
+    #[cfg(kiro_windows)]
+    {
+        format!("windows build {}", crate::utils::windows_build())
+    }
+    #[cfg(not(kiro_windows))]
+    {
+        let kernel = std::fs::read_to_string("/proc/sys/kernel/osrelease")
+            .map(|release| release.trim().to_string())
+            .unwrap_or_default();
+        if kernel.is_empty() {
+            crate::utils::os_name()
+        } else {
+            format!("{} (kernel {kernel})", crate::utils::os_name())
+        }
+    }
+}
+
 pub fn init() {
-    let Ok(appdata) = std::env::var("APPDATA") else { return };
-    let dir = PathBuf::from(appdata).join("com.fruyorsan.kiro").join("logs");
+    let Some(root) = log_root() else { return };
+    let dir = root.join("logs");
     if fs::create_dir_all(&dir).is_err() {
         return;
     }
     let _ = LOG_DIR.set(dir);
     install_panic_hook();
     log(&format!(
-        "---- Kiro {} starting (pid {}, windows build {}) ----",
+        "---- Kiro {} starting (pid {}, {}) ----",
         env!("CARGO_PKG_VERSION"),
         std::process::id(),
-        crate::utils::windows_build()
+        platform_label()
     ));
 }
 
@@ -73,6 +119,10 @@ pub fn hitbox_logging() -> bool {
     HITBOX_LOGGING.load(Ordering::Relaxed)
 }
 
+/// Hit-test logging only exists for the Windows pointer hook, which owns the
+/// dock/notch hit boxes there. Linux delivers hover per window instead, so the
+/// reporter has nothing to sample.
+#[cfg(kiro_windows)]
 pub fn hitbox_log(slot: usize, now_ms: i64, line: impl FnOnce() -> String) {
     if !hitbox_logging() {
         return;
@@ -84,15 +134,29 @@ pub fn hitbox_log(slot: usize, now_ms: i64, line: impl FnOnce() -> String) {
     log(&line());
 }
 
+#[cfg(not(kiro_windows))]
+#[allow(dead_code)] // Windows-only callers; kept so the shared call sites stay identical
+pub fn hitbox_log(_slot: usize, _now_ms: i64, _line: impl FnOnce() -> String) {}
+
 fn run_hidden(program: &str, args: &[&str]) -> Option<String> {
-    std::process::Command::new(program)
-        .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
+    let mut command = std::process::Command::new(program);
+    command.args(args);
+    #[cfg(kiro_windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
         .output()
         .ok()
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
 }
 
+/// Distribution name plus kernel release, where Windows prints its edition and
+/// build number.
+#[cfg(not(kiro_windows))]
+fn os_version() -> String {
+    platform_label()
+}
+
+#[cfg(kiro_windows)]
 fn reg_value(key: &str, name: &str) -> Option<String> {
     let out = run_hidden("reg", &["query", key, "/v", name])?;
     out.lines()
@@ -101,7 +165,8 @@ fn reg_value(key: &str, name: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn windows_version() -> String {
+#[cfg(kiro_windows)]
+fn os_version() -> String {
     const KEY: &str = r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion";
     // ProductName still reports "Windows 10" on Windows 11, so trust the build
     // number (via ntdll) for the family and use the registry for the details.
@@ -117,20 +182,74 @@ fn windows_version() -> String {
 }
 
 fn gpu_names() -> String {
-    run_hidden("powershell", &["-NoProfile", "-Command", "(Get-CimInstance Win32_VideoController).Name -join ', '"])
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default()
+    #[cfg(kiro_windows)]
+    {
+        return run_hidden("powershell", &["-NoProfile", "-Command", "(Get-CimInstance Win32_VideoController).Name -join ', '"])
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+    }
+
+    // `lspci` is part of pciutils, which every desktop install pulls in; when it
+    // is missing, fall back to the driver names the kernel exposes in sysfs.
+    #[cfg(not(kiro_windows))]
+    {
+        if let Some(out) = run_hidden("lspci", &[]) {
+            let mut names: Vec<String> = out
+                .lines()
+                .filter(|line| {
+                    line.contains("VGA compatible controller")
+                        || line.contains("3D controller")
+                        || line.contains("Display controller")
+                })
+                .filter_map(|line| line.split_once(": ").map(|(_, rest)| rest.trim().to_string()))
+                .collect();
+            names.sort();
+            names.dedup();
+            if !names.is_empty() {
+                return names.join(", ");
+            }
+        }
+        let mut drivers: Vec<String> = Vec::new();
+        if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
+            for entry in entries.flatten() {
+                let uevent = entry.path().join("device").join("uevent");
+                let Ok(text) = std::fs::read_to_string(uevent) else { continue };
+                if let Some(driver) = text.lines().find_map(|l| l.strip_prefix("DRIVER=")) {
+                    if !driver.trim().is_empty() {
+                        drivers.push(format!("{} (kernel driver)", driver.trim()));
+                    }
+                }
+            }
+        }
+        drivers.sort();
+        drivers.dedup();
+        drivers.join(", ")
+    }
 }
 
+/// Background apps that take over global input, which is the one thing on Linux
+/// that can interfere with Kiro's own shortcuts.
 fn running_conflicts() -> String {
+    #[cfg(kiro_windows)]
     const WATCH: [&str; 9] = [
         "razer", "rzsynapse", "synapse", "logi", "lghub", "autohotkey", "powertoys", "displayfusion", "actualtools",
     ];
-    let Some(out) = run_hidden("tasklist", &["/FO", "CSV", "/NH"]) else { return String::new() };
+    #[cfg(not(kiro_windows))]
+    const WATCH: [&str; 5] = ["input-remapper", "autokey", "solaar", "keyd", "kanata"];
+
+    #[cfg(kiro_windows)]
+    let Some(out) = run_hidden("tasklist", &["/FO", "CSV", "/NH"]) else {
+        return String::new();
+    };
+    #[cfg(not(kiro_windows))]
+    let Some(out) = run_hidden("ps", &["-eo", "comm="]) else {
+        return String::new();
+    };
+
     let mut found: Vec<String> = out
         .lines()
         .filter_map(|l| l.split(',').next())
-        .map(|n| n.trim_matches('"').to_string())
+        .map(|n| n.trim_matches('"').trim().to_string())
         .filter(|n| {
             let low = n.to_lowercase();
             WATCH.iter().any(|w| low.contains(w))
@@ -211,24 +330,34 @@ pub fn build_report(app: &AppHandle) -> String {
     let now = crate::services::now_ms();
     let last = HOOK_LAST_EVENT_MS.load(Ordering::Relaxed);
     let hook_age = if last == 0 { "never".to_string() } else { format!("{}ms ago", now - last) };
+    // The engine label differs per platform: WebView2 on Windows, WebKitGTK on
+    // Linux. `tauri::webview_version()` reports whichever is in use.
+    let webview_label = if cfg!(kiro_windows) { "WebView2" } else { "WebKitGTK" };
+    let windows_label = if cfg!(kiro_windows) { "Windows" } else { "X11/Wayland windows" };
+    let pointer_label = if cfg!(kiro_windows) {
+        "Mouse hook"
+    } else {
+        "Pointer events"
+    };
 
     let report = format!(
         "Kiro diagnostics\n\
          ==================\n\
          Kiro: {version}\n\
-         Windows: {windows}\n\
-         WebView2: {webview}\n\
+         System: {windows}\n\
+         {webview_label}: {webview}\n\
          GPU: {gpu}\n\
          Executable: {exe}\n\
          Elevated: {elevated}\n\
          Possibly conflicting apps running: {conflicts}\n\n\
          Monitors:\n{monitors}\n\
-         Mouse hook: {events} events, last {hook_age}\n\n\
-         Windows:\n{windows_info}\n\
+         {pointer_label}: {events} events, last {hook_age}\n\n\
+         {windows_label}:\n{windows_info}\n\
          Settings:\n{settings}\n\n\
          Recent log:\n{log}\n",
         version = env!("CARGO_PKG_VERSION"),
-        windows = windows_version(),
+        windows = os_version(),
+        webview_label = webview_label,
         webview = tauri::webview_version().unwrap_or_else(|_| "unknown".into()),
         gpu = gpu_names(),
         exe = exe,
@@ -237,9 +366,10 @@ pub fn build_report(app: &AppHandle) -> String {
         monitors = monitor_report(app),
         events = HOOK_EVENTS.load(Ordering::Relaxed),
         hook_age = hook_age,
+        windows_label = windows_label,
         windows_info = window_report(app),
         settings = settings_snapshot(),
-        log = tail(24_000),
+        log = tail(REPORT_LOG_BYTES),
     );
 
     if let Some(dir) = LOG_DIR.get() {

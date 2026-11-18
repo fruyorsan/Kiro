@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg(kiro_windows)]
 #[derive(Deserialize, Debug)]
 #[serde(rename = "WmiMonitorBrightness")]
 #[serde(rename_all = "PascalCase")]
@@ -7,6 +8,7 @@ pub struct WmiMonitorBrightness {
     pub current_brightness: u8,
 }
 
+#[cfg(kiro_windows)]
 #[derive(Clone, Serialize)]
 pub struct AudioVisualizationData {
     pub frequencies: Vec<f32>,
@@ -31,6 +33,11 @@ pub struct MediaInfo {
     pub source_id: String,
 }
 
+/// Every action the shared worker/sender API accepts. Not all of them are
+/// produced on every platform (Windows owns volume/brightness keys through its
+/// keyboard hook; Linux leaves those to the desktop), which is why the unused
+/// variants are allowed off Windows.
+#[cfg_attr(not(kiro_windows), allow(dead_code))]
 pub enum SystemCommand {
     VolumeMute,
     VolumeUp,

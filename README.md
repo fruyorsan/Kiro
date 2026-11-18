@@ -4,7 +4,7 @@ https://github.com/user-attachments/assets/38986f38-9953-40eb-94f1-a4c4c3fa1bac
 
 <br />
 
-### A notch, a dock and a performance layer for Windows.
+### A notch, a dock and a performance layer for Windows and Linux.
 
 Think of it as a taskbar that gives your games more frames. A spring-animated
 notch and dock replace the taskbar, and when a game goes fullscreen they step
@@ -13,11 +13,12 @@ aside at the OS level and boost the game instead of competing with it.
 <br />
 
 [![Download for Windows](https://img.shields.io/github/v/release/fruyorsan/Kiro?style=for-the-badge&label=Download%20for%20Windows&color=0078D4&labelColor=0078D4&logo=windows&logoColor=white)](https://github.com/fruyorsan/Kiro/releases/latest)
+[![Download for Linux](https://img.shields.io/github/v/release/fruyorsan/Kiro?style=for-the-badge&label=Download%20for%20Linux&color=FCC624&labelColor=333333&logo=linux&logoColor=white)](https://github.com/fruyorsan/Kiro/releases/latest)
 
 <br />
 
 [![License](https://img.shields.io/badge/License-GPL--3.0-3DA639?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20%C2%B7%20Linux-FCC624?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/fruyorsan/Kiro/releases/latest)
 
 [**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [FPS Boost](#fps-boost) &nbsp;·&nbsp; [Screenshots](#screenshots) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Support](#support) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
 
@@ -144,11 +145,23 @@ chose.
 
 ## Install
 
+**Windows**
+
 1. Download `Kiro-Setup-<version>.exe` from the [latest release](https://github.com/fruyorsan/Kiro/releases/latest).
 2. Choose **Just me** or **All users**. An all-users install asks for administrator permission once.
 3. Kiro starts with a short splash, then the notch and dock appear together.
 
-Kiro updates itself: a green dot on the notch means an update is ready, and **Auto Update** in **Settings › About** installs it for you. Turn on **Get pre-releases** there to receive early builds before the weekly release. **Uninstall** from Windows Settings › Apps or from **Settings › About** puts your taskbar back.
+**Linux**
+
+1. Download `Kiro_<version>_amd64.AppImage`, make it executable (`chmod +x`), and run it. No install step, no root.
+2. Or download `kiro_<version>_amd64.deb` and install it with your package manager if you prefer a system package.
+3. `xdg-open`-style dependencies are already present on any desktop: the AppImage needs GTK 3, WebKitGTK 4.1 and libayatana-appindicator.
+
+The two downloads are built separately in the same release: Windows ships the NSIS installer, Linux ships the AppImage (plus a `.deb`), and each platform's updater only ever sees its own entry in `latest.json`.
+
+Kiro updates itself: a green dot on the notch means an update is ready, and **Auto Update** in **Settings › About** installs it for you. Turn on **Get pre-releases** there to receive early builds before the weekly release. **Uninstall** from Windows Settings › Apps or from **Settings › About** puts your taskbar back; on Linux delete the AppImage (or remove the package) and the `~/.local/share/applications/kiro.desktop` entry.
+
+On Linux the notch and dock are ordinary always-on-top windows placed at the top and bottom of the screen, the panels use `nmcli`, `bluetoothctl`, `pactl` and `playerctl` for hardware, and fullscreen games get the same step-aside behaviour by hiding the windows instead of unregistering an appbar.
 
 > **Antivirus warnings:** the installer is not code-signed yet, so Windows SmartScreen and a few antivirus engines flag it. Kiro is open source, has no telemetry or tracking, and every installer is built by the release workflow in this repository. You can read every line, [build it yourself](#build-from-source), or drop the installer into [VirusTotal](https://www.virustotal.com/) before running it.
 

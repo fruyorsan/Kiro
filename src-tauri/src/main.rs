@@ -3,40 +3,66 @@
 mod types;
 mod state;
 mod utils;
+#[cfg_attr(not(kiro_windows), path = "unix/capture.rs")]
 mod capture;
+#[cfg_attr(not(kiro_windows), path = "unix/services.rs")]
 mod services;
 mod commands;
+#[cfg(not(kiro_windows))]
+mod commands_unix;
+#[cfg(not(kiro_windows))]
+#[path = "unix/single_instance.rs"]
+mod single_instance;
 mod monitors;
 mod updater;
+#[cfg_attr(not(kiro_windows), path = "unix/uninstall_registry.rs")]
 mod uninstall_registry;
+#[cfg_attr(not(kiro_windows), path = "unix/native_uninstall.rs")]
 mod native_uninstall;
 mod diagnostics;
+#[cfg_attr(not(kiro_windows), path = "unix/taskbar_pins.rs")]
 mod taskbar_pins;
+#[cfg_attr(not(kiro_windows), path = "unix/tray_icons.rs")]
 mod tray_icons;
 mod caldav;
 mod calendar_sync;
 mod ics;
+#[cfg_attr(not(kiro_windows), path = "unix/active_look.rs")]
 mod active_look;
+#[cfg_attr(not(kiro_windows), path = "unix/attention.rs")]
 mod attention;
+#[cfg_attr(not(kiro_windows), path = "unix/launchers.rs")]
 mod launchers;
+#[cfg_attr(not(kiro_windows), path = "unix/connections.rs")]
 mod connections;
+#[cfg_attr(not(kiro_windows), path = "unix/audio_devices.rs")]
 mod audio_devices;
 mod i18n;
+#[cfg_attr(not(kiro_windows), path = "unix/shelf.rs")]
 mod shelf;
 mod agent_api;
+#[cfg_attr(not(kiro_windows), path = "unix/memory_saver.rs")]
 mod memory_saver;
+#[cfg_attr(not(kiro_windows), path = "unix/webview_args.rs")]
 mod webview_args;
 mod on_demand_windows;
+#[cfg_attr(not(kiro_windows), path = "unix/wallpaper.rs")]
 mod wallpaper;
 mod defaults;
+#[cfg_attr(not(kiro_windows), path = "unix/perf.rs")]
 mod perf;
+#[cfg_attr(not(kiro_windows), path = "unix/game_boost.rs")]
 mod game_boost;
+#[cfg_attr(not(kiro_windows), path = "unix/fps_boost.rs")]
 mod fps_boost;
 mod ai;
 
 use tauri::Manager;
+#[cfg(kiro_windows)]
 use windows::Win32::System::Console::SetConsoleCtrlHandler;
+#[cfg(kiro_windows)]
 use windows::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, CTRL_CLOSE_EVENT};
+#[cfg(kiro_windows)]
 use windows::core::BOOL;
 use std::sync::atomic::Ordering;
 
@@ -45,6 +71,7 @@ use crate::utils::*;
 use crate::services::*;
 use crate::commands::*;
 
+#[cfg(kiro_windows)]
 unsafe extern "system" fn ctrl_handler(ctrl_type: u32) -> BOOL {
     if ctrl_type == CTRL_C_EVENT || ctrl_type == CTRL_BREAK_EVENT || ctrl_type == CTRL_CLOSE_EVENT {
         set_taskbar_visibility(true, true);
@@ -70,11 +97,13 @@ fn main() {
     memory_saver::init();
     webview_args::apply();
 
+    #[cfg(kiro_windows)]
     unsafe {
         let _ = SetConsoleCtrlHandler(Some(ctrl_handler), true);
     }
 
     // Single-instance enforcement
+    #[cfg(kiro_windows)]
     unsafe {
         use windows::Win32::System::Threading::{CreateMutexW, CreateEventW, OpenEventW, SetEvent, SYNCHRONIZATION_ACCESS_RIGHTS};
         use windows::Win32::Foundation::{GetLastError, CloseHandle};
@@ -100,6 +129,14 @@ fn main() {
         }
         if let Some(h) = h_mutex { let _ = SINGLE_INSTANCE_MUTEX_HANDLE.set(h.0 as isize); }
     }
+
+    #[cfg(not(kiro_windows))]
+    let _instance_lock = {
+        match single_instance::acquire() {
+            (single_instance::Acquired::Primary, lock) => lock,
+            (single_instance::Acquired::AlreadyRunning, _) => return,
+        }
+    };
 
     setup_brightness_worker();
     let app = tauri::Builder::default()
@@ -377,6 +414,7 @@ fn main() {
             perf::init(&app.handle());
 
             // Listen for second-instance signal to open settings
+            #[cfg(kiro_windows)]
             if let Some(&h_event) = SINGLE_INSTANCE_EVENT_HANDLE.get() {
                 if h_event != 0 {
                     let app_handle = app.handle().clone();
@@ -393,6 +431,10 @@ fn main() {
                     });
                 }
             }
+
+            // Linux signals the running instance through a request file.
+            #[cfg(not(kiro_windows))]
+            single_instance::watch(app.handle().clone());
 
             {
                 use tauri::menu::{Menu, MenuItem};
@@ -428,6 +470,9 @@ fn main() {
                         }
                         "restart" => {
                             crate::state::SHUTTING_DOWN.store(true, std::sync::atomic::Ordering::Relaxed);
+                            // Only the Windows build reserves screen edges; on Linux the
+                            // windows are ordinary and simply get destroyed.
+                            #[cfg(kiro_windows)]
                             for (label, w) in ah.webview_windows() {
                                 if crate::state::is_notch_label(&label) || crate::state::is_dock_label(&label) {
                                     if let Ok(hwnd) = w.hwnd() { unregister_appbar_native(hwnd); }

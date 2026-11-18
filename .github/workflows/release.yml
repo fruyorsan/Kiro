@@ -11,9 +11,18 @@ on:
 jobs:
   release:
     strategy:
+      # Both platforms contribute to the same release and to the same
+      # `latest.json`: tauri-action merges the platforms it finds in the existing
+      # manifest, so a second job writing concurrently could drop the other
+      # platform's entry. Running them one after another removes that race.
+      max-parallel: 1
       fail-fast: false
       matrix:
-        platform: [windows-latest]
+        include:
+          - platform: windows-latest
+            target: windows
+          - platform: ubuntu-22.04
+            target: linux
 
     concurrency:
       group: release-${{ github.ref }}
@@ -48,7 +57,26 @@ jobs:
             src-tauri
             installer-app/src-tauri
           cache-on-failure: true
-          shared-key: kiro-release
+          shared-key: kiro-release-${{ matrix.target }}
+
+      # WebKitGTK, the tray indicator, and the AppImage tooling Tauri links and
+      # packs against. Without these the Linux build fails at either build time
+      # (pkg-config) or bundle time (linuxdeploy).
+      - name: Install Linux build dependencies
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libssl-dev \
+            libxdo-dev \
+            patchelf \
+            libfuse2 \
+            file \
+            build-essential
 
       - name: Verify version matches tag
         shell: bash
@@ -158,6 +186,10 @@ jobs:
           releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false
+          # The CLI merges `tauri.linux.conf.json` automatically on Linux builds,
+          # so the same tauri.conf.json stays the single source of truth: the
+          # Linux file only swaps `bundle.targets` to deb+appimage and adds the
+          # Linux icon set/depends, leaving the Windows NSIS settings untouched.
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
 
@@ -167,6 +199,7 @@ jobs:
       # 24 h auto-install delay in updater.rs means a red build here still gets
       # fixed before anyone receives it.
       - name: Verify the updater signature matches the compiled-in key
+        if: matrix.target == 'windows'
         shell: bash
         run: |
           # Absolute paths: `cargo test` switches to the package directory, so a
@@ -177,12 +210,48 @@ jobs:
           KIRO_UPDATE_SIGNATURE="$SIG" KIRO_UPDATE_ARTIFACT="$EXE" \
             cargo test --manifest-path src-tauri/Cargo.toml -- --ignored real_release_signature --nocapture
 
+      # The AppImage is the primary Linux download and the artifact the updater
+      # installs in place; the .deb is offered for people who prefer a system
+      # package (it installs through dpkg, so it needs root and is not the
+      # auto-update path).
+      - name: Verify the Linux updater signature
+        if: matrix.target == 'linux'
+        shell: bash
+        run: |
+          SIG=$(ls "$PWD"/src-tauri/target/release/bundle/appimage/*.AppImage.sig | head -n1)
+          APPIMAGE=$(ls "$PWD"/src-tauri/target/release/bundle/appimage/*.AppImage | head -n1)
+          echo "Verifying $(basename "$SIG") against $(basename "$APPIMAGE")"
+          KIRO_UPDATE_SIGNATURE="$SIG" KIRO_UPDATE_ARTIFACT="$APPIMAGE" \
+            cargo test --manifest-path src-tauri/Cargo.toml -- --ignored real_release_signature --nocapture
+
+      - name: Check the Linux downloads and their latest.json entries
+        if: matrix.target == 'linux'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "AppImage: $(basename "$(ls "$PWD"/src-tauri/target/release/bundle/appimage/*.AppImage)")"
+          echo "Deb: $(basename "$(ls "$PWD"/src-tauri/target/release/bundle/deb/*.deb)")"
+
+          # Both jobs write latest.json in turn, so assert the file still carries
+          # the Windows entry as well as the new Linux ones.
+          MANIFEST=$(gh release download "${{ github.ref_name }}" --pattern latest.json --output -)
+          echo "$MANIFEST"
+          for KEY in windows-x86_64 linux-x86_64; do
+            if ! printf "%s" "$MANIFEST" | grep -q "\"$KEY\""; then
+              echo "::error::latest.json is missing the $KEY entry after the Linux build."
+              exit 1
+            fi
+          done
+
       # tauri-action only uploads the NSIS installer (which now offers a
       # "just me" / "all users" choice via installMode: "both" in
       # tauri.conf.json). This adds a second, install-free artifact — the raw
       # compiled exe, zipped — for people who just want to run it without
       # installing anything.
       - name: Package portable build
+        if: matrix.target == 'windows'
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -191,6 +260,7 @@ jobs:
           mv "kiro-${VERSION}-portable-windows-x64.zip" "$GITHUB_WORKSPACE/"
 
       - name: Upload portable build to release
+        if: matrix.target == 'windows'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -203,19 +273,23 @@ jobs:
       # installer-app/ build is the actual thing people download and run —
       # see installer-app/README.md for why the two are separate.
       - name: Package installer payload
+        if: matrix.target == 'windows'
         shell: pwsh
         run: |
           Compress-Archive -Path "src-tauri/target/release/kiro.exe" -DestinationPath "installer-app/src-tauri/payload.zip" -Force
 
       - name: Install installer-app dependencies
+        if: matrix.target == 'windows'
         working-directory: installer-app
         run: npm ci --no-audit --no-fund
 
       - name: Build custom installer
+        if: matrix.target == 'windows'
         working-directory: installer-app
         run: npm run tauri build -- --no-bundle
 
       - name: Rename and upload custom installer
+        if: matrix.target == 'windows'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,15 +1,26 @@
 use tauri::{AppHandle, Emitter, Manager, Window};
 use tauri_plugin_dialog::DialogExt;
+#[cfg(kiro_windows)]
 use windows::core::Interface;
+#[cfg(kiro_windows)]
 use windows::Win32::Foundation::{HWND, LPARAM};
+#[cfg(kiro_windows)]
 use windows::Win32::UI::WindowsAndMessaging::EnumWindows;
 use std::sync::atomic::Ordering;
 
-use crate::types::{MediaInfo, IntRect, AppInfo, BrightnessChangeEvent, WifiStatus, AudioSessionInfo, VolumeChangeEvent};
+use crate::types::{MediaInfo, IntRect, AppInfo, BrightnessChangeEvent};
+#[cfg(kiro_windows)]
+use crate::types::{WifiStatus, AudioSessionInfo, VolumeChangeEvent};
 use crate::state::*;
 use crate::utils::*;
+#[cfg(kiro_windows)]
 use crate::services::{register_appbar, register_dock_appbar, sync_overlays, unregister_appbar_native, enum_windows_proc};
 use std::collections::HashMap;
+
+// Linux (and every non-Windows target) fills in the commands that are pure
+// Win32/WebView2 integration with real desktop equivalents or honest no-ops.
+#[cfg(not(kiro_windows))]
+pub use crate::commands_unix::*;
 
 #[tauri::command]
 pub async fn set_menu_open(open: bool, rect: Option<IntRect>) {
@@ -19,11 +30,13 @@ pub async fn set_menu_open(open: bool, rect: Option<IntRect>) {
     }
 }
 
+#[cfg(kiro_windows)]
 /// The window the user was typing in before Kiro borrowed the keyboard for an
 /// inline input (launcher, timer field, ...). Handed back when the input closes
 /// so focus never gets parked on an always-on-top Kiro surface.
 static PREV_FOREGROUND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn set_window_keyboard_focus(window: Window, enabled: bool) {
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -128,6 +141,7 @@ pub fn set_ignore_cursor_events(window: Window, ignore: bool) {
     let _ = window.set_ignore_cursor_events(ignore);
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn init_dock(app: AppHandle, mode: String) {
     // Backend guard: bail if dock is disabled in settings.
@@ -146,6 +160,7 @@ pub async fn init_dock(app: AppHandle, mode: String) {
     }
 }
 
+#[cfg(kiro_windows)]
 pub async fn init_dock_window(app: &AppHandle, dock_win: tauri::WebviewWindow, mode: &str) {
     let label = dock_win.label().to_string();
 
@@ -223,6 +238,7 @@ pub async fn init_dock_window(app: &AppHandle, dock_win: tauri::WebviewWindow, m
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn toggle_dock(app: AppHandle, enable: bool) {
     if let Some(dock_win) = app.get_webview_window("dock") {
@@ -253,6 +269,7 @@ pub async fn toggle_dock(app: AppHandle, enable: bool) {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn sync_appbar(app: AppHandle) {
     let dock_enabled = get_setting_str(&app, "kiro-dock-enabled")
@@ -294,6 +311,7 @@ pub async fn change_dock_mode(app: AppHandle, mode: String) {
     }
 }
 
+#[cfg(kiro_windows)]
 async fn change_dock_mode_for_window(app: &AppHandle, dock_win: tauri::WebviewWindow, mode: &str) {
     let label = dock_win.label().to_string();
     if mode == "fixed" {
@@ -384,6 +402,7 @@ pub async fn change_notch_mode(app: AppHandle, mode: String) {
     }
 }
 
+#[cfg(kiro_windows)]
 pub async fn init_notch_window(app: &AppHandle, main_win: tauri::WebviewWindow, mode: &str) {
     let label = main_win.label().to_string();
     let bottom_right = crate::services::notch_bottom_right(app);
@@ -436,6 +455,7 @@ pub async fn init_notch_window(app: &AppHandle, main_win: tauri::WebviewWindow, 
     }
 }
 
+#[cfg(kiro_windows)]
 fn get_uwp_launch_cmd(exe_path: &str) -> Option<String> {
     let path = std::path::Path::new(exe_path);
     let mut is_windows_apps = false;
@@ -468,11 +488,14 @@ fn get_uwp_launch_cmd(exe_path: &str) -> Option<String> {
     None
 }
 
+#[cfg(kiro_windows)]
 /// Coalesces duplicate events, has to stay below the double-click interval.
 const START_TOGGLE_DEBOUNCE_MS: i64 = 80;
+#[cfg(kiro_windows)]
 /// How long Win is held so the shell registers the tap.
 const START_WIN_KEY_HOLD_MS: u64 = 40;
 
+#[cfg(kiro_windows)]
 fn send_key_tap(vk: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY, hold_ms: u64) {
     use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, KEYBDINPUT, KEYEVENTF_KEYUP};
     let down = [INPUT {
@@ -496,6 +519,7 @@ fn send_key_tap(vk: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY, ho
     }
 }
 
+#[cfg(kiro_windows)]
 /// True while the native Start menu has focus (StartMenuExperienceHost, or SearchHost on 24H2+).
 fn is_start_menu_open() -> bool {
     use windows::Win32::Foundation::CloseHandle;
@@ -530,6 +554,7 @@ fn is_start_menu_open() -> bool {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Toggles the native Start menu. If it's open, Escape closes it, otherwise tap Win.
 /// Tapping Win blindly replayed the open animation on a quick second click.
 fn toggle_start_menu() {
@@ -549,6 +574,7 @@ fn toggle_start_menu() {
     });
 }
 
+#[cfg(kiro_windows)]
 pub fn send_win_chord(key: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY) {
     use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_LWIN};
     let input = |vk: VIRTUAL_KEY, up: bool| INPUT {
@@ -563,11 +589,12 @@ pub fn send_win_chord(key: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_
 
 #[derive(serde::Serialize)]
 pub struct DockDrive {
-    letter: String,
-    label: String,
-    removable: bool,
+    pub letter: String,
+    pub label: String,
+    pub removable: bool,
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_drives() -> Vec<DockDrive> {
     use windows::core::PCWSTR;
@@ -593,6 +620,7 @@ pub fn get_drives() -> Vec<DockDrive> {
     drives
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_dock_extra(target: String) -> Result<(), String> {
     let path = if target == "recycle" {
@@ -605,6 +633,7 @@ pub fn open_dock_extra(target: String) -> Result<(), String> {
     std::process::Command::new("explorer.exe").arg(path).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn open_app(app: AppHandle, window: Window, app_name: String, args: Option<String>) {
     if app_name == "start" {
@@ -661,6 +690,7 @@ pub async fn open_app(app: AppHandle, window: Window, app_name: String, args: Op
     tauri::async_runtime::spawn_blocking(move || launch_path(&app_name, args.as_deref()));
 }
 
+#[cfg(kiro_windows)]
 /// Starts another instance of an app. Running PWAs go through their Start Menu
 /// shortcut so the new window belongs to the web app.
 #[tauri::command]
@@ -674,6 +704,7 @@ pub async fn launch_new_instance(app_path: String, app_name: Option<String>, arg
     });
 }
 
+#[cfg(kiro_windows)]
 /// Finds the Start Menu shortcut for a running PWA (same title, same browser).
 fn pwa_launch_target(path: &str, name: Option<&str>) -> Option<String> {
     let name = name?.trim();
@@ -687,11 +718,13 @@ fn pwa_launch_target(path: &str, name: Option<&str>) -> Option<String> {
         .map(|app| app.path.clone())
 }
 
+#[cfg(kiro_windows)]
 fn is_pwa_shortcut_for(app: &AppInfo, name: &str, host_exe: &str) -> bool {
     app.name.eq_ignore_ascii_case(name)
         && app.executable.as_deref().is_some_and(|exe| exe.eq_ignore_ascii_case(host_exe))
 }
 
+#[cfg(kiro_windows)]
 fn pe_subsystem(path: &str) -> Option<u16> {
     use std::io::{Read, Seek, SeekFrom};
     let mut file = std::fs::File::open(path).ok()?;
@@ -707,6 +740,7 @@ fn pe_subsystem(path: &str) -> Option<u16> {
     Some(u16::from_le_bytes([header[24 + 68], header[24 + 69]]))
 }
 
+#[cfg(kiro_windows)]
 fn gui_launcher_for(path: &str) -> Option<String> {
     let exe = std::path::Path::new(path);
     if pe_subsystem(path)? != 3 {
@@ -718,6 +752,7 @@ fn gui_launcher_for(path: &str) -> Option<String> {
     (twin.exists() && pe_subsystem(twin_str) == Some(2)).then(|| twin_str.to_string())
 }
 
+#[cfg(kiro_windows)]
 /// Some apps expose a helper process as their window owner. Pinning such a
 /// window stores the helper executable, and launching that helper on its own
 /// does nothing at all (Steam's `steamwebhelper.exe` is the common case: the
@@ -743,6 +778,7 @@ fn resolve_helper_target(path: &str) -> Option<String> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Opens a path, shortcut or shell app id through the shell.
 fn launch_path(path: &str, args: Option<&str>) {
     // Shell ids can carry a known-folder prefix ({6D809377-...}\App\app.exe).
@@ -855,6 +891,7 @@ fn launch_path(path: &str, args: Option<&str>) {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Opens a file with a specific application: what a file dropped onto a dock
 /// icon does. The path is quoted so a space in the file name survives.
 #[tauri::command]
@@ -868,6 +905,7 @@ pub fn open_file_with(app_path: String, file_path: String) -> Result<(), String>
     Ok(())
 }
 
+#[cfg(kiro_windows)]
 /// Some apps draw their main window from a helper process that lives inside the
 /// app's own install folder: Steam uses `steamwebhelper.exe`, Epic uses
 /// `EpicWebHelper.exe`. The window still carries the app's display name, so the
@@ -899,6 +937,7 @@ fn app_root_exe(path: &str) -> Option<String> {
     None
 }
 
+#[cfg(kiro_windows)]
 /// Two windows from the same install tree that show the same display name are
 /// one app (a launcher plus its helper), so keep a single dock item. Browsers
 /// and packaged apps are skipped on purpose: every PWA shares chrome.exe and
@@ -964,6 +1003,7 @@ fn merge_install_family(apps: Vec<AppInfo>) -> Vec<AppInfo> {
     out
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn get_active_windows() -> Vec<AppInfo> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -1050,6 +1090,7 @@ pub async fn get_active_windows() -> Vec<AppInfo> {
     }).await.unwrap_or_default()
 }
 
+#[cfg(kiro_windows)]
 unsafe fn force_set_foreground(hwnd: HWND) {
     use windows::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
 
@@ -1061,9 +1102,12 @@ unsafe fn force_set_foreground(hwnd: HWND) {
     }
 }
 
+#[cfg(kiro_windows)]
 static PREVIOUS_FOREGROUND: std::sync::Mutex<Option<(isize, isize)>> = std::sync::Mutex::new(None);
+#[cfg(kiro_windows)]
 static LAST_FOCUS_CLICK: std::sync::Mutex<Option<(isize, i64)>> = std::sync::Mutex::new(None);
 
+#[cfg(kiro_windows)]
 fn is_repeat_click(hwnd: isize) -> bool {
     let now = crate::utils::get_now_ms();
     let Ok(mut guard) = LAST_FOCUS_CLICK.lock() else { return false };
@@ -1074,6 +1118,7 @@ fn is_repeat_click(hwnd: isize) -> bool {
     repeat
 }
 
+#[cfg(kiro_windows)]
 unsafe fn send_behind(hwnd: HWND) {
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindow, GetWindowLongW, GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible,
@@ -1112,6 +1157,7 @@ unsafe fn send_behind(hwnd: HWND) {
     crate::diagnostics::log(&format!("focus: found no window to activate behind {:?}", hwnd.0));
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn focus_window(hwnd: isize) {
     if is_repeat_click(hwnd) {
@@ -1193,6 +1239,7 @@ pub async fn focus_window(hwnd: isize) {
     }).await.unwrap_or_default();
 }
 
+#[cfg(kiro_windows)]
 /// Clicking a dock icon has to do something even when the stored window handle
 /// is stale. Chrome keeps background processes whose windows are hidden or
 /// already destroyed: `focus_window` then restored an invisible window and the
@@ -1235,6 +1282,7 @@ pub async fn activate_app(app: AppInfo) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(kiro_windows)]
 /// Focuses one window of a multi-window item. hwnds are most recent first: if none is
 /// in front take the first, otherwise go to the next one so clicks cycle through all of them.
 #[tauri::command]
@@ -1293,6 +1341,7 @@ fn sanitize_filename(key: &str) -> String {
     key.replace(|c: char| c == ':' || c == '\\' || c == '/' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|', "_")
 }
 
+#[cfg(kiro_windows)]
 /// Reads a --flag=value argument from a command line, handles quotes.
 fn extract_arg(args: &str, key: &str) -> Option<String> {
     let idx = args.find(key)?;
@@ -1306,6 +1355,7 @@ fn extract_arg(args: &str, key: &str) -> Option<String> {
     if value.is_empty() { None } else { Some(value.to_string()) }
 }
 
+#[cfg(kiro_windows)]
 /// True for shell app ids (PackageFamily!App etc.), not file paths.
 pub fn is_aumid_path(path: &str) -> bool {
     let p = path.trim().trim_matches('"');
@@ -1317,11 +1367,13 @@ pub fn is_aumid_path(path: &str) -> bool {
     true
 }
 
+#[cfg(kiro_windows)]
 fn is_browser_host_process(path: &str) -> bool {
     let p = path.to_lowercase();
     p.contains("msedge.exe") || p.contains("chrome.exe") || p.contains("brave.exe") || p.contains("vivaldi.exe") || p.contains("firefox.exe")
 }
 
+#[cfg(kiro_windows)]
 /// Install directory of an MSIX/Store package from its family name
 /// (`Name_PublisherId`). Uses the packaging API so it works without listing
 /// `C:\Program Files\WindowsApps`, which is locked down for normal users.
@@ -1372,6 +1424,7 @@ fn package_install_dir(family: &str) -> Option<std::path::PathBuf> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// The logo a Store app actually shows in the Start menu and taskbar.
 ///
 /// Shell icon extraction returns the *plated* variant for MSIX apps: a big
@@ -1447,6 +1500,7 @@ fn package_logo_icon(install_dir: &std::path::Path) -> Option<String> {
         .find_map(|(_, path)| crate::utils::image_file_to_base64(&path.to_string_lossy()))
 }
 
+#[cfg(kiro_windows)]
 fn family_from_aumid(aumid: &str) -> Option<&str> {
     let id = aumid.trim().trim_start_matches("shell:AppsFolder\\");
     let before_bang = id.split('!').next()?;
@@ -1457,6 +1511,7 @@ fn family_from_aumid(aumid: &str) -> Option<&str> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Icon for a shell app id via shell:AppsFolder (SHGetFileInfoW can't do these).
 fn icon_from_aumid(aumid: &str) -> Option<String> {
     // Best case: the package's own unplated logo asset.
@@ -1491,6 +1546,7 @@ fn icon_from_aumid(aumid: &str) -> Option<String> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Package family name (Name_PublisherId) from a WindowsApps exe path.
 fn package_family_from_windows_apps_path(path: &str) -> Option<String> {
     let lower = path.to_lowercase();
@@ -1503,6 +1559,7 @@ fn package_family_from_windows_apps_path(path: &str) -> Option<String> {
     Some(format!("{}_{}", name, publisher))
 }
 
+#[cfg(kiro_windows)]
 /// Looks up the exact AUMID of a package family by walking shell:AppsFolder.
 fn find_aumid_by_family(family: &str) -> Option<String> {
     use windows::Win32::System::Com::CoTaskMemFree;
@@ -1548,6 +1605,7 @@ fn find_aumid_by_family(family: &str) -> Option<String> {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Package root (the `Name_version__publisher` folder) of an exe inside
 /// WindowsApps, derived straight from the path.
 fn package_root_from_path(path: &str) -> Option<std::path::PathBuf> {
@@ -1561,6 +1619,7 @@ fn package_root_from_path(path: &str) -> Option<std::path::PathBuf> {
     Some(std::path::Path::new(&path[..idx]).join("WindowsApps").join(folder))
 }
 
+#[cfg(kiro_windows)]
 /// Icon for exes inside an MSIX package. The exe has none, so use the manifest logo.
 fn packaged_exe_icon(path: &str) -> Option<String> {
     // Prefer the package's own unplated logo asset: the shell only hands out the
@@ -1580,6 +1639,7 @@ fn packaged_exe_icon(path: &str) -> Option<String> {
     icon_from_aumid(&aumid)
 }
 
+#[cfg(kiro_windows)]
 /// Process command line via WMI, used to spot PWAs inside browser processes.
 fn process_command_line(pid: u32) -> Option<String> {
     use serde::Deserialize;
@@ -1597,6 +1657,7 @@ fn process_command_line(pid: u32) -> Option<String> {
     results.into_iter().next().and_then(|p| p.command_line)
 }
 
+#[cfg(kiro_windows)]
 fn pwa_icon_from_command_line(process_path: &str, command_line: &str) -> Option<String> {
     // Store PWAs from Edge carry their package id here.
     if let Some(aumid) = extract_arg(command_line, "--ip-aumid=") {
@@ -1611,6 +1672,7 @@ fn pwa_icon_from_command_line(process_path: &str, command_line: &str) -> Option<
     None
 }
 
+#[cfg(kiro_windows)]
 /// Web app ids are 32 chars, a-p.
 pub(crate) fn browser_web_app_id_from_aumid(id: &str) -> Option<String> {
     let is_web_app_id = |s: &str| s.len() == 32 && s.bytes().all(|b| (b'a'..=b'p').contains(&b));
@@ -1625,12 +1687,14 @@ pub(crate) fn browser_web_app_id_from_aumid(id: &str) -> Option<String> {
     None
 }
 
+#[cfg(kiro_windows)]
 /// True if an AUMID belongs to a browser-hosted app (PWA) and not the browser itself.
 /// Brave uses a shortened id, so the _crx_ marker is checked directly.
 pub(crate) fn is_browser_pwa_aumid(id: &str) -> bool {
     id.contains('!') || id.contains("_crx_") || browser_web_app_id_from_aumid(id).is_some()
 }
 
+#[cfg(kiro_windows)]
 unsafe fn pwa_icon_for_window(hwnd: HWND, process_path: &str) -> Option<String> {
     // The window's own AUMID is the most reliable, the command line isn't (Edge reuses its browser process).
     match crate::utils::get_window_app_user_model_id(hwnd) {
@@ -1665,6 +1729,7 @@ unsafe fn pwa_icon_for_window(hwnd: HWND, process_path: &str) -> Option<String> 
     pwa_icon_from_command_line(process_path, &command_line)
 }
 
+#[cfg(kiro_windows)]
 /// Finds a web app's icon in the browser profile (Manifest Resources/<id>/Icons,
 /// or the old _crx_ layout).
 fn find_browser_pwa_icon(executable_path: &str, args: &str) -> Option<String> {
@@ -1718,6 +1783,7 @@ fn find_browser_pwa_icon(executable_path: &str, args: &str) -> Option<String> {
     None
 }
 
+#[cfg(kiro_windows)]
 fn find_largest_image_in_dir(dir: &std::path::Path) -> Option<String> {
     if !dir.is_dir() { return None; }
     let mut best: Option<(u64, String)> = None;
@@ -1725,6 +1791,7 @@ fn find_largest_image_in_dir(dir: &std::path::Path) -> Option<String> {
     best.map(|(_, path)| path)
 }
 
+#[cfg(kiro_windows)]
 fn collect_images(dir: &std::path::Path, depth: u32, best: &mut Option<(u64, String)>) {
     if depth > 3 { return; }
     let Ok(entries) = std::fs::read_dir(dir) else { return; };
@@ -1747,6 +1814,7 @@ fn collect_images(dir: &std::path::Path, depth: u32, best: &mut Option<(u64, Str
     }
 }
 
+#[cfg(kiro_windows)]
 /// Scores an icon by the size in its file name (256.png, 192x192.png).
 fn image_size_score(path: &std::path::Path) -> u64 {
     let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
@@ -1795,6 +1863,7 @@ pub fn schedule_icon_cache_save(app: AppHandle) {
     });
 }
 
+#[cfg(kiro_windows)]
 fn generic_exe_icon() -> Option<&'static str> {
     use std::sync::OnceLock;
     static GENERIC: OnceLock<Option<String>> = OnceLock::new();
@@ -1828,10 +1897,12 @@ fn generic_exe_icon() -> Option<&'static str> {
         .as_deref()
 }
 
+#[cfg(kiro_windows)]
 fn is_generic_icon(icon: &str) -> bool {
     generic_exe_icon().is_some_and(|g| g == icon)
 }
 
+#[cfg(kiro_windows)]
 fn icon_from_exe_neighbourhood(exe: &str) -> Option<String> {
     use windows::Win32::UI::Shell::ExtractIconExW;
     use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, HICON};
@@ -1863,6 +1934,7 @@ fn icon_from_exe_neighbourhood(exe: &str) -> Option<String> {
         .filter(|i| !is_generic_icon(i))
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn get_app_icon(app: AppHandle, path: String, name: Option<String>, hwnd: Option<isize>) -> Result<Option<String>, String> {
     let cache_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
@@ -2224,6 +2296,7 @@ pub fn save_pinned_apps(app: AppHandle, apps: Vec<AppInfo>) -> Result<(), String
     Ok(())
 }
 
+#[cfg(kiro_windows)]
 /// Drop pins whose executable is gone (app uninstalled or moved). Without this
 /// an uninstalled app kept sitting in the dock forever: launching it failed and
 /// "Dock'tan Kaldır" had no visible effect when the stored path shape differed
@@ -2247,6 +2320,7 @@ fn prune_missing_pins(apps: &mut Vec<AppInfo>) -> bool {
     before != apps.len()
 }
 
+#[cfg(kiro_windows)]
 fn repair_pinned_targets(apps: &mut [AppInfo]) -> bool {
     let mut changed = false;
     for app in apps.iter_mut() {
@@ -2266,6 +2340,7 @@ fn repair_pinned_targets(apps: &mut [AppInfo]) -> bool {
     changed
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn load_pinned_apps(app: AppHandle) -> Vec<AppInfo> {
     let cfg_dir = app.path().app_config_dir().unwrap_or_default();
@@ -2310,6 +2385,7 @@ pub async fn load_pinned_apps(app: AppHandle) -> Vec<AppInfo> {
     ]
 }
 
+#[cfg(kiro_windows)]
 fn import_taskbar_pins() -> Option<Vec<AppInfo>> {
     use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
     unsafe {
@@ -2558,6 +2634,7 @@ pub async fn get_installed_apps() -> Vec<AppInfo> {
     if let Ok(cache_lock) = cache.lock() { cache_lock.clone() } else { Vec::new() }
 }
 
+#[cfg(kiro_windows)]
 /// Hides the system volume/brightness OSD, because Kiro draws its own.
 ///
 /// Win10 hosts the OSD in a `NativeHWNDHost` top-level; Win11 draws it in a
@@ -2692,6 +2769,7 @@ pub fn notes_export(path: String, content: String) -> Result<(), String> {
     std::fs::write(path, content).map_err(|e| e.to_string())
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_tray_at_cursor() {
     use windows::Win32::Foundation::POINT;
@@ -2701,11 +2779,13 @@ pub fn open_tray_at_cursor() {
     std::thread::spawn(move || crate::tray_icons::open_native_tray(anchor));
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn show_desktop() {
     std::thread::spawn(|| send_win_chord(windows::Win32::UI::Input::KeyboardAndMouse::VK_D));
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_tray_from_button(dx: f64, dy: f64) {
     use windows::Win32::Foundation::POINT;
@@ -2715,12 +2795,14 @@ pub fn open_tray_from_button(dx: f64, dy: f64) {
     std::thread::spawn(move || crate::tray_icons::open_native_tray(anchor));
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_tray_window(app: AppHandle) {
     let anchor = notch_anchor(&app);
     std::thread::spawn(move || crate::tray_icons::open_native_tray(anchor));
 }
 
+#[cfg(kiro_windows)]
 fn notch_anchor(app: &AppHandle) -> Option<(i32, i32)> {
     use windows::Win32::Foundation::POINT;
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
@@ -2777,6 +2859,7 @@ pub fn sync_overlay_position(app: AppHandle) {
     crate::services::sync_overlays(&app);
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_wifi_settings() {
     unsafe {
@@ -2787,6 +2870,7 @@ pub fn open_wifi_settings() {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_sound_settings() {
     unsafe {
@@ -2797,6 +2881,7 @@ pub fn open_sound_settings() {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_notification_center() {
     unsafe {
@@ -2835,6 +2920,7 @@ pub struct AppMediaSession {
     pub is_playing: bool,
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_app_media_sessions() -> Vec<AppMediaSession> {
     use windows::Media::Control::{GlobalSystemMediaTransportControlsSessionManager, GlobalSystemMediaTransportControlsSessionPlaybackStatus};
@@ -2859,6 +2945,7 @@ pub fn get_app_media_sessions() -> Vec<AppMediaSession> {
         .collect()
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn app_media_control(app_id: String, action: String) -> Result<(), String> {
     use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
@@ -2883,6 +2970,7 @@ pub fn app_media_control(app_id: String, action: String) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_media_source_app() {
     unsafe {
@@ -2973,6 +3061,7 @@ pub fn open_media_source_app() {
 #[tauri::command]
 pub fn set_volume(volume: f32) { if let Some(sender) = COMMAND_SENDER.get() { let _ = sender.send(crate::types::SystemCommand::SetVolume(volume)); } }
 
+#[cfg(kiro_windows)]
 /// Full path of a process, None if we can't open it.
 unsafe fn process_image_path(pid: u32) -> Option<String> {
     use windows::Win32::Foundation::CloseHandle;
@@ -2995,6 +3084,7 @@ unsafe fn process_image_path(pid: u32) -> Option<String> {
     Some(String::from_utf16_lossy(&buf[..size as usize]))
 }
 
+#[cfg(kiro_windows)]
 /// Friendly exe name from version info (FileDescription), else the file stem.
 /// Cached because the mixer polls.
 unsafe fn friendly_process_name(path: &str) -> String {
@@ -3011,6 +3101,7 @@ unsafe fn friendly_process_name(path: &str) -> String {
     name
 }
 
+#[cfg(kiro_windows)]
 unsafe fn friendly_process_name_uncached(path: &str) -> String {
     use windows::Win32::Storage::FileSystem::{
         GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
@@ -3089,6 +3180,7 @@ unsafe fn friendly_process_name_uncached(path: &str) -> String {
         .unwrap_or_else(|| "Unknown app".to_string())
 }
 
+#[cfg(kiro_windows)]
 /// Runs f for every audio session on every active output (sets up and tears down COM itself).
 unsafe fn for_each_audio_session<F: FnMut(&windows::Win32::Media::Audio::IAudioSessionControl2)>(
     mut f: F,
@@ -3145,6 +3237,7 @@ unsafe fn for_each_audio_session<F: FnMut(&windows::Win32::Media::Audio::IAudioS
     result
 }
 
+#[cfg(kiro_windows)]
 /// Apps with an audio session, one per process, playing ones first.
 #[tauri::command]
 pub async fn get_audio_sessions() -> Result<Vec<AudioSessionInfo>, String> {
@@ -3204,6 +3297,7 @@ pub async fn get_audio_sessions() -> Result<Vec<AudioSessionInfo>, String> {
     .map_err(|e| e.to_string())?
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn set_app_volume(pid: u32, volume: f32) -> Result<(), String> {
     let volume = volume.clamp(0.0, 1.0);
@@ -3226,6 +3320,7 @@ pub async fn set_app_volume(pid: u32, volume: f32) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn set_app_mute(pid: u32, muted: bool) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || unsafe {
@@ -3259,6 +3354,7 @@ pub fn clear_volume_mixer_rect() {
     }
 }
 
+#[cfg(kiro_windows)]
 pub fn restore_taskbar_and_exit(handle: &AppHandle) {
     // Put back anything the FPS boost changed for this game session.
     crate::fps_boost::shutdown(handle);
@@ -3304,6 +3400,7 @@ pub async fn quit_kiro(handle: AppHandle) {
     restore_taskbar_and_exit(&handle);
 }
 
+#[cfg(kiro_windows)]
 fn registered_uninstaller() -> Option<std::path::PathBuf> {
     use std::os::windows::process::CommandExt;
     for root in ["HKCU", "HKLM"] {
@@ -3326,6 +3423,7 @@ fn registered_uninstaller() -> Option<std::path::PathBuf> {
     None
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn uninstall_kiro(handle: AppHandle) -> Result<(), String> {
     crate::uninstall_registry::heal_uninstall_registration();
@@ -3374,13 +3472,16 @@ pub fn set_hitbox_logging(enabled: bool) {
     crate::diagnostics::set_hitbox_logging(enabled);
 }
 
+#[cfg(kiro_windows)]
 // --- Do Not Disturb -------------------------------------------------------
 // Windows keeps a global toast switch under this key. Writing 0 suppresses
 // notification toasts for the current user (the same switch Settings >
 // Notifications flips), which is what the moon button is expected to do.
 const NOTIFICATION_SETTINGS_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings";
+#[cfg(kiro_windows)]
 const TOASTS_ENABLED_VALUE: &str = "NOC_GLOBAL_SETTING_TOASTS_ENABLED";
 
+#[cfg(kiro_windows)]
 fn read_reg_dword(subkey: &str, name: &str) -> Option<u32> {
     use windows::core::PCWSTR;
     use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
@@ -3405,6 +3506,7 @@ fn read_reg_dword(subkey: &str, name: &str) -> Option<u32> {
     Some(data)
 }
 
+#[cfg(kiro_windows)]
 fn write_reg_dword(subkey: &str, name: &str, value: u32) -> windows::core::Result<()> {
     use windows::core::PCWSTR;
     use windows::Win32::System::Registry::{
@@ -3443,6 +3545,7 @@ fn write_reg_dword(subkey: &str, name: &str, value: u32) -> windows::core::Resul
     Ok(())
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_dnd_enabled() -> bool {
     // The value stores whether toasts are *enabled*; absent means enabled.
@@ -3452,6 +3555,7 @@ pub fn get_dnd_enabled() -> bool {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn set_dnd_enabled(enabled: bool) -> Result<bool, String> {
     write_reg_dword(
@@ -3487,6 +3591,7 @@ pub async fn restart_kiro(handle: AppHandle) {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Relaunches the process. Also used for webview crashes, reloading pages can't fix those.
 pub fn relaunch_kiro(handle: &AppHandle) {
     SHUTTING_DOWN.store(true, Ordering::Relaxed);
@@ -3498,6 +3603,7 @@ pub fn relaunch_kiro(handle: &AppHandle) {
     handle.restart();
 }
 
+#[cfg(kiro_windows)]
 fn terminate_process(pid: u32) -> Result<(), bool> {
     use windows::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED};
     use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
@@ -3511,6 +3617,7 @@ fn terminate_process(pid: u32) -> Result<(), bool> {
     }
 }
 
+#[cfg(kiro_windows)]
 fn kill_elevated(pid: u32) -> bool {
     use windows::core::PCWSTR;
     use windows::Win32::UI::Shell::ShellExecuteW;
@@ -3524,6 +3631,7 @@ fn kill_elevated(pid: u32) -> bool {
     (result.0 as isize) > 32
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn end_task(hwnd: isize, all_hwnds: Option<Vec<isize>>) {
     use std::os::windows::process::CommandExt;
@@ -3546,6 +3654,7 @@ pub async fn end_task(hwnd: isize, all_hwnds: Option<Vec<isize>>) {
         windows::core::BOOL(1)
     }
 
+#[cfg(kiro_windows)]
     unsafe fn image_name(pid: u32) -> Option<String> {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let mut buf = [0u16; 520];
@@ -3556,6 +3665,7 @@ pub async fn end_task(hwnd: isize, all_hwnds: Option<Vec<isize>>) {
         Some(String::from_utf16_lossy(&buf[..len as usize]))
     }
 
+#[cfg(kiro_windows)]
     unsafe fn app_pid(hwnd: HWND) -> Option<u32> {
         let mut pid = 0u32;
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
@@ -3616,6 +3726,7 @@ pub async fn end_task(hwnd: isize, all_hwnds: Option<Vec<isize>>) {
     }).await.unwrap_or_default();
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn close_window(hwnd: isize) {
     tauri::async_runtime::spawn_blocking(move || unsafe {
@@ -3625,6 +3736,7 @@ pub async fn close_window(hwnd: isize) {
     }).await.unwrap_or_default();
 }
 
+#[cfg(kiro_windows)]
 fn re_register_appbars(app: &AppHandle, settings: &HashMap<String, serde_json::Value>) {
     let notch_fixed = settings.get("kiro-notch-mode").map(|v| v.as_str() == Some("fixed")).unwrap_or(true);
     let dock_fixed = settings.get("kiro-dock-mode").map(|v| v.as_str() == Some("fixed")).unwrap_or(false);
@@ -3777,6 +3889,7 @@ pub fn reset_settings(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn capture_window_thumbnail(hwnd: isize, max_width: u32, max_height: u32) -> Result<Option<(String, i64)>, String> {
     tauri::async_runtime::spawn_blocking(move || unsafe {
@@ -3840,6 +3953,7 @@ pub async fn capture_window_thumbnail(hwnd: isize, max_width: u32, max_height: u
 // --- Radio helpers: Windows Runtime Windows.Devices.Radios ---
 // Replaces PowerShell -ExecutionPolicy Bypass scripts for WiFi/Bluetooth state.
 
+#[cfg(kiro_windows)]
 fn get_radio_state_sync(kind: windows::Devices::Radios::RadioKind) -> Result<bool, String> {
     use windows::Devices::Radios::{Radio, RadioState};
     unsafe {
@@ -3860,6 +3974,7 @@ fn get_radio_state_sync(kind: windows::Devices::Radios::RadioKind) -> Result<boo
     Ok(false)
 }
 
+#[cfg(kiro_windows)]
 fn set_radio_state_sync(kind: windows::Devices::Radios::RadioKind, enabled: bool) -> Result<(), String> {
     use windows::Devices::Radios::{Radio, RadioState};
     unsafe {
@@ -3887,6 +4002,7 @@ pub fn get_volume() -> f32 {
     crate::state::CURRENT_VOLUME.load(std::sync::atomic::Ordering::Relaxed) as f32 / 100.0
 }
 
+#[cfg(kiro_windows)]
 /// Live volume and mute of the default output. HUDs seed from this because the worker's
 /// first volume-change fires before the overlay can listen.
 #[tauri::command]
@@ -3935,6 +4051,7 @@ pub fn get_brightness() -> u32 {
 
 // Wi-Fi status: the radio state alone can't tell on from connected, so ask the WLAN API too.
 
+#[cfg(kiro_windows)]
 fn is_wlan_connected_sync() -> bool {
     use windows::Win32::Foundation::HANDLE;
     use windows::Win32::NetworkManagement::WiFi::{
@@ -3987,6 +4104,7 @@ fn is_wlan_connected_sync() -> bool {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Wi-Fi radio and connection state for the quick settings tile.
 #[tauri::command]
 pub async fn get_wifi_status() -> Result<WifiStatus, String> {
@@ -3999,6 +4117,7 @@ pub async fn get_wifi_status() -> Result<WifiStatus, String> {
     .map_err(|e| e.to_string())?
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn set_wifi_state(enabled: bool) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -4006,6 +4125,7 @@ pub async fn set_wifi_state(enabled: bool) -> Result<(), String> {
     }).await.map_err(|e| e.to_string())?
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn get_bluetooth_state() -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -4013,6 +4133,7 @@ pub async fn get_bluetooth_state() -> Result<bool, String> {
     }).await.map_err(|e| e.to_string())?
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn set_bluetooth_state(enabled: bool) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -4022,6 +4143,7 @@ pub async fn set_bluetooth_state(enabled: bool) -> Result<(), String> {
 
 // Settings openers - use ShellExecuteA directly instead of spawning powershell
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_bluetooth_settings() {
     unsafe {
@@ -4031,6 +4153,7 @@ pub fn open_bluetooth_settings() {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn open_airplane_mode_settings() {
     unsafe {
@@ -4051,10 +4174,13 @@ pub fn set_brightness(app: AppHandle, brightness: u32) {
     }
 }
 
+#[cfg(kiro_windows)]
 /// Power mode overlays understood by Windows 10 1809+ and Windows 11.
 const OVERLAY_BEST_EFFICIENCY: &str = "961cc777-2547-4f9d-8174-7d86181b8a7a";
+#[cfg(kiro_windows)]
 const OVERLAY_BALANCED: &str = "00000000-0000-0000-0000-000000000000";
 
+#[cfg(kiro_windows)]
 fn run_powercfg(args: &[&str]) -> bool {
     use std::os::windows::process::CommandExt;
     std::process::Command::new("powercfg")
@@ -4065,6 +4191,7 @@ fn run_powercfg(args: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(kiro_windows)]
 /// Power mode overlay currently selected for AC power. Windows stores it in the
 /// registry and there is no documented getter, so read the value directly.
 fn active_overlay_guid() -> Option<String> {
@@ -4085,6 +4212,7 @@ fn active_overlay_guid() -> Option<String> {
         .map(|s| s.to_string())
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn get_battery_saver_state() -> Result<bool, String> {
     // The button state must match what Windows is actually doing: the power
@@ -4107,6 +4235,7 @@ pub async fn get_battery_saver_state() -> Result<bool, String> {
     }).await.map_err(|e| e.to_string())?
 }
 
+#[cfg(kiro_windows)]
 /// Turn battery saving on or off immediately.
 ///
 /// Two things happen, because Windows uses different mechanisms depending on
@@ -4156,6 +4285,7 @@ pub async fn set_battery_saver(app: tauri::AppHandle, enabled: bool) -> Result<b
     .map_err(|e| e.to_string())?
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn has_battery() -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -4222,6 +4352,7 @@ pub async fn get_system_metrics() -> SystemMetrics {
     })
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_cpu_usage() -> Result<u32, String> {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -4257,6 +4388,7 @@ pub fn get_cpu_usage() -> Result<u32, String> {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_ram_usage() -> Result<f32, String> {
     unsafe {
@@ -4268,6 +4400,7 @@ pub fn get_ram_usage() -> Result<f32, String> {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_disk_space() -> Result<u64, String> {
     unsafe {
@@ -4292,6 +4425,7 @@ pub struct ProcessInfo {
     pub memory_kb: u64,
 }
 
+#[cfg(kiro_windows)]
 const PROTECTED_PROCESS_NAMES: &[&str] = &[
     "system",
     "system idle process",
@@ -4307,6 +4441,7 @@ const PROTECTED_PROCESS_NAMES: &[&str] = &[
     "kiro.exe",
 ];
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_running_processes() -> Result<Vec<ProcessInfo>, String> {
     unsafe {
@@ -4360,6 +4495,7 @@ pub fn get_running_processes() -> Result<Vec<ProcessInfo>, String> {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn kill_process(pid: u32, _name: Option<String>) -> Result<(), String> {
     unsafe {
@@ -4399,6 +4535,7 @@ pub fn kill_process(pid: u32, _name: Option<String>) -> Result<(), String> {
     }
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_network_speed() -> Result<(u64, u64), String> {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -4445,6 +4582,7 @@ pub fn get_network_speed() -> Result<(u64, u64), String> {
     Ok((sent_per_sec, recv_per_sec))
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_windows_accent_color() -> Option<String> {
     unsafe {
@@ -4508,6 +4646,7 @@ pub fn get_windows_accent_color() -> Option<String> {
     None
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn get_system_accent_color() -> Result<String, String> {
     // Try reading registry first for exact Windows accent color
@@ -4630,6 +4769,7 @@ pub fn import_settings(app: AppHandle, settings: String) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(kiro_windows)]
 pub fn setup_settings_watcher(app: AppHandle) {
     use tauri::Manager;
 
@@ -4742,7 +4882,7 @@ pub fn setup_settings_watcher(app: AppHandle) {
     });
 }
 
-#[cfg(test)]
+#[cfg(all(test, kiro_windows))]
 mod pwa_icon_tests {
     use super::*;
 
@@ -4803,6 +4943,7 @@ mod pwa_icon_tests {
         assert_eq!(image_size_score(Path::new("C:\\x\\icon.png")), 0);
     }
 
+#[cfg(kiro_windows)]
     #[test]
     fn pwa_shortcut_matching() {
         let app = AppInfo {
@@ -4821,6 +4962,7 @@ mod pwa_icon_tests {
         assert!(!is_pwa_shortcut_for(&app, "YouTube Music", "brave.exe"));
     }
 
+#[cfg(kiro_windows)]
     #[test]
     fn pwa_launch_target_resolution() {
         // Non-browser paths and missing titles don't resolve.
@@ -4879,12 +5021,25 @@ pub fn setup_shelf_drop(app: AppHandle) {
 
 #[tauri::command]
 pub async fn shelf_thumbnail(path: String) -> Option<String> {
-    tauri::async_runtime::spawn_blocking(move || shelf_image_thumbnail(&path).or_else(|| shelf_shell_thumbnail(&path)))
-        .await
-        .ok()
-        .flatten()
+    tauri::async_runtime::spawn_blocking(move || {
+        let decoded = shelf_image_thumbnail(&path);
+        // Windows can additionally ask the shell for a thumbnail of any file
+        // type; on Linux only real images have a preview.
+        #[cfg(kiro_windows)]
+        {
+            return decoded.or_else(|| shelf_shell_thumbnail(&path));
+        }
+        #[cfg(not(kiro_windows))]
+        {
+            decoded
+        }
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
+#[cfg(kiro_windows)]
 fn shelf_shell_thumbnail(path: &str) -> Option<String> {
     use windows::Win32::Foundation::SIZE;
     use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF, SIIGBF_BIGGERSIZEOK, SIIGBF_THUMBNAILONLY};
@@ -5031,6 +5186,7 @@ pub fn pointer_over_notch(window: Window) -> bool {
     pt.x >= left && pt.x <= right && pt.y >= top && pt.y <= bottom
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub async fn focus_agent_window(window: u64) {
     use windows::Win32::Foundation::HWND;
