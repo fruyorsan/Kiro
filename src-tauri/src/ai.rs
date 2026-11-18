@@ -95,7 +95,11 @@ impl Provider {
             // Google retires concrete ids every few months (`gemini-2.5-flash`
             // is already closed to new users). This is the current stable Flash
             // model; a retired id is retried with whatever Google suggests.
-            Provider::Gemini => "gemini-3.5-flash",
+            // Google's moving "latest flash" alias. Measured with a real key:
+            // gemini-3.5-flash and gemini-3.6-flash need 14-16 s even for a
+            // one-line answer, gemini-3.8-flash ~4 s, the alias ~2.5 s. The
+            // alias also follows a retirement without a code change.
+            Provider::Gemini => "gemini-flash-latest",
         }
     }
 
@@ -429,6 +433,10 @@ fn provider_model(app: &AppHandle, provider: Provider) -> String {
 /// them (`gemini-2.0-flash` now answers "no longer available"). Map those to
 /// the current alias instead of failing every question until the user opens
 /// the setup panel again.
+///
+/// The 3.5 and 3.6 flash releases are still served but take 14-16 s for a
+/// one-line answer with a normal key, so a settings file that pinned one is
+/// moved to the fast alias as well.
 fn normalize_model(provider: Provider, model: &str) -> String {
     let id = model.trim();
     if id.is_empty() {
@@ -440,6 +448,8 @@ fn normalize_model(provider: Provider, model: &str) -> String {
             || lower.starts_with("gemini-1.5")
             || lower.starts_with("gemini-2.0")
             || lower.starts_with("gemini-2.5")
+            || lower == "gemini-3.5-flash"
+            || lower == "gemini-3.6-flash"
         {
             return provider.default_model().to_string();
         }
@@ -1241,7 +1251,7 @@ async fn ask_one(
                     candidates.push(candidate);
                 }
             }
-            for fallback in ["gemini-3.5-flash", "gemini-flash-latest", "gemini-2.5-flash"] {
+            for fallback in ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-flash-lite"] {
                 if !candidates.iter().any(|c| c == fallback) {
                     candidates.push(fallback.to_string());
                 }
@@ -1309,8 +1319,8 @@ fn next_gemini_model(error: &str, current: &str) -> Option<String> {
             return Some(id);
         }
     }
-    if lower.contains("high demand") && current != "gemini-3.5-flash" {
-        return Some("gemini-3.5-flash".to_string());
+    if lower.contains("high demand") && current != Provider::Gemini.default_model() {
+        return Some(Provider::Gemini.default_model().to_string());
     }
     if is_retired_model_error(error) && current != Provider::Gemini.default_model() {
         return Some(Provider::Gemini.default_model().to_string());
@@ -1485,8 +1495,12 @@ mod tests {
 
     #[test]
     fn retired_gemini_ids_are_mapped_to_current_default() {
-        assert_eq!(normalize_model(Provider::Gemini, "gemini-2.5-flash"), "gemini-3.5-flash");
-        assert_eq!(normalize_model(Provider::Gemini, "gemini-3.5-flash"), "gemini-3.5-flash");
+        assert_eq!(normalize_model(Provider::Gemini, "gemini-2.5-flash"), "gemini-flash-latest");
+        assert_eq!(normalize_model(Provider::Gemini, "gemini-3.5-flash"), "gemini-flash-latest");
+        assert_eq!(normalize_model(Provider::Gemini, "gemini-3.6-flash"), "gemini-flash-latest");
+        // A deliberately chosen newer or lite model is left alone.
+        assert_eq!(normalize_model(Provider::Gemini, "gemini-3.8-flash"), "gemini-3.8-flash");
+        assert_eq!(normalize_model(Provider::Gemini, "gemini-3.1-flash-lite"), "gemini-3.1-flash-lite");
         assert_eq!(
             next_gemini_model(
                 "models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash",
