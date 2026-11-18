@@ -302,7 +302,9 @@ your setup help just as much.
 ## License
 
 Kiro is open source under the [GPLv3](LICENSE). Third-party notices are listed in
-[NOTICE.md](NOTICE.md).
+[NOTICE.md](NOTICE.md). The Kiro name, logo and mascot are covered by the
+[trademark policy](TRADEMARK.md) — fork the code freely, but ship your fork under
+its own name.
 
 <div align="center">
 <br />
