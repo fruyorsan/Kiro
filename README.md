@@ -84,32 +84,46 @@ chose.
 ## Screenshots
 
 <div align="center">
-<table>
-  <tr>
-    <td align="center"><img src="docs/screenshots/control-center.webp" height="250" alt="Control Center" /></td>
-    <td align="center"><img src="docs/screenshots/notes.webp" height="250" alt="Notes" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub><b>Control Center</b> — Wi-Fi, Bluetooth, sound and light in one card you arrange yourself.</sub></td>
-    <td align="center"><sub><b>Notes</b> — a small notebook with colours, pictures and export.</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/music.webp" height="140" alt="Music" /></td>
-    <td align="center"><img src="docs/screenshots/season-blossom.webp" height="140" alt="The notch with the blossom theme" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub><b>Music</b> — album art, playback controls and a live visualizer.</sub></td>
-    <td align="center"><sub><b>Blossom</b> — petals drifting over the notch.</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/game.webp" height="330" alt="Kiro with the autumn theme over a fullscreen game" /></td>
-    <td align="center"><img src="docs/screenshots/dock-menu.webp" height="330" alt="Dock right-click menu" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub><b>Autumn</b> — vines, leaves and a media card, over the game.</sub></td>
-    <td align="center"><sub><b>Dock menu</b> — pin, add an app, open Settings or toggle FPS Boost.</sub></td>
-  </tr>
-</table>
+
+<img src="docs/screenshots/control-center.webp" width="560" alt="Control Center" />
+<br />
+<sub><b>Control Center</b> — Wi-Fi, Bluetooth, sound and light in one card you arrange yourself.</sub>
+
+<br />
+<br />
+
+<img src="docs/screenshots/notes.webp" width="560" alt="Notes" />
+<br />
+<sub><b>Notes</b> — a small notebook with colours, pictures and export.</sub>
+
+<br />
+<br />
+
+<img src="docs/screenshots/music.webp" width="560" alt="Music" />
+<br />
+<sub><b>Music</b> — album art, playback controls and a live visualizer.</sub>
+
+<br />
+<br />
+
+<img src="docs/screenshots/game.webp" width="560" alt="Kiro with the autumn theme over a fullscreen game" />
+<br />
+<sub><b>Autumn</b> — vines, leaves and a media card, over the game.</sub>
+
+<br />
+<br />
+
+<img src="docs/screenshots/dock-menu.webp" width="280" alt="Dock right-click menu" />
+<br />
+<sub><b>Dock menu</b> — pin, add an app, open Settings or toggle FPS Boost.</sub>
+
+<br />
+<br />
+
+<img src="docs/screenshots/season-blossom.webp" width="280" alt="The notch with the blossom theme" />
+<br />
+<sub><b>Blossom</b> — petals drifting over the notch.</sub>
+
 </div>
 
 ## Features
