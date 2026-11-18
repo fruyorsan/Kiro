@@ -73,23 +73,54 @@ Write-Host "==> Installed Kiro $version at $exe" -ForegroundColor Green
 
 if (-not $NoLaunch) {
     Write-Host "==> Launching Kiro" -ForegroundColor Cyan
-    $findRunning = { Get-Process kiro -ErrorAction SilentlyContinue | Select-Object -First 1 }
 
-    # The installer may already have opened its own copy while it was running,
-    # and that copy can lose the single-instance race or be torn down with the
-    # installer's process tree. "Launching Kiro" then printed success while
-    # nothing was on screen, so verify and retry once.
-    $appeared = $false
-    for ($attempt = 0; $attempt -lt 2 -and -not $appeared; $attempt++) {
+    # Two separate traps here, both of which made this script print success
+    # while nothing was on screen:
+    #
+    # 1. A plain Start-Process makes Kiro a child of this script, and it dies
+    #    with the script's process tree once the script exits. Launching through
+    #    explorer.exe hands the launch to the shell, so Kiro outlives us. The
+    #    installer does the same thing when it runs elevated.
+    # 2. The installer can start its own copy, which loses the single-instance
+    #    race and exits within a second. "A process appeared" is therefore not
+    #    the same as "Kiro is running", so the wait below checks that the same
+    #    pid is still alive a few seconds later.
+    $launch = { Start-Process -FilePath "explorer.exe" -ArgumentList "`"$exe`"" }
+    $alive = {
+        param($processId)
+        $processId -and (Get-Process -Id $processId -ErrorAction SilentlyContinue)
+    }
+
+    $running = $null
+    # The installer may have already started Kiro while it was finishing. If
+    # that copy is stable, launching another one would only trip the
+    # single-instance path and pop the settings window open for no reason.
+    $existing = Get-Process kiro -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($existing) {
+        Start-Sleep -Seconds 3
+        if (& $alive $existing.Id) { $running = $existing }
+    }
+
+    for ($attempt = 0; $attempt -lt 2 -and -not $running; $attempt++) {
         if ($attempt -gt 0) { Start-Sleep -Seconds 2 }
-        Start-Process -FilePath $exe
+        & $launch
+
+        $candidate = $null
         for ($i = 0; $i -lt 30; $i++) {
-            if (& $findRunning) { $appeared = $true; break }
+            $candidate = Get-Process kiro -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($candidate) { break }
             Start-Sleep -Milliseconds 500
         }
+        if (-not $candidate) { continue }
+
+        # Still starting up at this point is normal; still alive after 5 s means
+        # it won the single-instance mutex and stayed.
+        Start-Sleep -Seconds 5
+        if (& $alive $candidate.Id) { $running = $candidate }
     }
-    if ($appeared) {
-        Write-Host "==> Kiro is running" -ForegroundColor Green
+
+    if ($running) {
+        Write-Host "==> Kiro is running (pid $($running.Id))" -ForegroundColor Green
     } else {
         Write-Warning "Kiro did not stay running. Start $exe manually and check $env:APPDATA\com.fruyorsan.kiro\logs\kiro.log"
     }
