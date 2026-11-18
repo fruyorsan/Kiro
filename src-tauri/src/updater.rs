@@ -462,38 +462,45 @@ mod tests {
         )
         .expect("pubkey decodes");
 
-        // Two shapes are accepted: the published `latest.json`, whose signature
-        // field is base64 of the `.sig` text, and the raw `.sig` file the build
-        // writes next to the installer.
-        let signature_b64;
-        let signature_lines;
+        // Two sources are accepted: the published `latest.json`, whose
+        // signature field is base64 of the signature text, and the `.sig` file
+        // the build writes next to the installer.
+        let signature_text: String;
         if let Ok(manifest_path) = std::env::var("KIRO_UPDATE_MANIFEST") {
             let manifest: serde_json::Value = serde_json::from_str(
                 &std::fs::read_to_string(locate(&manifest_path)).expect("read manifest"),
             )
             .expect("parse manifest");
-            signature_b64 = manifest["platforms"]["windows-x86_64"]["signature"]
+            let signature_b64 = manifest["platforms"]["windows-x86_64"]["signature"]
                 .as_str()
-                .expect("signature")
-                .to_string();
+                .expect("signature");
             let decoded = base64::engine::general_purpose::STANDARD
-                .decode(&signature_b64)
+                .decode(signature_b64)
                 .expect("signature is base64");
-            signature_lines = Some(
-                std::str::from_utf8(&decoded)
-                    .expect("signature is utf-8")
-                    .to_string(),
-            );
+            signature_text = String::from_utf8(decoded).expect("signature is utf-8");
         } else if let Ok(sig_path) = std::env::var("KIRO_UPDATE_SIGNATURE") {
-            signature_lines = Some(std::fs::read_to_string(locate(&sig_path)).expect("read signature"));
+            signature_text = std::fs::read_to_string(locate(&sig_path)).expect("read signature");
         } else {
             eprintln!("skipped: neither KIRO_UPDATE_MANIFEST nor KIRO_UPDATE_SIGNATURE is set");
             return;
         }
 
         let signature =
-            minisign_verify::Signature::decode(&signature_lines.expect("signature text"))
-                .expect("signature decodes");
+            minisign_verify::Signature::decode(signature_text.trim()).or_else(|error| {
+                // Tauri writes the `.sig` file as base64 of the signature text
+                // (that is also what the published asset contains), so accept
+                // both the text and its base64 form instead of guessing.
+                let Ok(decoded) = base64::engine::general_purpose::STANDARD
+                    .decode(signature_text.trim())
+                else {
+                    return Err(error);
+                };
+                let Ok(text) = String::from_utf8(decoded) else {
+                    return Err(error);
+                };
+                minisign_verify::Signature::decode(&text)
+            })
+            .expect("signature decodes");
 
         let artifact = std::fs::read(locate(&artifact_path)).expect("read artifact");
         if let Err(error) = public_key.verify(&artifact, &signature, true) {
