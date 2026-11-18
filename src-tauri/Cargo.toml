@@ -108,6 +108,14 @@ rrule = "0.14"
 chrono-tz = "0.10"
 
 
+[dev-dependencies]
+# Verifies that a published `latest.json` signature matches the public key
+# compiled into the app, so a rotated signing key is caught here instead of on
+# a user's machine at install time. Already in the tree through
+# tauri-plugin-updater, so this adds no new code to the release binary.
+minisign-verify = "0.2"
+base64 = "0.22"
+
 [profile.release]
 strip = true
 # Thin LTO + parallel codegen: nearly the same binary size as fat LTO but the

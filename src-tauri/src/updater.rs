@@ -404,6 +404,89 @@ fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
 mod tests {
     use super::{days_from_civil, parse_rfc3339_utc};
 
+    /// End-to-end proof that a published release can actually be installed by
+    /// the updater: the signature must verify against the public key compiled
+    /// into the app, for the exact installer it was made for. A signing key
+    /// that no longer matches `tauri.conf.json` otherwise fails only at install
+    /// time on a user's machine, which is far too late to notice.
+    ///
+    /// Ignored by default because it needs real build output. Run it with
+    /// `KIRO_UPDATE_MANIFEST=<latest.json>` or `KIRO_UPDATE_SIGNATURE=<file.sig>`,
+    /// plus `KIRO_UPDATE_ARTIFACT=<installer.exe>`:
+    ///   cargo test -- --ignored real_release_signature
+    #[test]
+    #[ignore]
+    fn real_release_signature_verifies() {
+        use base64::Engine;
+
+        let Ok(artifact_path) = std::env::var("KIRO_UPDATE_ARTIFACT") else {
+            eprintln!("skipped: KIRO_UPDATE_ARTIFACT not set");
+            return;
+        };
+
+        let conf: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json"))
+                .expect("read tauri.conf.json"),
+        )
+        .expect("parse tauri.conf.json");
+        let pubkey_b64 = conf["plugins"]["updater"]["pubkey"]
+            .as_str()
+            .expect("plugins.updater.pubkey");
+
+        // The field is the base64 of the whole minisign.pub file (comment line
+        // plus key line), not just the key.
+        let pubkey_text = base64::engine::general_purpose::STANDARD
+            .decode(pubkey_b64)
+            .expect("pubkey is base64");
+        let public_key = minisign_verify::PublicKey::decode(
+            std::str::from_utf8(&pubkey_text).expect("pubkey is utf-8"),
+        )
+        .expect("pubkey decodes");
+
+        // Two shapes are accepted: the published `latest.json`, whose signature
+        // field is base64 of the `.sig` text, and the raw `.sig` file the build
+        // writes next to the installer.
+        let signature_b64;
+        let signature_lines;
+        if let Ok(manifest_path) = std::env::var("KIRO_UPDATE_MANIFEST") {
+            let manifest: serde_json::Value = serde_json::from_str(
+                &std::fs::read_to_string(&manifest_path).expect("read manifest"),
+            )
+            .expect("parse manifest");
+            signature_b64 = manifest["platforms"]["windows-x86_64"]["signature"]
+                .as_str()
+                .expect("signature")
+                .to_string();
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(&signature_b64)
+                .expect("signature is base64");
+            signature_lines = Some(
+                std::str::from_utf8(&decoded)
+                    .expect("signature is utf-8")
+                    .to_string(),
+            );
+        } else if let Ok(sig_path) = std::env::var("KIRO_UPDATE_SIGNATURE") {
+            signature_lines =
+                Some(std::fs::read_to_string(&sig_path).expect("read signature"));
+        } else {
+            eprintln!("skipped: neither KIRO_UPDATE_MANIFEST nor KIRO_UPDATE_SIGNATURE is set");
+            return;
+        }
+
+        let signature =
+            minisign_verify::Signature::decode(&signature_lines.expect("signature text"))
+                .expect("signature decodes");
+
+        let artifact = std::fs::read(&artifact_path).expect("read artifact");
+        if let Err(error) = public_key.verify(&artifact, &signature, true) {
+            panic!("the release signature does not verify with the pubkey in tauri.conf.json: {error}");
+        }
+        println!(
+            "signature verified for {} bytes ({artifact_path})",
+            artifact.len()
+        );
+    }
+
     #[test]
     fn parses_tauri_action_pub_date() {
         assert_eq!(parse_rfc3339_utc("1970-01-01T00:00:00Z"), Some(0));

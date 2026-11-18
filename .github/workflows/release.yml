@@ -1,6 +1,11 @@
 name: Release
 
 on:
+  # Pushing a version tag is the release trigger, so a release never depends on
+  # remembering to press "Run workflow" after the tag exists.
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -155,6 +160,20 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
+
+      # tauri-action already published the release at this point, but a signing
+      # key that does not match `plugins.updater.pubkey` in tauri.conf.json only
+      # shows up as "signature verification failed" on a user's machine. The
+      # 24 h auto-install delay in updater.rs means a red build here still gets
+      # fixed before anyone receives it.
+      - name: Verify the updater signature matches the compiled-in key
+        shell: bash
+        run: |
+          SIG=$(ls src-tauri/target/release/bundle/nsis/*.sig | head -n1)
+          EXE=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n1)
+          echo "Verifying $(basename "$SIG") against $(basename "$EXE")"
+          KIRO_UPDATE_SIGNATURE="$SIG" KIRO_UPDATE_ARTIFACT="$EXE" \
+            cargo test --manifest-path src-tauri/Cargo.toml -- --ignored real_release_signature --nocapture
 
       # tauri-action only uploads the NSIS installer (which now offers a
       # "just me" / "all users" choice via installMode: "both" in

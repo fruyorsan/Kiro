@@ -29,6 +29,8 @@ cd src-tauri && cargo test --bin kiro
 
 To try a release build, run `bun run tauri build --no-bundle`. The exe is `src-tauri/target/debug/kiro.exe` for dev and `src-tauri/target/release/kiro.exe` for a release build.
 
+Shipping changed behaviour? It goes out as a release: `bun run bump <version>`, commit, tag `v<version>`, push the tag. The workflow builds, signs and publishes, and installed copies update themselves. See [docs/RELEASING.md](docs/RELEASING.md).
+
 ### Working on Kiro without losing your taskbar
 
 Kiro's dock replaces the taskbar, so a dev session normally hides it too. In a

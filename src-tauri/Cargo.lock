@@ -2396,6 +2396,7 @@ dependencies = [
  "chrono-tz",
  "image",
  "keyring",
+ "minisign-verify",
  "reqwest 0.12.28",
  "roxmltree",
  "rrule",
