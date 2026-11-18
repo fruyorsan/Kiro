@@ -73,5 +73,24 @@ Write-Host "==> Installed Kiro $version at $exe" -ForegroundColor Green
 
 if (-not $NoLaunch) {
     Write-Host "==> Launching Kiro" -ForegroundColor Cyan
-    Start-Process -FilePath $exe
+    $findRunning = { Get-Process kiro -ErrorAction SilentlyContinue | Select-Object -First 1 }
+
+    # The installer may already have opened its own copy while it was running,
+    # and that copy can lose the single-instance race or be torn down with the
+    # installer's process tree. "Launching Kiro" then printed success while
+    # nothing was on screen, so verify and retry once.
+    $appeared = $false
+    for ($attempt = 0; $attempt -lt 2 -and -not $appeared; $attempt++) {
+        if ($attempt -gt 0) { Start-Sleep -Seconds 2 }
+        Start-Process -FilePath $exe
+        for ($i = 0; $i -lt 30; $i++) {
+            if (& $findRunning) { $appeared = $true; break }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    if ($appeared) {
+        Write-Host "==> Kiro is running" -ForegroundColor Green
+    } else {
+        Write-Warning "Kiro did not stay running. Start $exe manually and check $env:APPDATA\com.fruyorsan.kiro\logs\kiro.log"
+    }
 }
