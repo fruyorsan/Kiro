@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/screenshots/hero.webp" alt="Kiro" />
+https://github.com/user-attachments/assets/d313a6cb-d5ce-4c8c-9bc0-032d36cea3c6
 
 <br />
 
