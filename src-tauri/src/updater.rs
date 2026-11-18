@@ -404,6 +404,25 @@ fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
 mod tests {
     use super::{days_from_civil, parse_rfc3339_utc};
 
+    /// `cargo test` runs the test binary with the *package* directory as the
+    /// working directory, so a path typed relative to the repository root
+    /// (`src-tauri/target/...`) silently resolves to `src-tauri/src-tauri/...`.
+    /// Try the path as given, then relative to the package and its parent.
+    fn locate(path: &str) -> std::path::PathBuf {
+        let direct = std::path::PathBuf::from(path);
+        if direct.exists() {
+            return direct;
+        }
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        for base in [manifest_dir, manifest_dir.parent().unwrap_or(manifest_dir)] {
+            let candidate = base.join(path);
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+        panic!("cannot find {path} from {}", std::env::current_dir().map(|d| d.display().to_string()).unwrap_or_default());
+    }
+
     /// End-to-end proof that a published release can actually be installed by
     /// the updater: the signature must verify against the public key compiled
     /// into the app, for the exact installer it was made for. A signing key
@@ -450,7 +469,7 @@ mod tests {
         let signature_lines;
         if let Ok(manifest_path) = std::env::var("KIRO_UPDATE_MANIFEST") {
             let manifest: serde_json::Value = serde_json::from_str(
-                &std::fs::read_to_string(&manifest_path).expect("read manifest"),
+                &std::fs::read_to_string(locate(&manifest_path)).expect("read manifest"),
             )
             .expect("parse manifest");
             signature_b64 = manifest["platforms"]["windows-x86_64"]["signature"]
@@ -466,8 +485,7 @@ mod tests {
                     .to_string(),
             );
         } else if let Ok(sig_path) = std::env::var("KIRO_UPDATE_SIGNATURE") {
-            signature_lines =
-                Some(std::fs::read_to_string(&sig_path).expect("read signature"));
+            signature_lines = Some(std::fs::read_to_string(locate(&sig_path)).expect("read signature"));
         } else {
             eprintln!("skipped: neither KIRO_UPDATE_MANIFEST nor KIRO_UPDATE_SIGNATURE is set");
             return;
@@ -477,7 +495,7 @@ mod tests {
             minisign_verify::Signature::decode(&signature_lines.expect("signature text"))
                 .expect("signature decodes");
 
-        let artifact = std::fs::read(&artifact_path).expect("read artifact");
+        let artifact = std::fs::read(locate(&artifact_path)).expect("read artifact");
         if let Err(error) = public_key.verify(&artifact, &signature, true) {
             panic!("the release signature does not verify with the pubkey in tauri.conf.json: {error}");
         }

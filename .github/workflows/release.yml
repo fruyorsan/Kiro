@@ -169,8 +169,10 @@ jobs:
       - name: Verify the updater signature matches the compiled-in key
         shell: bash
         run: |
-          SIG=$(ls src-tauri/target/release/bundle/nsis/*.sig | head -n1)
-          EXE=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n1)
+          # Absolute paths: `cargo test` switches to the package directory, so a
+          # path relative to the repository root would not resolve.
+          SIG=$(ls "$PWD"/src-tauri/target/release/bundle/nsis/*.sig | head -n1)
+          EXE=$(ls "$PWD"/src-tauri/target/release/bundle/nsis/*-setup.exe | head -n1)
           echo "Verifying $(basename "$SIG") against $(basename "$EXE")"
           KIRO_UPDATE_SIGNATURE="$SIG" KIRO_UPDATE_ARTIFACT="$EXE" \
             cargo test --manifest-path src-tauri/Cargo.toml -- --ignored real_release_signature --nocapture
