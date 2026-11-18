@@ -357,7 +357,15 @@ pub fn get_update_state(app: AppHandle) -> UpdateCheckResult {
             return result.clone();
         }
     }
-    result_from_state(&read_state(&app))
+    let state = read_state(&app);
+    // The state file survives the update it describes: right after installing
+    // 1.9.3 it still says "1.9.3 is available" (recorded while running 1.9.2),
+    // so the badge pointed at the build the user had just installed. Only trust
+    // state that was recorded against the version actually running.
+    if state.app_version != app.package_info().version.to_string() {
+        return UpdateCheckResult::default();
+    }
+    result_from_state(&state)
 }
 
 fn parse_rfc3339_utc(value: &str) -> Option<i64> {

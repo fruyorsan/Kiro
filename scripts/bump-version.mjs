@@ -26,8 +26,17 @@ function updateCargoToml() {
 function updateCargoLock(relativePath, packageName) {
   const path = resolve(root, relativePath);
   const content = readFileSync(path, "utf8");
-  const pattern = new RegExp(`(\\[\\[package\\]\\]\\nname = "${packageName}"\\nversion = ")[^"]*(")`);
-  writeFileSync(path, content.replace(pattern, `$1${version}$2`));
+  // Cargo writes CRLF on Windows, so a plain "\n" between the package header
+  // and the version never matched and every bump left the lockfile on the old
+  // version (the build then rewrote it, leaving the tree dirty).
+  const pattern = new RegExp(
+    `(\\[\\[package\\]\\]\\r?\\nname = "${packageName}"\\r?\\nversion = ")[^"]*(")`
+  );
+  const next = content.replace(pattern, `$1${version}$2`);
+  if (next === content) {
+    throw new Error(`Could not update ${relativePath}: package "${packageName}" not found`);
+  }
+  writeFileSync(path, next);
 }
 
 function updateInstallerCargoToml() {

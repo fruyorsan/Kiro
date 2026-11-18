@@ -185,7 +185,14 @@ fn parse_calendar_list(xml: &str, home: &Url) -> Result<Vec<RemoteCalendar>, Str
                 .map(|t| t.trim().to_string())
                 .filter(|t| !t.is_empty())
         };
-        let color = text_of("calendar-color").map(|c| if c.starts_with('#') && c.len() == 9 { c[..7].to_string() } else { c });
+        // Servers may append an alpha byte to `#RRGGBB`. Slice on a char
+        // boundary instead of by byte: a malformed colour containing a
+        // multi-byte character (a 9-byte string such as "#abcdeş") used to
+        // panic the sync task halfway through refreshing the calendars.
+        let color = text_of("calendar-color").map(|c| match c.get(..7) {
+            Some(head) if c.starts_with('#') && c.len() == 9 => head.to_string(),
+            _ => c,
+        });
         let name = text_of("displayname").unwrap_or_else(|| "Calendar".to_string());
         out.push(RemoteCalendar { url, name, color });
     }

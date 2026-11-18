@@ -22,7 +22,13 @@ use tauri::{AppHandle, Emitter};
 
 const MAX_PROMPT: usize = 4000;
 const CLI_TIMEOUT: Duration = Duration::from_secs(120);
-const HTTP_TIMEOUT: Duration = Duration::from_secs(90);
+/// How long a single socket read may stall before the request is treated as
+/// dead. This is an *idle* timeout, not a deadline for the whole answer:
+/// `reqwest`'s `timeout()` covers "until the response body has finished", so
+/// using it here cut every streamed answer off mid-sentence once it took longer
+/// than that -- and the partial text was then stored as if it were complete.
+const HTTP_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Long answers used to stop mid-sentence because every request asked for only
 /// 1024 output tokens. The limit is generous now, and if a model still runs out
@@ -47,7 +53,10 @@ fn http_client() -> Result<&'static reqwest::Client, String> {
         return Ok(client);
     }
     let client = reqwest::Client::builder()
-        .timeout(HTTP_TIMEOUT)
+        // No total deadline: a long answer that keeps streaming is healthy.
+        // A stalled connection is caught by the idle read timeout instead.
+        .connect_timeout(HTTP_CONNECT_TIMEOUT)
+        .read_timeout(HTTP_IDLE_TIMEOUT)
         .pool_max_idle_per_host(1)
         // Keep the TLS connection warm between questions. Re-handshaking for
         // every short prompt added a visible delay before the model even
@@ -864,7 +873,6 @@ async fn ask_gemini(
                 // slow 403.
                 .header("x-goog-api-key", key)
                 .header("content-type", "application/json")
-                .timeout(Duration::from_secs(45))
                 .body(gemini_body(&contents, thinking, budget).to_string())
                 .send()
                 .await
