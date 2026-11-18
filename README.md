@@ -1,13 +1,14 @@
 <div align="center">
 
-https://github.com/user-attachments/assets/38986f38-9953-40eb-94f1-a4c4c3fa1bac
+<img src="docs/screenshots/hero.webp" alt="Kiro" />
 
 <br />
 
 ### A notch, a dock and a performance layer for Windows.
 
-It replaces your taskbar with a spring-animated notch and dock — then gets out of
-the way the moment a game goes fullscreen.
+Think of it as a taskbar that gives your games more frames. A spring-animated
+notch and dock replace the taskbar, and when a game goes fullscreen they step
+aside at the OS level and boost the game instead of competing with it.
 
 <br />
 
