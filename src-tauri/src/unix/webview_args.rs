@@ -51,12 +51,34 @@ fn needs_software_rendering() -> bool {
 }
 
 pub fn apply() {
+    init_x11_threads();
     if needs_software_rendering() {
         // Must be set before the first GTK/WebKit call, which is why this runs
         // at the very top of main().
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
     prefer_x11_backend();
+}
+
+/// GTK is single-threaded, but Kiro asks the display about monitors and the
+/// pointer from worker threads (the dock's monitor sync, the notch's hover
+/// check). Those calls go through Xlib's display connection, and without
+/// XInitThreads two threads dequeuing at once aborts the whole process with
+/// "Unknown request in queue while dequeuing / XInitThreads has not been
+/// called". It has to run before the first display connection is opened, i.e.
+/// before GTK starts.
+fn init_x11_threads() {
+    #[cfg(target_os = "linux")]
+    {
+        if std::env::var_os("DISPLAY").is_none() {
+            return;
+        }
+        if let Ok(xlib) = x11_dl::xlib::Xlib::open() {
+            unsafe {
+                (xlib.XInitThreads)();
+            }
+        }
+    }
 }
 
 /// Kiro is built out of windows placed at absolute screen coordinates (the

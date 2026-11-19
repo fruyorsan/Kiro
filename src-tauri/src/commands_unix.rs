@@ -1326,12 +1326,30 @@ pub fn open_tray_window(_app: AppHandle) {}
 /// X11 and Wayland both report to the app) instead of a Win32 `GetCursorPos`.
 #[tauri::command]
 pub fn pointer_over_notch(window: Window) -> bool {
+    // GDK is not thread-safe: asking it about the pointer from this command's
+    // thread while GTK is running aborts Xlib. Hand the work to the GTK thread.
+    let (tx, rx) = std::sync::mpsc::channel();
     let label = window.label().to_string();
+    let runner = window.clone();
+    let inner = window.clone();
+    let dispatched = runner
+        .run_on_main_thread(move || {
+            let _ = tx.send(pointer_over_notch_here(&inner, &label));
+        })
+        .is_ok();
+    if !dispatched {
+        return false;
+    }
+    rx.recv_timeout(std::time::Duration::from_millis(400))
+        .unwrap_or(false)
+}
+
+fn pointer_over_notch_here(window: &Window, label: &str) -> bool {
     let Ok(cursor) = window.cursor_position() else { return false };
-    let Some((win_pos, _)) = main_window_rects().lock().ok().and_then(|m| m.get(&label).copied()) else {
+    let Some((win_pos, _)) = main_window_rects().lock().ok().and_then(|m| m.get(label).copied()) else {
         return false;
     };
-    let Some(r) = notch_rects().lock().ok().and_then(|m| m.get(&label).copied()) else {
+    let Some(r) = notch_rects().lock().ok().and_then(|m| m.get(label).copied()) else {
         return false;
     };
     let scale = window.scale_factor().unwrap_or(1.0);

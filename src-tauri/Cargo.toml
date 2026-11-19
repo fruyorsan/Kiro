@@ -116,6 +116,10 @@ keyring = { version = "3", features = ["windows-native"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = ["linux-native-sync-persistent"] }
+# XInitThreads has to be called before GTK opens the display: Kiro queries
+# monitors and the pointer from worker threads, and Xlib aborts the process if
+# two threads share the connection without it.
+x11-dl = "2"
 
 
 [dev-dependencies]
