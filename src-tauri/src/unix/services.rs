@@ -144,6 +144,103 @@ pub fn sync_overlays(app: &AppHandle) {
     }
 }
 
+/// Linux input handling for the notch windows.
+///
+/// The notch window is deliberately much larger than the pill so the panel can
+/// expand inside it without moving the window. Windows hit-tests only the notch
+/// rectangle, but Linux can only make a window take every event or none. The
+/// window therefore starts opaque (so the notch is usable even before the
+/// frontend reports its rectangle) and the watcher below keeps it click-through
+/// everywhere except while the pointer is inside that rectangle — clicks in the
+/// transparent part of the box reach whatever is underneath, and the webview
+/// still sees the hover and the click that opens the panel.
+///
+/// Every request has to wait until the window is on screen: tao's
+/// `set_ignore_cursor_events(true)` unwraps the window's `GdkWindow`, and a
+/// panic in the GTK main loop aborts the process. That is why this cannot be
+/// done from `setup`. Wayland does not report a global pointer position; there
+/// the watcher leaves the window alone rather than leaving it unclickable.
+pub fn watch_notch_click_through(app: AppHandle) {
+    use std::collections::{HashMap, HashSet};
+
+    std::thread::spawn(move || {
+        let mut applied: HashMap<String, bool> = HashMap::new();
+        // A window that was just shown has not necessarily been realised by the
+        // compositor yet, so shape it one tick later instead of immediately.
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut logged: HashSet<String> = HashSet::new();
+
+        loop {
+            std::thread::sleep(Duration::from_millis(120));
+
+            let windows: Vec<(String, tauri::WebviewWindow)> = app
+                .webview_windows()
+                .into_iter()
+                .filter(|(label, _)| is_notch_label(label))
+                .collect();
+            if windows.is_empty() {
+                continue;
+            }
+
+            // One query is enough: every notch window lives on some monitor and
+            // the answer is a global position. If the session cannot provide
+            // one (Wayland), keep the windows as they are.
+            let Some(cursor) = windows[0].1.cursor_position().ok() else {
+                continue;
+            };
+
+            for (label, win) in windows {
+                if !win.is_visible().unwrap_or(false) {
+                    applied.remove(&label);
+                    continue;
+                }
+                if seen.insert(label.clone()) {
+                    continue;
+                }
+                let Some(rect) = notch_rects().lock().ok().and_then(|m| m.get(&label).copied())
+                else {
+                    continue;
+                };
+                let Some((pos, _)) = main_window_rects()
+                    .lock()
+                    .ok()
+                    .and_then(|m| m.get(&label).copied())
+                else {
+                    continue;
+                };
+
+                let hidden = notch_hidden()
+                    .lock()
+                    .ok()
+                    .and_then(|m| m.get(&label).copied())
+                    .unwrap_or(false);
+                let over = !hidden && {
+                    let scale = win.scale_factor().unwrap_or(1.0);
+                    let left = pos.x + (rect.x as f64 * scale) as i32;
+                    let right = left + (rect.width as f64 * scale) as i32;
+                    let top = pos.y;
+                    let bottom = top + (rect.height as f64 * scale) as i32;
+                    cursor.x >= left as f64
+                        && cursor.x <= right as f64
+                        && cursor.y >= top as f64
+                        && cursor.y <= bottom as f64
+                };
+
+                let ignore = !over;
+                if applied.get(&label).copied() != Some(ignore) {
+                    let applied_ok = win.set_ignore_cursor_events(ignore).is_ok();
+                    if applied_ok && logged.insert(label.clone()) {
+                        crate::diagnostics::log(&format!(
+                            "notch click-through active for {label} (ignore={ignore})"
+                        ));
+                    }
+                    applied.insert(label, ignore);
+                }
+            }
+        }
+    });
+}
+
 pub fn register_appbar(window: tauri::WebviewWindow) {
     let app = window.app_handle().clone();
     place_notch_window(&app, &window);
@@ -266,7 +363,9 @@ pub fn create_monitor_window(
             Err(_) => return,
         };
 
-        let _ = window.set_ignore_cursor_events(true);
+        // No set_ignore_cursor_events here: the window is created hidden, and
+        // tao panics when the GdkWindow does not exist yet. The click-through
+        // watcher applies it once the window is actually on screen.
         wire_window_events(&app, &window, kind, true);
 
         match kind {

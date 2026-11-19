@@ -360,11 +360,21 @@ fn main() {
                 crate::services::wire_window_events(app.handle(), &dock_win, crate::types::WindowKind::Dock, false);
             }
 
+            // Windows hit-tests the notch rectangle itself, so these windows can
+            // ignore the cursor from the start. On Linux the call is all-or-
+            // nothing *and* tao unwraps the GdkWindow to apply it; the windows
+            // are created hidden, so doing it here panicked the GTK main loop
+            // and took the whole app down before the first frame (the reason
+            // several distributions "just did not start"). The Linux watcher
+            // opts each notch in and out of click-through once it is on screen.
+            #[cfg(kiro_windows)]
             for label in ["main", "dock", "overlay"] {
                 if let Some(w) = app.get_webview_window(label) {
                     let _ = w.set_ignore_cursor_events(true);
                 }
             }
+            #[cfg(not(kiro_windows))]
+            crate::services::watch_notch_click_through(app.handle().clone());
 
             sync_overlays(app.handle());
 
