@@ -115,8 +115,10 @@ jobs:
 
           echo "--- window log ---"
           cat window-debug.log 2>/dev/null || echo "(no window log)"
-          echo "--- app log ---"
-          tail -n 60 /tmp/kiro.log 2>/dev/null || true
+          echo "--- panics ---"
+          grep -n -B10 -A12 -m2 "panicked" /tmp/kiro.log 2>/dev/null || echo "(no panic line)"
+          echo "--- app log head ---"
+          head -n 80 /tmp/kiro.log 2>/dev/null || true
 
           if [ "$ok" != "1" ]; then
             echo "::error::Kiro did not get a panel window on screen on Linux"
