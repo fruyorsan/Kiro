@@ -1198,7 +1198,11 @@ function App() {
   const [settingsDualClockEnabled, setSettingsDualClockEnabled] = useState(() => localStorage.getItem("kiro-dual-clock-enabled") === "true");
   const [dualClockZone, setDualClockZone] = useState(() => localStorage.getItem("kiro-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE);
   const [dualClockLabel, setDualClockLabel] = useState(() => localStorage.getItem("kiro-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE);
-  const productivityEnabled = settingsCalendarEnabled || showClockColumn;
+  // The calendar column is what the panel shows in calendar mode. The setting
+  // only decides whether it shares the panel with the timer/stopwatch columns;
+  // with both of those off the calendar is the only content there is, so it
+  // must not be dropped just because the widget switch is off.
+  const calendarColumn = settingsCalendarEnabled || !showClockColumn;
   const [settingsMusicModeEnabled, setSettingsMusicModeEnabled] = useState(() => localStorage.getItem("kiro-music-mode-enabled") !== "false");
   const [settingsMusicCompactNotch, setSettingsMusicCompactNotch] = useState(() => localStorage.getItem("kiro-music-compact-notch") !== "false");
   const [settingsScrollVolume, setSettingsScrollVolume] = useState(() => localStorage.getItem("kiro-notch-scroll-volume") === "true");
@@ -1582,7 +1586,6 @@ function App() {
         : ['command-center', 'status', 'music', 'calendar', 'shelf'];
     return modes.filter(m => {
       if (m === 'music' && (!settingsMusicModeEnabled || !mediaInfo.has_media)) return false;
-      if (m === 'calendar' && !productivityEnabled) return false;
       if (m === 'shelf' && (!isNotchWindow || settingsLegacyMode || !panelShelf)) return false;
       if (m === 'command-center' && !panelControlCenter) return false;
       return true;
@@ -1722,12 +1725,6 @@ function App() {
     }
     return () => clearTimeout(timer);
   }, [isPlaying, kiroMode]);
-
-  useEffect(() => {
-    if (!productivityEnabled && kiroMode === 'calendar') {
-      setKiroMode('status');
-    }
-  }, [productivityEnabled, kiroMode]);
 
   useEffect(() => {
     if (!settingsMusicModeEnabled && kiroMode === 'music') {
@@ -2205,14 +2202,6 @@ function App() {
       resetTimer();
       return;
     }
-    // The in-notch calendar is a setting, so with it switched off the click
-    // used to do nothing at all — the "calendar doesn't open" bug. The full
-    // calendar window is always available, so fall back to it instead of
-    // swallowing the click.
-    if (!productivityEnabled) {
-      invoke("open_calendar_window").catch(() => {});
-      return;
-    }
 
     setKiroMode(prev => {
       if (prev === 'calendar') {
@@ -2442,7 +2431,7 @@ function App() {
     if (kiroMode === 'tour') return 380;
     if (kiroMode === 'agent') return 340;
     if (kiroMode === 'shelf') return Math.max(300, Math.min(120 + shelf.items.length * 70, 460));
-    if (isCalendarMode) return Math.max(settingsCalendarEnabled && showClockColumn ? 480 : settingsCalendarEnabled ? 310 : 270, 140 + dualClockExtra);
+    if (isCalendarMode) return Math.max(calendarColumn && showClockColumn ? 480 : calendarColumn ? 310 : 270, 140 + dualClockExtra);
     if (kiroMode === 'command-center' && isHovered) {
       const totalWidgets = statusWidgets.left.length + statusWidgets.right.length;
       return Math.max(390, Math.min(200 + totalWidgets * 65, 480)) + dualClockExtra;
@@ -2478,7 +2467,7 @@ function App() {
     if (kiroMode === 'tour') return 210;
     if (kiroMode === 'agent') return agentActivity?.ask ? 184 : agentActivity?.detail ? 160 : 130;
     if (kiroMode === 'shelf') return shelf.items.length === 0 ? 96 : 156;
-    if (kiroMode === 'calendar') return settingsCalendarEnabled ? (caldav.connected ? 392 : 316) : 262;
+    if (kiroMode === 'calendar') return calendarColumn ? (caldav.connected ? 392 : 316) : 262;
     if (kiroMode === 'command-center') {
       if (!isHovered) return 36;
       const tileRows = Math.ceil(ccResolved.tiles.length / 2);
@@ -3509,14 +3498,15 @@ function App() {
                       >
                         <BellIcon />
                       </button>
-                      {/* Always available, even when the in-notch calendar panel
-                          is switched off, so the full calendar can never become
-                          unreachable. */}
+                      {/* Always available: switches the notch to the calendar
+                          panel even when the quick-settings layout was
+                          customised so the calendar mode stays reachable. */}
                       <button
                         className="cc-circular-btn"
                         style={{ order: Math.max(0, ccResolved.buttons.indexOf("settings")) - 0.5 }}
-                        {...tip(t("calendar.openFull"))}
-                        onClick={(e) => { e.stopPropagation(); invoke("open_calendar_window").catch(() => {}); }}
+                        aria-label={t("calendar.title")}
+                        {...tip(t("calendar.title"))}
+                        onClick={(e) => { e.stopPropagation(); setKiroMode("calendar"); }}
                       >
                         <CalendarIcon />
                       </button>
@@ -3674,7 +3664,7 @@ function App() {
 
               {/* Calendar & Timer Split View */}
               <AnimatePresence>
-                {productivityEnabled && isCalendarMode && (
+                {isCalendarMode && (
                   <motion.div
                     className="calendar-timer-content split-view"
                     onClick={e => e.stopPropagation()} /* Block mode switches when clicking inside */
@@ -3683,7 +3673,7 @@ function App() {
                     exit={{ opacity: 0, transition: { duration: 0.1 } }}
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   >
-                    {settingsCalendarEnabled && (
+                    {calendarColumn && (
                       <div className="calendar-column">
                         <NotchCalendar caldav={caldav} hour12={!timeFormat24h} />
                       </div>
@@ -3693,7 +3683,7 @@ function App() {
                       <NotchClock
                         timerEnabled={settingsTimerEnabled}
                         stopwatchEnabled={settingsStopwatchEnabled}
-                        solo={!settingsCalendarEnabled}
+                        solo={!calendarColumn}
                         timerSeconds={timerSeconds}
                         isTimerRunning={isTimerRunning}
                         formatTimerTime={formatTimerTime}

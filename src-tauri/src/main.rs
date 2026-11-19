@@ -436,7 +436,12 @@ fn main() {
             #[cfg(not(kiro_windows))]
             single_instance::watch(app.handle().clone());
 
-            {
+            // The tray needs libayatana-appindicator at runtime. Distributions
+            // without it (or a session without a StatusNotifier host) make
+            // `build` fail; that used to abort the setup hook, so the whole app
+            // exited on startup. A missing tray is not a reason to have no
+            // Kiro: every tray action is also reachable from the dock menu.
+            let tray_result: tauri::Result<()> = (|| {
                 use tauri::menu::{Menu, MenuItem};
                 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
                 std::thread::spawn(|| {
@@ -505,6 +510,10 @@ fn main() {
                         }
                     })
                     .build(app)?;
+                Ok(())
+            })();
+            if let Err(err) = tray_result {
+                crate::diagnostics::log(&format!("tray unavailable, continuing without it: {err}"));
             }
 
             // Support hook: `KIRO_DEBUG_OPEN=calendar|settings|notepad` opens

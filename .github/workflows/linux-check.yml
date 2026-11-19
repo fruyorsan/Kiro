@@ -11,12 +11,14 @@ on:
       - main
     paths:
       - "src-tauri/**"
+      - "src/**"
       - "package.json"
       - "bun.lock*"
       - ".github/workflows/linux-check.yml"
   pull_request:
     paths:
       - "src-tauri/**"
+      - "src/**"
   workflow_dispatch:
 
 jobs:
@@ -67,3 +69,56 @@ jobs:
       - name: cargo test
         working-directory: src-tauri
         run: cargo test --message-format short
+
+      # Compiling Linux code is not the same as running it: several
+      # distributions failed at startup (tray/appindicator, WebKit rendering,
+      # wrong backend on Wayland), and none of that shows up in cargo check.
+      # This boots the real binary on a virtual X server, lets it open a panel
+      # window through the normal Tauri path, and fails if it never gets there.
+      - name: Install runtime test dependencies
+        run: sudo apt-get install -y xvfb dbus-x11
+
+      - name: Build the Linux binary for the smoke test
+        working-directory: src-tauri
+        run: cargo build --message-format short
+
+      - name: Smoke test the Linux app
+        run: |
+          set -euo pipefail
+          bun run dev > /tmp/vite.log 2>&1 &
+          VITE_PID=$!
+          for _ in $(seq 1 60); do
+            if (exec 3<>/dev/tcp/127.0.0.1/1420) 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          export KIRO_WINDOW_DEBUG="$PWD/window-debug.log"
+          export KIRO_DEBUG_OPEN=calendar
+          # xvfb has no GPU or compositor, and the WebKit sandbox needs
+          # unprivileged user namespaces that some runners do not provide.
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+
+          timeout 120 xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            dbus-run-session -- ./src-tauri/target/debug/kiro > /tmp/kiro.log 2>&1 &
+          APP_PID=$!
+
+          ok=0
+          for _ in $(seq 1 90); do
+            if grep -q "presented: calendar" window-debug.log 2>/dev/null; then ok=1; break; fi
+            if ! kill -0 "$APP_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          kill "$APP_PID" 2>/dev/null || true
+          kill "$VITE_PID" 2>/dev/null || true
+
+          echo "--- window log ---"
+          cat window-debug.log 2>/dev/null || echo "(no window log)"
+          echo "--- app log ---"
+          tail -n 60 /tmp/kiro.log 2>/dev/null || true
+
+          if [ "$ok" != "1" ]; then
+            echo "::error::Kiro did not get a panel window on screen on Linux"
+            exit 1
+          fi

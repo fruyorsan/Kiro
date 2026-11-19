@@ -56,4 +56,26 @@ pub fn apply() {
         // at the very top of main().
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
+    prefer_x11_backend();
+}
+
+/// Kiro is built out of windows placed at absolute screen coordinates (the
+/// notch is pinned to the top edge, the dock to the bottom). Wayland gives
+/// clients no way to place themselves, so on a Wayland session the notch and
+/// the dock end up wherever the compositor drops them — the app looks broken
+/// rather than merely misplaced, which is what several distributions reported.
+///
+/// Running through XWayland restores real positioning and also makes the dock's
+/// window list work. It is only chosen when an X server is actually reachable
+/// (`DISPLAY` set); a Wayland-only session keeps the native backend instead of
+/// refusing to start, and `KIRO_ALLOW_WAYLAND=1` opts out for testing.
+fn prefer_x11_backend() {
+    if std::env::var_os("GDK_BACKEND").is_some() || std::env::var_os("KIRO_ALLOW_WAYLAND").is_some() {
+        return;
+    }
+    let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_default().to_lowercase();
+    let wayland = session == "wayland" || std::env::var_os("WAYLAND_DISPLAY").is_some();
+    if wayland && std::env::var_os("DISPLAY").is_some() {
+        std::env::set_var("GDK_BACKEND", "x11");
+    }
 }
