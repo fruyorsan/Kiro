@@ -506,6 +506,22 @@ fn main() {
                     })
                     .build(app)?;
             }
+
+            // Support hook: `KIRO_DEBUG_OPEN=calendar|settings|notepad` opens
+            // that panel a few seconds after startup, so a user who reports
+            // "the window does not open" can be diagnosed without a click.
+            if let Ok(target) = std::env::var("KIRO_DEBUG_OPEN") {
+                let ah = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    match target.as_str() {
+                        "calendar" => crate::commands::open_calendar_window(ah),
+                        "settings" => crate::commands::open_settings_window(ah),
+                        "notepad" => crate::commands::open_notepad_window(ah),
+                        _ => {}
+                    }
+                });
+            }
             Ok(())
         })
         .build(tauri::generate_context!())

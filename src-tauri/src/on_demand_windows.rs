@@ -69,8 +69,18 @@ fn building_flag(label: &str) -> Option<&'static AtomicBool> {
     }
 }
 
+fn debug_log(msg: &str) {
+    let Ok(path) = std::env::var("KIRO_WINDOW_DEBUG") else {
+        return;
+    };
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(f, "{msg}");
+    }
+}
+
 fn build(app: &AppHandle, spec: &Spec) -> Option<WebviewWindow> {
-    let window = WebviewWindowBuilder::new(app, spec.label, WebviewUrl::App(spec.url.into()))
+    let window = match WebviewWindowBuilder::new(app, spec.label, WebviewUrl::App(spec.url.into()))
         .title(spec.title)
         .inner_size(spec.width, spec.height)
         .min_inner_size(spec.min_width, spec.min_height)
@@ -88,7 +98,16 @@ fn build(app: &AppHandle, spec: &Spec) -> Option<WebviewWindow> {
         .visible(false)
         .center()
         .build()
-        .ok()?;
+    {
+        Ok(w) => {
+            debug_log(&format!("build ok: {}", spec.label));
+            w
+        }
+        Err(e) => {
+            debug_log(&format!("build failed: {} -> {e}", spec.label));
+            return None;
+        }
+    };
 
     #[cfg(target_os = "windows")]
     {
@@ -120,8 +139,10 @@ fn build(app: &AppHandle, spec: &Spec) -> Option<WebviewWindow> {
 
 pub fn open(app: &AppHandle, label: &str) {
     crate::memory_saver::mark_interaction();
+    debug_log(&format!("open requested: {label}"));
 
     if let Some(win) = app.get_webview_window(label) {
+        debug_log(&format!("open existing: {label}"));
         present(&win);
         return;
     }
@@ -130,6 +151,7 @@ pub fn open(app: &AppHandle, label: &str) {
     let Some(flag) = building_flag(label) else { return };
 
     if flag.swap(true, Ordering::SeqCst) {
+        debug_log(&format!("open skipped, already building: {label}"));
         return;
     }
 
@@ -137,6 +159,7 @@ pub fn open(app: &AppHandle, label: &str) {
     tauri::async_runtime::spawn(async move {
         if let Some(win) = build(&app, spec) {
             present(&win);
+            debug_log(&format!("presented: {}", spec.label));
         }
         flag.store(false, Ordering::SeqCst);
     });
@@ -145,9 +168,17 @@ pub fn open(app: &AppHandle, label: &str) {
 fn present(win: &WebviewWindow) {
     set_suspended(win, false);
     set_memory_level(win, false);
-    let _ = win.show();
-    let _ = win.unminimize();
-    let _ = win.set_focus();
+    let shown = win.show();
+    let unminimized = win.unminimize();
+    let focused = win.set_focus();
+    debug_log(&format!(
+        "present {}: show={:?} unminimize={:?} focus={:?} visible={:?}",
+        win.label(),
+        shown.err(),
+        unminimized.err(),
+        focused.err(),
+        win.is_visible()
+    ));
     // Forcing a foreground activation needs a Win32 hint that has no equivalent
     // in the X11/Wayland protocols; `set_focus` above is the portable part.
     #[cfg(kiro_windows)]

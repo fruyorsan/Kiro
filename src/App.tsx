@@ -2205,7 +2205,14 @@ function App() {
       resetTimer();
       return;
     }
-    if (!productivityEnabled) return;
+    // The in-notch calendar is a setting, so with it switched off the click
+    // used to do nothing at all — the "calendar doesn't open" bug. The full
+    // calendar window is always available, so fall back to it instead of
+    // swallowing the click.
+    if (!productivityEnabled) {
+      invoke("open_calendar_window").catch(() => {});
+      return;
+    }
 
     setKiroMode(prev => {
       if (prev === 'calendar') {
@@ -3502,6 +3509,17 @@ function App() {
                       >
                         <BellIcon />
                       </button>
+                      {/* Always available, even when the in-notch calendar panel
+                          is switched off, so the full calendar can never become
+                          unreachable. */}
+                      <button
+                        className="cc-circular-btn"
+                        style={{ order: Math.max(0, ccResolved.buttons.indexOf("settings")) - 0.5 }}
+                        {...tip(t("calendar.openFull"))}
+                        onClick={(e) => { e.stopPropagation(); invoke("open_calendar_window").catch(() => {}); }}
+                      >
+                        <CalendarIcon />
+                      </button>
                       <button
                         className="cc-circular-btn"
                         style={ccStyle("buttons", "settings")}
@@ -3723,6 +3741,15 @@ function BluetoothIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.9 }}>
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M8 3v4M16 3v4M3 11h18" />
     </svg>
   );
 }

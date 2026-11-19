@@ -255,27 +255,351 @@ pub async fn activate_app(app: AppInfo) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn focus_window(_hwnd: isize) {}
+pub async fn focus_window(hwnd: isize) {
+    let _ = tauri::async_runtime::spawn_blocking(move || focus_x11(hwnd)).await;
+}
 
 #[tauri::command]
-pub async fn focus_app_windows(_hwnds: Vec<isize>) {}
+pub async fn focus_app_windows(hwnds: Vec<isize>) {
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        for hwnd in hwnds {
+            focus_x11(hwnd);
+        }
+    })
+    .await;
+}
 
 #[tauri::command]
-pub async fn close_window(_hwnd: isize) {}
+pub async fn close_window(hwnd: isize) {
+    let _ = tauri::async_runtime::spawn_blocking(move || close_x11(hwnd)).await;
+}
 
 #[tauri::command]
-pub async fn end_task(_hwnd: isize, _all_hwnds: Option<Vec<isize>>) {}
+pub async fn end_task(hwnd: isize, all_hwnds: Option<Vec<isize>>) {
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        let windows = all_hwnds.unwrap_or_default();
+        let mut pids: Vec<u32> = windows
+            .iter()
+            .chain(std::iter::once(&hwnd))
+            .filter_map(|id| window_pid(*id))
+            .collect();
+        pids.sort_unstable();
+        pids.dedup();
+        // Ask the windows to close first so the app can save, then terminate
+        // whatever is left — the same two-step the Windows `end_task` uses.
+        for id in windows {
+            close_x11(id);
+        }
+        close_x11(hwnd);
+        for pid in pids {
+            if pid == std::process::id() {
+                continue;
+            }
+            let ok = Command::new("kill")
+                .args(["-TERM", &pid.to_string()])
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+            if !ok {
+                let _ = Command::new("sh")
+                    .args(["-c", &format!("kill -TERM {pid}")])
+                    .status();
+            }
+        }
+    })
+    .await;
+}
 
 #[tauri::command]
 pub async fn focus_agent_window(_window: u64) {}
 
-/// There is no portable way to enumerate other clients' windows: X11 could,
-/// Wayland deliberately cannot, and pretending otherwise would give the dock a
-/// half-working app switcher. Running apps therefore do not appear in the dock
-/// on Linux; pinned apps still launch and highlight.
+/// The shell-ish window list: X11 exposes the stacking order through
+/// `_NET_CLIENT_LIST`, so the dock can show and switch apps on X11 sessions and
+/// on Wayland desktops that still run XWayland clients. Native Wayland clients
+/// deliberately hide themselves from other processes, so they cannot appear.
 #[tauri::command]
 pub async fn get_active_windows() -> Vec<AppInfo> {
-    Vec::new()
+    tauri::async_runtime::spawn_blocking(active_windows)
+        .await
+        .unwrap_or_default()
+}
+
+// ---------------------------------------------------------------------------
+// running windows (X11 / XWayland)
+// ---------------------------------------------------------------------------
+
+struct X11Window {
+    id: u64,
+    pid: u32,
+    class: String,
+    title: String,
+    skip: bool,
+}
+
+struct DesktopApp {
+    path: String,
+    name: String,
+    program: String,
+    wm_class: String,
+    icon: String,
+}
+
+fn x11_id(hwnd: isize) -> String {
+    format!("0x{:x}", hwnd as u64)
+}
+
+fn x11_ids() -> Vec<u64> {
+    let Ok(out) = run("xprop", &["-root", "_NET_CLIENT_LIST"]) else {
+        return Vec::new();
+    };
+    let Some((_, rest)) = out.split_once('#') else {
+        return Vec::new();
+    };
+    rest.split(',')
+        .filter_map(|id| u64::from_str_radix(id.trim().trim_start_matches("0x"), 16).ok())
+        .filter(|id| *id != 0)
+        .collect()
+}
+
+fn x11_window(id: u64) -> Option<X11Window> {
+    let hex = format!("0x{id:x}");
+    let out = run(
+        "xprop",
+        &[
+            "-id",
+            &hex,
+            "WM_CLASS",
+            "_NET_WM_PID",
+            "_NET_WM_NAME",
+            "WM_NAME",
+            "_NET_WM_WINDOW_TYPE",
+            "_NET_WM_STATE",
+        ],
+    )
+    .ok()?;
+    let mut class = String::new();
+    let mut title = String::new();
+    let mut pid = 0u32;
+    let mut kind = String::new();
+    let mut state = String::new();
+    for line in out.lines() {
+        if line.starts_with("WM_CLASS") {
+            let quoted: Vec<&str> = line.split('"').skip(1).step_by(2).collect();
+            if let Some(value) = quoted.get(1).or_else(|| quoted.first()) {
+                class = (*value).to_string();
+            }
+        } else if line.starts_with("_NET_WM_PID") {
+            pid = line
+                .split('=')
+                .nth(1)
+                .and_then(|v| v.trim().parse().ok())
+                .unwrap_or(0);
+        } else if (line.starts_with("_NET_WM_NAME") || line.starts_with("WM_NAME")) && title.is_empty()
+        {
+            if let Some((_, value)) = line.split_once('=') {
+                title = value.trim().trim_matches('"').to_string();
+            }
+        } else if line.starts_with("_NET_WM_WINDOW_TYPE") {
+            kind = line.to_string();
+        } else if line.starts_with("_NET_WM_STATE") {
+            state = line.to_string();
+        }
+    }
+    if pid == 0 && class.is_empty() && title.is_empty() {
+        return None;
+    }
+    // Panels, top bars, menus and tooltips are not applications the dock should
+    // offer; the window manager marks them with a type or the skip-taskbar hint.
+    let skip = ["DOCK", "DESKTOP", "TOOLTIP", "MENU", "SPLASH", "NOTIFICATION", "TOOLBAR"]
+        .iter()
+        .any(|t| kind.contains(t))
+        || state.contains("SKIP_TASKBAR");
+    Some(X11Window { id, pid, class, title, skip })
+}
+
+fn desktop_index() -> Vec<DesktopApp> {
+    let mut apps: Vec<DesktopApp> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for dir in crate::services::application_dirs() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
+                continue;
+            }
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            let parsed = crate::services::parse_desktop_entry(&content);
+            if !parsed.is_application || parsed.no_display || parsed.hidden {
+                continue;
+            }
+            if parsed.name.is_empty() || parsed.exec.is_empty() {
+                continue;
+            }
+            let (program, _) = crate::services::split_exec(&parsed.exec);
+            let Some(program) = std::path::Path::new(&program)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_lowercase())
+            else {
+                continue;
+            };
+            let Some(file_name) = path.file_name().map(|n| n.to_string_lossy().to_string()) else {
+                continue;
+            };
+            if !seen.insert(file_name) {
+                continue;
+            }
+            apps.push(DesktopApp {
+                path: path.to_string_lossy().into_owned(),
+                name: parsed.name,
+                program,
+                wm_class: parsed.startup_wm_class.to_lowercase(),
+                icon: parsed.icon.to_lowercase(),
+            });
+        }
+    }
+    apps
+}
+
+fn match_desktop<'a>(
+    apps: &'a [DesktopApp],
+    class: &str,
+    exe: &str,
+    comm: &str,
+) -> Option<&'a DesktopApp> {
+    let class = class.to_lowercase();
+    let exe = exe.to_lowercase();
+    let comm = comm.to_lowercase();
+    // 1. A declared StartupWMClass is authoritative.
+    if !class.is_empty() {
+        if let Some(app) = apps
+            .iter()
+            .find(|a| !a.wm_class.is_empty() && a.wm_class == class)
+        {
+            return Some(app);
+        }
+    }
+    // 2. The executable behind the window matches the entry's Exec program.
+    for probe in [&exe, &comm].into_iter().filter(|v| !v.is_empty()) {
+        if let Some(app) = apps.iter().find(|a| &a.program == probe) {
+            return Some(app);
+        }
+    }
+    // 3. Last resort: the WM_CLASS / icon name equals the entry's icon name.
+    if !class.is_empty() {
+        if let Some(app) = apps
+            .iter()
+            .find(|a| !a.icon.is_empty() && a.icon == class)
+        {
+            return Some(app);
+        }
+        if let Some(app) = apps.iter().find(|a| a.program == class) {
+            return Some(app);
+        }
+    }
+    None
+}
+
+fn active_windows() -> Vec<AppInfo> {
+    let ids = x11_ids();
+    if ids.is_empty() {
+        return Vec::new();
+    }
+    let own_pid = std::process::id();
+    let desktops = desktop_index();
+    let mut groups: Vec<AppInfo> = Vec::new();
+    for id in ids {
+        let Some(window) = x11_window(id) else {
+            continue;
+        };
+        if window.skip || window.pid == own_pid {
+            continue;
+        }
+        let exe_path = std::fs::read_link(format!("/proc/{}/exe", window.pid)).ok();
+        let exe = exe_path
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let comm = std::fs::read_to_string(format!("/proc/{}/comm", window.pid))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        let entry = match_desktop(&desktops, &window.class, &exe, &comm);
+        let (path, name, executable) = match entry {
+            Some(app) => (app.path.clone(), app.name.clone(), Some(app.program.clone())),
+            None => {
+                let path = exe_path
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let name = if !window.class.is_empty() {
+                    window.class.clone()
+                } else if !comm.is_empty() {
+                    comm.clone()
+                } else {
+                    window.title.clone()
+                };
+                let executable = if exe.is_empty() { None } else { Some(exe) };
+                (path, name, executable)
+            }
+        };
+        if path.is_empty() {
+            continue;
+        }
+        if let Some(group) = groups.iter_mut().find(|g| g.path == path) {
+            group
+                .all_hwnds
+                .get_or_insert_with(Vec::new)
+                .push((window.id as isize, window.title));
+            continue;
+        }
+        groups.push(AppInfo {
+            name,
+            path,
+            icon: None,
+            is_running: true,
+            hwnd: Some(window.id as isize),
+            executable,
+            all_hwnds: Some(vec![(window.id as isize, window.title)]),
+            args: None,
+        });
+    }
+    groups.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    groups
+}
+
+fn window_pid(hwnd: isize) -> Option<u32> {
+    let id = x11_id(hwnd);
+    let out = run("xprop", &["-id", &id, "_NET_WM_PID"]).ok()?;
+    out.split('=').nth(1)?.trim().parse().ok()
+}
+
+fn focus_x11(hwnd: isize) {
+    if hwnd <= 0 {
+        return;
+    }
+    let id = x11_id(hwnd);
+    if have("wmctrl") && run("wmctrl", &["-i", "-a", &id]).is_ok() {
+        return;
+    }
+    if have("xdotool") {
+        let _ = run("xdotool", &["windowactivate", &id]);
+    }
+}
+
+fn close_x11(hwnd: isize) {
+    if hwnd <= 0 {
+        return;
+    }
+    let id = x11_id(hwnd);
+    if have("wmctrl") && run("wmctrl", &["-i", "-c", &id]).is_ok() {
+        return;
+    }
+    if have("xdotool") {
+        let _ = run("xdotool", &["windowclose", &id]);
+    }
 }
 
 // ---------------------------------------------------------------------------

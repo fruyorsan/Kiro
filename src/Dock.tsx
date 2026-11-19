@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
-import { listen, emit } from '@tauri-apps/api/event';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import './Dock.css';
@@ -9,6 +9,7 @@ import './surfaces.css';
 import { SurfaceShape } from "./components/SurfaceShape";
 import { initTheme } from './theme';
 import { hydrateStorageFromSettings } from './storage';
+import { openSettingsAt } from './settingsNav';
 import { useSettingsSync } from './hooks/useSettingsSync';
 import { useT } from './i18n';
 import { PlayIcon, PauseIcon, SkipBackIcon, SkipForwardIcon } from './icons';
@@ -1065,11 +1066,8 @@ const Dock = memo(function Dock() {
   const menuVisible = (id: string) => !dockMenuHidden.includes(id);
 
   const openDockMenuSettings = () => {
-    invoke('open_settings_window').catch(() => {});
     closeMenu();
-    setTimeout(() => {
-      emit('settings-navigate', 'dock-menu').catch(() => {});
-    }, 700);
+    void openSettingsAt('dock-menu');
   };
 
   const dockItems = useMemo(() => {

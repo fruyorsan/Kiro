@@ -1,7 +1,7 @@
 import { StrictMode, useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listen, emit } from "@tauri-apps/api/event";
 import { Settings, Palette, PanelTop, Monitor, Layers, Info } from "lucide-react";
 import { WindowControls } from "./components/WindowControls";
 import {
@@ -75,6 +75,9 @@ function SettingsApp() {
         setScrollTarget("dock-menu");
       }
     });
+    // A window opened on demand mounts its listener after the opener already
+    // emitted the navigation, so tell anyone waiting that it is safe to send.
+    void emit("settings-ready");
     return () => {
       unlisten.then((fn) => fn());
     };

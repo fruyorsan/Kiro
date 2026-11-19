@@ -288,7 +288,7 @@ pub fn create_monitor_window(
 // Installed applications: .desktop entries
 // ---------------------------------------------------------------------------
 
-fn application_dirs() -> Vec<PathBuf> {
+pub(crate) fn application_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
     let mut push_data_dir = |root: PathBuf| {
         let candidate = root.join("applications");
@@ -318,20 +318,24 @@ fn application_dirs() -> Vec<PathBuf> {
     dirs
 }
 
-struct DesktopEntry {
-    name: String,
-    exec: String,
-    no_display: bool,
-    hidden: bool,
-    is_application: bool,
+pub(crate) struct DesktopEntry {
+    pub name: String,
+    pub exec: String,
+    pub icon: String,
+    pub startup_wm_class: String,
+    pub no_display: bool,
+    pub hidden: bool,
+    pub is_application: bool,
 }
 
 /// Reads the `[Desktop Entry]` group. Keys before the first group header belong
 /// to no group and are ignored, which is what the spec asks for.
-fn parse_desktop_entry(content: &str) -> DesktopEntry {
+pub(crate) fn parse_desktop_entry(content: &str) -> DesktopEntry {
     let mut entry = DesktopEntry {
         name: String::new(),
         exec: String::new(),
+        icon: String::new(),
+        startup_wm_class: String::new(),
         no_display: false,
         hidden: false,
         is_application: false,
@@ -353,6 +357,8 @@ fn parse_desktop_entry(content: &str) -> DesktopEntry {
         match key.trim() {
             "Name" => entry.name = value.to_string(),
             "Exec" => entry.exec = value.to_string(),
+            "Icon" => entry.icon = value.to_string(),
+            "StartupWMClass" => entry.startup_wm_class = value.to_string(),
             "NoDisplay" => entry.no_display = value.eq_ignore_ascii_case("true"),
             "Hidden" => entry.hidden = value.eq_ignore_ascii_case("true"),
             "Type" => entry.is_application = value.eq_ignore_ascii_case("application"),
@@ -363,7 +369,7 @@ fn parse_desktop_entry(content: &str) -> DesktopEntry {
 }
 
 /// `Exec=foo %U --flag` -> ("foo", "%U --flag")
-fn split_exec(exec: &str) -> (String, Option<String>) {
+pub(crate) fn split_exec(exec: &str) -> (String, Option<String>) {
     let mut parts = exec.split_whitespace();
     // Field codes like %f/%U are placeholders for files the launcher supplies;
     // Kiro launches apps without documents, so they are dropped.
