@@ -181,6 +181,26 @@ pub fn watch_notch_click_through(app: AppHandle) {
         misses: u8,
         applied: Option<bool>,
         logged: bool,
+        note: &'static str,
+    }
+
+    // Progress markers in `KIRO_WINDOW_DEBUG`, so a headless run can tell
+    // "window never shown" from "shown but no rectangle yet".
+    fn note(track: &mut Track, key: &'static str) {
+        if track.note == key {
+            return;
+        }
+        track.note = key;
+        if let Ok(path) = std::env::var("KIRO_WINDOW_DEBUG") {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+            {
+                let _ = writeln!(f, "notch: {key}");
+            }
+        }
     }
 
     let tracks: Arc<Mutex<HashMap<String, Track>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -204,6 +224,7 @@ pub fn watch_notch_click_through(app: AppHandle) {
                 let track = tracks.entry(label.clone()).or_default();
 
                 if !visible {
+                    note(track, "hidden");
                     track.seen = false;
                     track.misses = 0;
                     track.applied = None;
@@ -211,12 +232,14 @@ pub fn watch_notch_click_through(app: AppHandle) {
                 }
                 if !track.seen {
                     track.seen = true;
+                    note(track, "on screen");
                     return;
                 }
 
                 let Some(rect) =
                     notch_rects().lock().ok().and_then(|m| m.get(&label).copied())
                 else {
+                    note(track, "waiting for rectangle");
                     return;
                 };
                 let Some((pos, _)) = main_window_rects()
@@ -224,11 +247,15 @@ pub fn watch_notch_click_through(app: AppHandle) {
                     .ok()
                     .and_then(|m| m.get(&label).copied())
                 else {
+                    note(track, "waiting for window position");
                     return;
                 };
                 // Without a global pointer (Wayland) the window keeps its
                 // default, opaque behaviour instead of becoming unclickable.
-                let Ok(cursor) = w.cursor_position() else { return };
+                let Ok(cursor) = w.cursor_position() else {
+                    note(track, "no global pointer");
+                    return;
+                };
 
                 let hidden = notch_hidden()
                     .lock()
