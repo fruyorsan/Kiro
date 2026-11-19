@@ -996,3 +996,27 @@ pub async fn change_dock_mode_for_window(
 /// Linux, so nothing is opened.
 #[tauri::command]
 pub fn open_tray_window(_app: AppHandle) {}
+
+/// Same question as the Windows pointer-hook version — is the cursor still over
+/// the notch hit box — answered with the compositor's cursor position (which
+/// X11 and Wayland both report to the app) instead of a Win32 `GetCursorPos`.
+#[tauri::command]
+pub fn pointer_over_notch(window: Window) -> bool {
+    let label = window.label().to_string();
+    let Ok(cursor) = window.cursor_position() else { return false };
+    let Some((win_pos, _)) = main_window_rects().lock().ok().and_then(|m| m.get(&label).copied()) else {
+        return false;
+    };
+    let Some(r) = notch_rects().lock().ok().and_then(|m| m.get(&label).copied()) else {
+        return false;
+    };
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let left = win_pos.x + (r.x as f64 * scale) as i32;
+    let right = left + (r.width as f64 * scale) as i32;
+    let top = win_pos.y;
+    let bottom = win_pos.y + (r.height as f64 * scale) as i32;
+    cursor.x >= left as f64
+        && cursor.x <= right as f64
+        && cursor.y >= top as f64
+        && cursor.y <= bottom as f64
+}

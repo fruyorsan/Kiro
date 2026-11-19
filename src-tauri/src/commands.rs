@@ -5169,6 +5169,7 @@ pub fn shelf_text_file(text: String) -> Option<String> {
     Some(path.to_string_lossy().into_owned())
 }
 
+#[cfg(kiro_windows)]
 #[tauri::command]
 pub fn pointer_over_notch(window: Window) -> bool {
     let label = window.label().to_string();
