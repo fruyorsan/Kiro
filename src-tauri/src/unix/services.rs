@@ -151,7 +151,7 @@ pub fn sync_overlays(app: &AppHandle) {
 /// rectangle, but Linux can only make a window take every event or none. The
 /// window therefore starts opaque (so the notch is usable even before the
 /// frontend reports its rectangle) and the watcher below keeps it click-through
-/// everywhere except while the pointer is inside that rectangle — clicks in the
+/// everywhere except while the pointer is inside that rectangle: clicks in the
 /// transparent part of the box reach whatever is underneath, and the webview
 /// still sees the hover and the click that opens the panel.
 ///
@@ -161,7 +161,8 @@ pub fn sync_overlays(app: &AppHandle) {
 /// done from `setup`. Wayland does not report a global pointer position; there
 /// the watcher leaves the window alone rather than leaving it unclickable.
 pub fn watch_notch_click_through(app: AppHandle) {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
 
     // Fast enough that the notch reacts to the pointer immediately, and a
     // handful of misses before becoming click-through again so that moving
@@ -171,53 +172,63 @@ pub fn watch_notch_click_through(app: AppHandle) {
     const MISSES_BEFORE_IGNORE: u8 = 4;
     const MARGIN: i32 = 8;
 
-    std::thread::spawn(move || {
-        let mut applied: HashMap<String, bool> = HashMap::new();
-        let mut misses: HashMap<String, u8> = HashMap::new();
-        // A window that was just shown has not necessarily been realised by the
-        // compositor yet, so shape it one tick later instead of immediately.
-        let mut seen: HashSet<String> = HashSet::new();
-        let mut logged: HashSet<String> = HashSet::new();
+    #[derive(Default)]
+    struct Track {
+        // Set after the first tick that saw the window on screen; shaping it in
+        // that very tick races the compositor, which may not have realised the
+        // widget yet.
+        seen: bool,
+        misses: u8,
+        applied: Option<bool>,
+        logged: bool,
+    }
 
-        loop {
-            std::thread::sleep(TICK);
+    let tracks: Arc<Mutex<HashMap<String, Track>>> = Arc::new(Mutex::new(HashMap::new()));
 
-            let windows: Vec<(String, tauri::WebviewWindow)> = app
-                .webview_windows()
-                .into_iter()
-                .filter(|(label, _)| is_notch_label(label))
-                .collect();
-            if windows.is_empty() {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(TICK);
+
+        for (label, win) in app.webview_windows() {
+            if !is_notch_label(&label) {
                 continue;
             }
+            let tracks = tracks.clone();
+            let w = win.clone();
+            // GTK/Xlib are not thread-safe here (XInitThreads is never called),
+            // so everything about the window and the pointer has to be asked on
+            // the GTK thread. Doing it from this thread aborted the process
+            // with "Unknown request in queue while dequeuing".
+            let _ = win.run_on_main_thread(move || {
+                let Ok(visible) = w.is_visible() else { return };
+                let Ok(mut tracks) = tracks.lock() else { return };
+                let track = tracks.entry(label.clone()).or_default();
 
-            // One query is enough: every notch window lives on some monitor and
-            // the answer is a global position. If the session cannot provide
-            // one (Wayland), keep the windows as they are.
-            let Some(cursor) = windows[0].1.cursor_position().ok() else {
-                continue;
-            };
+                if !visible {
+                    track.seen = false;
+                    track.misses = 0;
+                    track.applied = None;
+                    return;
+                }
+                if !track.seen {
+                    track.seen = true;
+                    return;
+                }
 
-            for (label, win) in windows {
-                if !win.is_visible().unwrap_or(false) {
-                    applied.remove(&label);
-                    misses.remove(&label);
-                    continue;
-                }
-                if seen.insert(label.clone()) {
-                    continue;
-                }
-                let Some(rect) = notch_rects().lock().ok().and_then(|m| m.get(&label).copied())
+                let Some(rect) =
+                    notch_rects().lock().ok().and_then(|m| m.get(&label).copied())
                 else {
-                    continue;
+                    return;
                 };
                 let Some((pos, _)) = main_window_rects()
                     .lock()
                     .ok()
                     .and_then(|m| m.get(&label).copied())
                 else {
-                    continue;
+                    return;
                 };
+                // Without a global pointer (Wayland) the window keeps its
+                // default, opaque behaviour instead of becoming unclickable.
+                let Ok(cursor) = w.cursor_position() else { return };
 
                 let hidden = notch_hidden()
                     .lock()
@@ -225,7 +236,7 @@ pub fn watch_notch_click_through(app: AppHandle) {
                     .and_then(|m| m.get(&label).copied())
                     .unwrap_or(false);
                 let over = !hidden && {
-                    let scale = win.scale_factor().unwrap_or(1.0);
+                    let scale = w.scale_factor().unwrap_or(1.0);
                     let margin = (MARGIN as f64 * scale) as i32;
                     let left = pos.x + (rect.x as f64 * scale) as i32 - margin;
                     let right = left + (rect.width as f64 * scale) as i32 + 2 * margin;
@@ -237,17 +248,17 @@ pub fn watch_notch_click_through(app: AppHandle) {
                         && cursor.y <= bottom as f64
                 };
 
-                let miss_count = misses.entry(label.clone()).or_insert(0);
                 if over {
-                    *miss_count = 0;
+                    track.misses = 0;
                 } else {
-                    *miss_count = (*miss_count).saturating_add(1);
+                    track.misses = track.misses.saturating_add(1);
                 }
-                let ignore = !over && *miss_count >= MISSES_BEFORE_IGNORE;
+                let ignore = !over && track.misses >= MISSES_BEFORE_IGNORE;
 
-                if applied.get(&label).copied() != Some(ignore) {
-                    let applied_ok = win.set_ignore_cursor_events(ignore).is_ok();
-                    if applied_ok && logged.insert(label.clone()) {
+                if track.applied != Some(ignore) {
+                    let shaped = w.set_ignore_cursor_events(ignore).is_ok();
+                    if shaped && !track.logged {
+                        track.logged = true;
                         crate::diagnostics::log(&format!(
                             "notch click-through active for {label} (ignore={ignore})"
                         ));
@@ -262,13 +273,14 @@ pub fn watch_notch_click_through(app: AppHandle) {
                                 .append(true)
                                 .open(path)
                             {
-                                let _ = writeln!(f, "notch: click-through ignore={ignore} for {label}");
+                                let _ =
+                                    writeln!(f, "notch: click-through ignore={ignore} for {label}");
                             }
                         }
                     }
-                    applied.insert(label, ignore);
+                    track.applied = Some(ignore);
                 }
-            }
+            });
         }
     });
 }
