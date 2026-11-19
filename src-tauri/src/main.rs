@@ -94,6 +94,8 @@ fn main() {
 
     diagnostics::init();
 
+    crate::state::remember_main_thread();
+
     memory_saver::init();
     webview_args::apply();
 
@@ -374,7 +376,10 @@ fn main() {
                 }
             }
             #[cfg(not(kiro_windows))]
-            crate::services::watch_notch_click_through(app.handle().clone());
+            {
+                crate::services::watch_notch_click_through(app.handle().clone());
+                crate::services::watch_startup_visibility(app.handle().clone());
+            }
 
             sync_overlays(app.handle());
 

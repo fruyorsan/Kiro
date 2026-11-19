@@ -314,7 +314,8 @@ fn window_report(app: &AppHandle) -> String {
 }
 
 fn monitor_report(app: &AppHandle) -> String {
-    let Ok(monitors) = app.available_monitors() else { return "  (unavailable)\n".into() };
+    let monitors = crate::monitors::available_monitors(app);
+    if monitors.is_empty() { return "  (unavailable)\n".into() }
     monitors
         .iter()
         .map(|m| {

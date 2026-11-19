@@ -88,16 +88,49 @@ fn init_x11_threads() {
 /// rather than merely misplaced, which is what several distributions reported.
 ///
 /// Running through XWayland restores real positioning and also makes the dock's
-/// window list work. It is only chosen when an X server is actually reachable
-/// (`DISPLAY` set); a Wayland-only session keeps the native backend instead of
-/// refusing to start, and `KIRO_ALLOW_WAYLAND=1` opts out for testing.
+/// window list work. It is only chosen when an X server actually answers:
+/// `DISPLAY` being set is not enough, because a broken XWayland leaves the
+/// variable behind and forcing the x11 backend then makes GTK fail to
+/// initialise, i.e. the app exits before showing a window. A Wayland-only
+/// session keeps the native backend instead of refusing to start, and
+/// `KIRO_ALLOW_WAYLAND=1` opts out for testing.
 fn prefer_x11_backend() {
     if std::env::var_os("GDK_BACKEND").is_some() || std::env::var_os("KIRO_ALLOW_WAYLAND").is_some() {
         return;
     }
     let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_default().to_lowercase();
     let wayland = session == "wayland" || std::env::var_os("WAYLAND_DISPLAY").is_some();
-    if wayland && std::env::var_os("DISPLAY").is_some() {
+    if wayland && x_server_reachable() {
         std::env::set_var("GDK_BACKEND", "x11");
+    }
+}
+
+/// Opens and closes an X display exactly the way GTK would, without keeping it:
+/// if this fails, forcing `GDK_BACKEND=x11` would only produce a fatal
+/// "Failed to initialize gtk backend" a moment later.
+fn x_server_reachable() -> bool {
+    if std::env::var_os("DISPLAY").is_none() {
+        return false;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        match x11_dl::xlib::Xlib::open() {
+            Ok(xlib) => unsafe {
+                let display = (xlib.XOpenDisplay)(std::ptr::null());
+                if display.is_null() {
+                    false
+                } else {
+                    (xlib.XCloseDisplay)(display);
+                    true
+                }
+            },
+            Err(_) => false,
+        }
+    }
+    // The x11-dl dependency only exists for Linux; the cross-platform
+    // `KIRO_FORCE_UNIX` type check on Windows cannot open a display either way.
+    #[cfg(not(target_os = "linux"))]
+    {
+        true
     }
 }

@@ -1326,10 +1326,14 @@ pub fn open_tray_window(_app: AppHandle) {}
 /// X11 and Wayland both report to the app) instead of a Win32 `GetCursorPos`.
 #[tauri::command]
 pub fn pointer_over_notch(window: Window) -> bool {
-    // GDK is not thread-safe: asking it about the pointer from this command's
-    // thread while GTK is running aborts Xlib. Hand the work to the GTK thread.
-    let (tx, rx) = std::sync::mpsc::channel();
     let label = window.label().to_string();
+    // GDK is not thread-safe. Synchronous commands already run on the main
+    // thread, but a future async caller must not touch it from a worker: bounce
+    // the query there instead (and never block the main thread on its own queue).
+    if crate::state::on_main_thread() {
+        return pointer_over_notch_here(&window, &label);
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
     let runner = window.clone();
     let inner = window.clone();
     let dispatched = runner

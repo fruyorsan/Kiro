@@ -10,6 +10,65 @@ pub fn monitor_stable_id(m: &Monitor, index: usize) -> String {
     m.name().cloned().unwrap_or_else(|| format!("idx-{index}"))
 }
 
+/// Monitor queries on Linux have to happen on the GTK thread.
+///
+/// `AppHandle::available_monitors`/`primary_monitor` call straight into the
+/// windowing backend. On X11 that means touching GDK from whatever thread asked,
+/// and Kiro asks from async command handlers and from the monitor watcher. GDK
+/// is not thread-safe, so those calls can fail or corrupt the display
+/// connection, which showed up in the wild as "Kiro starts and no window ever
+/// appears": the placement code got an empty monitor list and returned before
+/// showing the notch. These wrappers bounce the query to the main thread.
+#[cfg(kiro_windows)]
+pub fn available_monitors(app: &AppHandle) -> Vec<Monitor> {
+    app.available_monitors().unwrap_or_default()
+}
+
+#[cfg(not(kiro_windows))]
+pub fn available_monitors(app: &AppHandle) -> Vec<Monitor> {
+    use std::sync::mpsc;
+    if crate::state::on_main_thread() {
+        return app.available_monitors().unwrap_or_default();
+    }
+    let (tx, rx) = mpsc::channel();
+    let handle = app.clone();
+    if app
+        .run_on_main_thread(move || {
+            let _ = tx.send(handle.available_monitors().unwrap_or_default());
+        })
+        .is_err()
+    {
+        return Vec::new();
+    }
+    // The timeout is only a guard for a shutdown in progress.
+    rx.recv_timeout(std::time::Duration::from_secs(3))
+        .unwrap_or_default()
+}
+
+#[cfg(kiro_windows)]
+pub fn primary_monitor(app: &AppHandle) -> Option<Monitor> {
+    app.primary_monitor().ok().flatten()
+}
+
+#[cfg(not(kiro_windows))]
+pub fn primary_monitor(app: &AppHandle) -> Option<Monitor> {
+    use std::sync::mpsc;
+    if crate::state::on_main_thread() {
+        return app.primary_monitor().ok().flatten();
+    }
+    let (tx, rx) = mpsc::channel();
+    let handle = app.clone();
+    if app
+        .run_on_main_thread(move || {
+            let _ = tx.send(handle.primary_monitor().ok().flatten());
+        })
+        .is_err()
+    {
+        return None;
+    }
+    rx.recv_timeout(std::time::Duration::from_secs(3)).ok().flatten()
+}
+
 fn sanitize_for_label(raw: &str) -> String {
     raw.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect()
 }
@@ -19,7 +78,7 @@ fn same_monitor(a: &Monitor, b: &Monitor) -> bool {
 }
 
 fn find_primary_index(app: &AppHandle, monitors: &[Monitor]) -> usize {
-    if let Ok(Some(primary)) = app.primary_monitor() {
+    if let Some(primary) = primary_monitor(app) {
         if let Some(i) = monitors.iter().position(|m| same_monitor(m, &primary)) {
             return i;
         }
@@ -40,7 +99,8 @@ pub fn resolve_target_monitor(app: &AppHandle, kind: WindowKind) -> Option<Monit
 
     if mode == MonitorMode::Specific {
         if let Some(chosen_id) = get_setting_str(app, id_key) {
-            if let Ok(monitors) = app.available_monitors() {
+            let monitors = available_monitors(app);
+            if !monitors.is_empty() {
                 if let Some(m) = monitors.iter().enumerate()
                     .find(|(i, m)| monitor_stable_id(m, *i) == chosen_id)
                     .map(|(_, m)| m.clone())
@@ -51,13 +111,14 @@ pub fn resolve_target_monitor(app: &AppHandle, kind: WindowKind) -> Option<Monit
         }
     }
 
-    app.primary_monitor().ok().flatten()
+    primary_monitor(app)
 }
 
 pub fn monitor_for_window_label(app: &AppHandle, kind: WindowKind, label: &str) -> Option<Monitor> {
     match monitor_suffix(label) {
         Some(sanitized_id) => {
-            let monitors = app.available_monitors().ok()?;
+            let monitors = available_monitors(app);
+            if monitors.is_empty() { return None; }
             monitors.iter().enumerate()
                 .find(|(i, m)| sanitize_for_label(&monitor_stable_id(m, *i)) == sanitized_id)
                 .map(|(_, m)| m.clone())
@@ -107,7 +168,7 @@ pub fn set_mode_for_label(app: &AppHandle, kind: WindowKind, label: &str, mode: 
 }
 
 pub fn list_monitors(app: &AppHandle) -> Vec<MonitorInfo> {
-    let monitors = app.available_monitors().unwrap_or_default();
+    let monitors = available_monitors(app);
     let primary_index = find_primary_index(app, &monitors);
     monitors.iter().enumerate().map(|(i, m)| {
         let pos = m.position();
@@ -197,7 +258,7 @@ pub fn sync_monitor_windows(app: &AppHandle) {
         return;
     }
 
-    let monitors = app.available_monitors().unwrap_or_default();
+    let monitors = available_monitors(app);
     if !monitors.is_empty() {
         sync_kind(app, WindowKind::Dock, &monitors);
         sync_kind(app, WindowKind::Notch, &monitors);

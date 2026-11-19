@@ -57,6 +57,38 @@ fn process_alive(pid: u32) -> bool {
     pid > 1 && std::path::Path::new(&format!("/proc/{pid}")).exists()
 }
 
+/// A lock left behind by a crash is not the only way the file can name a live
+/// process: PIDs are reused, and the lock lives in `$HOME/.cache` when
+/// `XDG_RUNTIME_DIR` is unset, so it survives reboots. Checking only that the
+/// PID exists therefore made a fresh install exit silently — the user double
+/// clicks Kiro and nothing at all happens. Confirm the process is Kiro: either
+/// its executable is this one, or its name mentions kiro (the AppImage keeps the
+/// download's name).
+fn process_is_kiro(pid: u32) -> bool {
+    if !process_alive(pid) {
+        return false;
+    }
+    let proc_dir = format!("/proc/{pid}");
+    if let Ok(exe) = std::fs::read_link(format!("{proc_dir}/exe")) {
+        let exe = exe.to_string_lossy().to_lowercase();
+        if exe.contains("kiro") {
+            return true;
+        }
+        // The binary was replaced by an update and the path no longer matches:
+        // fall back to the command line, which the AppImage keeps.
+        if let Ok(cmdline) = std::fs::read(format!("{proc_dir}/cmdline")) {
+            let cmdline = String::from_utf8_lossy(&cmdline).to_lowercase();
+            return cmdline.contains("kiro");
+        }
+        return false;
+    }
+    // No permission to read another user's process: it cannot be our instance,
+    // so the lock is stale.
+    std::fs::read_to_string(format!("{proc_dir}/comm"))
+        .map(|comm| comm.to_lowercase().contains("kiro"))
+        .unwrap_or(false)
+}
+
 impl Drop for InstanceLock {
     fn drop(&mut self) {
         if self.owned {
@@ -95,14 +127,21 @@ pub fn acquire() -> (Acquired, Option<InstanceLock>) {
                     .ok()
                     .and_then(|text| text.trim().parse::<u32>().ok());
                 match owner {
-                    Some(pid) if process_alive(pid) && pid != std::process::id() => {
+                    Some(pid) if process_is_kiro(pid) && pid != std::process::id() => {
                         // Another Kiro is running: ask it to show settings.
+                        crate::diagnostics::log(&format!(
+                            "single instance: another Kiro (pid {pid}) owns the lock"
+                        ));
                         let _ = std::fs::create_dir_all(&dir);
                         let _ = std::fs::write(request_path(), b"1");
                         return (Acquired::AlreadyRunning, None);
                     }
-                    _ => {
-                        // Stale lock from a crashed session; take it over.
+                    other => {
+                        // Stale lock from a crashed session (or a reused pid that
+                        // belongs to something else); take it over.
+                        crate::diagnostics::log(&format!(
+                            "single instance: taking over stale lock (owner {other:?})"
+                        ));
                         let _ = std::fs::remove_file(&path);
                     }
                 }

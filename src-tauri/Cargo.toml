@@ -1,6 +1,6 @@
 [package]
 name = "kiro"
-version = "1.10.3"
+version = "1.10.4"
 description = ""
 authors = ["fruyorsan"]
 edition = "2021"

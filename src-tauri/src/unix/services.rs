@@ -962,6 +962,58 @@ pub fn setup_thumbnail_capture(_app: AppHandle) {}
 /// a capture session for that and a permission prompt on every start.
 pub fn setup_audio_visualization(_app: AppHandle) {}
 
+/// Logs what the process actually sees (session, backend, monitors) and makes
+/// sure a broken startup is at least visible.
+///
+/// Kiro's main surface is a transparent always-on-top window, so "the app runs
+/// but draws nothing" looks identical to "the app never started" — exactly the
+/// report that came back from Linux. The fingerprint makes that distinguishable
+/// in the log, and if no window is on screen after 20 seconds the Settings
+/// window is opened: it is an ordinary opaque window, so the user gets a visible
+/// Kiro and the log says what went wrong instead of nothing happening at all.
+pub fn watch_startup_visibility(app: AppHandle) {
+    let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "?".into());
+    let backend = std::env::var("GDK_BACKEND").unwrap_or_else(|_| "default".into());
+    let monitors = crate::monitors::available_monitors(&app);
+    crate::diagnostics::log(&format!(
+        "startup: session={session} backend={backend} wayland_display={} display={} monitors={}",
+        std::env::var("WAYLAND_DISPLAY").unwrap_or_else(|_| "-".into()),
+        std::env::var("DISPLAY").unwrap_or_else(|_| "-".into()),
+        monitors.len()
+    ));
+    for m in &monitors {
+        let p = m.position();
+        let s = m.size();
+        crate::diagnostics::log(&format!(
+            "startup: monitor {:?} at {}x{}+{}+{} scale {}",
+            m.name(),
+            s.width,
+            s.height,
+            p.x,
+            p.y,
+            m.scale_factor()
+        ));
+    }
+
+    std::thread::spawn(move || {
+        for _ in 0..40 {
+            std::thread::sleep(Duration::from_millis(500));
+            if app
+                .webview_windows()
+                .values()
+                .any(|w| w.is_visible().unwrap_or(false))
+            {
+                crate::diagnostics::log("startup: a window is on screen");
+                return;
+            }
+        }
+        crate::diagnostics::log(
+            "startup: no window became visible after 20s; opening Settings instead of staying invisible",
+        );
+        crate::commands::open_settings_window(app.clone());
+    });
+}
+
 /// No global mouse hook: hover is delivered per window through pointer events.
 pub fn setup_mouse_hook(_app: AppHandle) {}
 
@@ -972,9 +1024,7 @@ pub fn watch_webview_processes(_app: &AppHandle) {}
 // ---------------------------------------------------------------------------
 
 fn monitor_signature(app: &AppHandle) -> Vec<(i32, i32, u32, u32)> {
-    let mut list: Vec<(i32, i32, u32, u32)> = app
-        .available_monitors()
-        .unwrap_or_default()
+    let mut list: Vec<(i32, i32, u32, u32)> = crate::monitors::available_monitors(app)
         .iter()
         .map(|m| {
             let p = m.position();

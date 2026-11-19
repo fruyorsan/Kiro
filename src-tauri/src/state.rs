@@ -5,6 +5,22 @@ use crate::types::{SystemCommand, IntRect, AppInfo};
 use tauri::{AppHandle, PhysicalPosition, PhysicalSize};
 
 pub static COMMAND_SENDER: OnceLock<Sender<SystemCommand>> = OnceLock::new();
+/// The thread GTK (and the Tauri event loop) runs on. Recording it lets code ask
+/// "am I already on the main thread?" before bouncing a call through the event
+/// loop, which would deadlock the main thread waiting for its own queue.
+pub static MAIN_THREAD_ID: OnceLock<std::thread::ThreadId> = OnceLock::new();
+
+pub fn remember_main_thread() {
+    let _ = MAIN_THREAD_ID.set(std::thread::current().id());
+}
+
+#[allow(dead_code)]
+pub fn on_main_thread() -> bool {
+    MAIN_THREAD_ID
+        .get()
+        .map(|id| *id == std::thread::current().id())
+        .unwrap_or(false)
+}
 pub static NATIVE_TASKBAR_HIDDEN: AtomicBool = AtomicBool::new(false);
 /// Set first on every quit/restart path. Window calls while the webviews are torn down panic
 /// ("already mutably borrowed"), so hooks and loops stand down once it's set.
