@@ -163,15 +163,24 @@ pub fn sync_overlays(app: &AppHandle) {
 pub fn watch_notch_click_through(app: AppHandle) {
     use std::collections::{HashMap, HashSet};
 
+    // Fast enough that the notch reacts to the pointer immediately, and a
+    // handful of misses before becoming click-through again so that moving
+    // from the pill into the expanding panel does not fall through the gap
+    // between two rectangle reports.
+    const TICK: Duration = Duration::from_millis(80);
+    const MISSES_BEFORE_IGNORE: u8 = 4;
+    const MARGIN: i32 = 8;
+
     std::thread::spawn(move || {
         let mut applied: HashMap<String, bool> = HashMap::new();
+        let mut misses: HashMap<String, u8> = HashMap::new();
         // A window that was just shown has not necessarily been realised by the
         // compositor yet, so shape it one tick later instead of immediately.
         let mut seen: HashSet<String> = HashSet::new();
         let mut logged: HashSet<String> = HashSet::new();
 
         loop {
-            std::thread::sleep(Duration::from_millis(120));
+            std::thread::sleep(TICK);
 
             let windows: Vec<(String, tauri::WebviewWindow)> = app
                 .webview_windows()
@@ -192,6 +201,7 @@ pub fn watch_notch_click_through(app: AppHandle) {
             for (label, win) in windows {
                 if !win.is_visible().unwrap_or(false) {
                     applied.remove(&label);
+                    misses.remove(&label);
                     continue;
                 }
                 if seen.insert(label.clone()) {
@@ -216,23 +226,45 @@ pub fn watch_notch_click_through(app: AppHandle) {
                     .unwrap_or(false);
                 let over = !hidden && {
                     let scale = win.scale_factor().unwrap_or(1.0);
-                    let left = pos.x + (rect.x as f64 * scale) as i32;
-                    let right = left + (rect.width as f64 * scale) as i32;
-                    let top = pos.y;
-                    let bottom = top + (rect.height as f64 * scale) as i32;
+                    let margin = (MARGIN as f64 * scale) as i32;
+                    let left = pos.x + (rect.x as f64 * scale) as i32 - margin;
+                    let right = left + (rect.width as f64 * scale) as i32 + 2 * margin;
+                    let top = pos.y - margin;
+                    let bottom = top + (rect.height as f64 * scale) as i32 + 2 * margin;
                     cursor.x >= left as f64
                         && cursor.x <= right as f64
                         && cursor.y >= top as f64
                         && cursor.y <= bottom as f64
                 };
 
-                let ignore = !over;
+                let miss_count = misses.entry(label.clone()).or_insert(0);
+                if over {
+                    *miss_count = 0;
+                } else {
+                    *miss_count = (*miss_count).saturating_add(1);
+                }
+                let ignore = !over && *miss_count >= MISSES_BEFORE_IGNORE;
+
                 if applied.get(&label).copied() != Some(ignore) {
                     let applied_ok = win.set_ignore_cursor_events(ignore).is_ok();
                     if applied_ok && logged.insert(label.clone()) {
                         crate::diagnostics::log(&format!(
                             "notch click-through active for {label} (ignore={ignore})"
                         ));
+                        // Same file the smoke test reads: seeing this line means
+                        // the notch window was shown, the frontend reported its
+                        // rectangle, and the input shape was applied without
+                        // taking the GTK loop down.
+                        if let Ok(path) = std::env::var("KIRO_WINDOW_DEBUG") {
+                            use std::io::Write;
+                            if let Ok(mut f) = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open(path)
+                            {
+                                let _ = writeln!(f, "notch: click-through ignore={ignore} for {label}");
+                            }
+                        }
                     }
                     applied.insert(label, ignore);
                 }
