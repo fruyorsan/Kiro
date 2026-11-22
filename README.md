@@ -4,11 +4,13 @@ https://github.com/user-attachments/assets/38986f38-9953-40eb-94f1-a4c4c3fa1bac
 
 <br />
 
-### A notch, a dock and a performance layer for Windows and Linux.
+### A taskbar replacement and desktop customization for Windows and Linux.
 
-Think of it as a taskbar that gives your games more frames. A spring-animated
-notch and dock replace the taskbar, and when a game goes fullscreen they step
-aside at the OS level and boost the game instead of competing with it.
+Think of it as a Windows taskbar replacement that gives your games more frames.
+A spring-animated **dynamic-island notch** and a dock replace the Windows 10 and
+Windows 11 taskbar, so your desktop gets a modern, macOS-style look while staying
+fast and native. When a game goes fullscreen they step aside at the OS level and
+boost the game instead of competing with it.
 
 <br />
 
