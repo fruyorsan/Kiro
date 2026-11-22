@@ -29,6 +29,18 @@ const CLI_TIMEOUT: Duration = Duration::from_secs(120);
 /// than that -- and the partial text was then stored as if it were complete.
 const HTTP_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long a provider may stay silent before it answers with even the response
+/// *headers*. Google is the reason this exists: when a model is overloaded it
+/// accepts the request and only then replies `503 high demand`, which was
+/// measured at 99 seconds -- and one attempt never came back at all. The idle
+/// timeout cannot catch that because it never sees a byte, so the notch sat on
+/// "Düşünüyor…" for minutes while the fallback chain had not even started.
+///
+/// Gemini does not send headers early, so in practice this bounds the wait for
+/// the first token. Measured on a real key: 9.8 s for `gemini-3.1-flash-lite`
+/// and 15.3 s for `gemini-3.5-flash`, so the bound has to clear a healthy but
+/// slow model while still cutting the hundred-second failures.
+const HTTP_START_TIMEOUT: Duration = Duration::from_secs(25);
 
 /// Long answers used to stop mid-sentence because every request asked for only
 /// 1024 output tokens. The limit is generous now, and if a model still runs out
@@ -67,11 +79,72 @@ fn http_client() -> Result<&'static reqwest::Client, String> {
     Ok(HTTP_CLIENT.get_or_init(|| client))
 }
 
+/// Send a request and give up if the provider does not even start answering
+/// within `HTTP_START_TIMEOUT`. A timeout is reported as a connection error so
+/// the Gemini fallback chain retries it on the next model right away instead of
+/// leaving the notch waiting.
+///
+/// Only streamed requests are bounded this tightly: their headers arrive before
+/// the model writes a token, so silence means an overloaded or stuck model. A
+/// plain `generateContent` request sends its headers together with the finished
+/// body, so the old idle timeout stays in charge there.
+async fn send_start(request: reqwest::RequestBuilder, streaming: bool) -> Result<reqwest::Response, String> {
+    let send = request.send();
+    if !streaming {
+        return send.await.map_err(|e| format!("Bağlantı hatası: {e}"));
+    }
+    match tokio::time::timeout(HTTP_START_TIMEOUT, send).await {
+        Ok(result) => result.map_err(|e| format!("Bağlantı hatası: {e}")),
+        Err(_) => Err(format!(
+            "Bağlantı hatası: {} saniye içinde yanıt başlamadı",
+            HTTP_START_TIMEOUT.as_secs()
+        )),
+    }
+}
+
 /// The Gemini model id that last answered successfully. Google retires ids
 /// every few months, so the first question after an upgrade can cost three
 /// failed round-trips. Remembering the winner makes every later question go
 /// straight to a model that works.
 static GEMINI_MODEL: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// How long a model stays out of the fallback chain after it answered
+/// `503 high demand` or never started answering. Google's overload usually
+/// clears within minutes, so the id is tried again after this window instead of
+/// being dropped forever.
+const GEMINI_COOLDOWN: Duration = Duration::from_secs(180);
+
+/// Model ids that recently failed to answer, with the moment they may be tried
+/// again. Without this every question re-paid the start timeout for the same
+/// overloaded model before reaching one that works.
+static GEMINI_DOWN: std::sync::Mutex<Vec<(String, Instant)>> = std::sync::Mutex::new(Vec::new());
+
+fn gemini_is_down(model: &str) -> bool {
+    let Ok(mut slot) = GEMINI_DOWN.lock() else {
+        return false;
+    };
+    let now = Instant::now();
+    // Drop only entries whose cooldown has ended; the model being asked about
+    // must stay in the list, or every lookup would clear its own verdict.
+    slot.retain(|(_, until)| *until > now);
+    slot.iter().any(|(name, _)| name == model)
+}
+
+fn gemini_mark_down(model: &str) {
+    if let Ok(mut slot) = GEMINI_DOWN.lock() {
+        let until = Instant::now() + GEMINI_COOLDOWN;
+        match slot.iter_mut().find(|(name, _)| name == model) {
+            Some(entry) => entry.1 = until,
+            None => slot.push((model.to_string(), until)),
+        }
+    }
+}
+
+fn gemini_mark_up(model: &str) {
+    if let Ok(mut slot) = GEMINI_DOWN.lock() {
+        slot.retain(|(name, _)| name != model);
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Provider {
@@ -601,15 +674,13 @@ async fn ask_anthropic(
             "stream": stream.is_some(),
             "messages": messages
         });
-        let response = client
+        let request = client
             .post("https://api.anthropic.com/v1/messages")
             .header("x-api-key", key)
             .header("anthropic-version", "2023-06-01")
             .header("content-type", "application/json")
-            .body(body.to_string())
-            .send()
-            .await
-            .map_err(|e| format!("Bağlantı hatası: {e}"));
+            .body(body.to_string());
+        let response = send_start(request, stream.is_some()).await;
 
         let (text, stop_reason) = match response {
             Ok(mut response) => {
@@ -729,14 +800,12 @@ async fn ask_openai(
             "stream": stream.is_some(),
             "messages": messages
         });
-        let response = client
+        let request = client
             .post("https://api.openai.com/v1/chat/completions")
             .header("authorization", format!("Bearer {key}"))
             .header("content-type", "application/json")
-            .body(body.to_string())
-            .send()
-            .await
-            .map_err(|e| format!("Bağlantı hatası: {e}"));
+            .body(body.to_string());
+        let response = send_start(request, stream.is_some()).await;
 
         let (text, finish_reason) = match response {
             Ok(mut response) => {
@@ -865,7 +934,7 @@ async fn ask_gemini(
         let mut thinking = ThinkingMode::BudgetZero;
         let mut budget = MAX_OUTPUT_TOKENS;
         let (text, finish_reason) = 'attempt: loop {
-            let response = client
+            let request = client
                 .post(&url)
                 // Header auth works for both classic `AIza...` keys and the
                 // newer keys AI Studio hands out; the query parameter is
@@ -873,10 +942,8 @@ async fn ask_gemini(
                 // slow 403.
                 .header("x-goog-api-key", key)
                 .header("content-type", "application/json")
-                .body(gemini_body(&contents, thinking, budget).to_string())
-                .send()
-                .await
-                .map_err(|e| format!("Bağlantı hatası: {e}"));
+                .body(gemini_body(&contents, thinking, budget).to_string());
+            let response = send_start(request, stream.is_some()).await;
 
             let mut response = match response {
                 Ok(response) => response,
@@ -1289,10 +1356,24 @@ async fn ask_one(
                     candidates.push(candidate);
                 }
             }
-            for fallback in ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-flash-lite"] {
+            for fallback in [
+                // When `gemini-flash-latest` and `gemini-3.8-flash` both answer
+                // `503 high demand`, the lite id still replies in a few
+                // seconds, so it sits right after the configured model instead
+                // of being the last resort.
+                "gemini-3.1-flash-lite",
+                "gemini-flash-latest",
+                "gemini-3.8-flash",
+            ] {
                 if !candidates.iter().any(|c| c == fallback) {
                     candidates.push(fallback.to_string());
                 }
+            }
+            // Skip ids that just told us they are overloaded. Without this every
+            // question paid the start timeout for the same dead model again.
+            candidates.retain(|candidate| !gemini_is_down(candidate));
+            if candidates.is_empty() {
+                candidates.push(model.clone());
             }
             let mut index = 0;
             loop {
@@ -1302,6 +1383,7 @@ async fn ask_one(
                     Ok(answer) => {
                         // Remember the winner so the next question skips the
                         // fallback chain entirely.
+                        gemini_mark_up(&current);
                         if let Ok(mut slot) = GEMINI_MODEL.lock() {
                             if slot.as_deref() != Some(current.as_str()) {
                                 *slot = Some(current);
@@ -1323,6 +1405,13 @@ async fn ask_one(
                             || error.to_ascii_lowercase().contains("bağlantı hatası");
                         if !retryable {
                             return Err(error);
+                        }
+                        // A model that is loaded or too slow to answer stays out
+                        // of the chain for a while, so the next question does not
+                        // wait for it again. A retired id is not put aside: the
+                        // remembered winner or the configured list replaces it.
+                        if !is_retired_model_error(&error) {
+                            gemini_mark_down(&current);
                         }
                         // Google sometimes names the exact replacement id.
                         if let Some(next) = next_gemini_model(&error, &current) {
@@ -1547,6 +1636,40 @@ mod tests {
             .as_deref(),
             Some("gemini-3.8-flash")
         );
+    }
+
+    #[test]
+    fn overloaded_models_are_skipped_until_their_cooldown_ends() {
+        let model = "gemini-3.8-flash";
+        gemini_mark_up(model);
+        assert!(!gemini_is_down(model));
+
+        gemini_mark_down(model);
+        assert!(gemini_is_down(model));
+        // Other ids are unaffected, and a winner clears its own entry.
+        assert!(!gemini_is_down("gemini-3.1-flash-lite"));
+        gemini_mark_up(model);
+        assert!(!gemini_is_down(model));
+
+        // An expired entry no longer blocks the model.
+        if let Ok(mut slot) = GEMINI_DOWN.lock() {
+            slot.push((model.to_string(), Instant::now() - Duration::from_secs(1)));
+        }
+        assert!(!gemini_is_down(model));
+    }
+
+    #[test]
+    fn a_silent_provider_is_given_up_on_quickly() {
+        // Google holds an overloaded request for around 100 seconds before it
+        // answers `503 high demand`; the notch cannot wait that long.
+        assert!(HTTP_START_TIMEOUT <= Duration::from_secs(30));
+        // A healthy but slow model still needs room: `gemini-3.5-flash` was
+        // measured at 15.3 s to its first token, because Gemini sends the
+        // headers only once that token exists.
+        assert!(HTTP_START_TIMEOUT >= Duration::from_secs(20));
+        // The bound only covers the start, so it must stay well under the idle
+        // read timeout that protects a long streamed answer.
+        assert!(HTTP_START_TIMEOUT < HTTP_IDLE_TIMEOUT);
     }
 
     /// End-to-end check of the SSE reader against a local socket: the body is

@@ -1,6 +1,6 @@
 [package]
 name = "kiro-installer"
-version = "1.10.4"
+version = "1.10.5"
 description = "Kiro installer"
 authors = ["fruyorsan"]
 edition = "2021"
