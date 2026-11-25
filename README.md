@@ -6,11 +6,11 @@ https://github.com/user-attachments/assets/38986f38-9953-40eb-94f1-a4c4c3fa1bac
 
 ### A taskbar replacement and desktop customization for Windows and Linux.
 
-Think of it as a Windows taskbar replacement that gives your games more frames.
 A spring-animated **dynamic-island notch** and a dock replace the Windows 10 and
-Windows 11 taskbar, so your desktop gets a modern, macOS-style look while staying
-fast and native. When a game goes fullscreen they step aside at the OS level and
-boost the game instead of competing with it.
+Windows 11 taskbar: solid, frosted or liquid glass, or a Material You palette;
+snow, ivy, autumn leaves or blossom on every edge; Claude, ChatGPT and Gemini
+inside the notch. When a game goes fullscreen, all of it steps aside at the OS
+level and boosts the game instead of competing with it.
 
 <br />
 
@@ -21,29 +21,107 @@ boost the game instead of competing with it.
 
 [![License](https://img.shields.io/badge/License-GPL--3.0-3DA639?style=for-the-badge&logo=gnu&logoColor=white)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20%C2%B7%20Linux-FCC624?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/fruyorsan/Kiro/releases/latest)
+[![Sponsor](https://img.shields.io/badge/Sponsor-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/fruyorsan)
 
-[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [FPS Boost](#fps-boost) &nbsp;·&nbsp; [Screenshots](#screenshots) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Support](#support) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
+[**Download**](https://github.com/fruyorsan/Kiro/releases/latest) &nbsp;·&nbsp; [Features](#features) &nbsp;·&nbsp; [Themes](#themes-and-seasons) &nbsp;·&nbsp; [AI](#ai-in-the-notch) &nbsp;·&nbsp; [FPS Boost](#fps-boost) &nbsp;·&nbsp; [Screenshots](#screenshots) &nbsp;·&nbsp; [Install](#install) &nbsp;·&nbsp; [Settings](SETTINGS.md) &nbsp;·&nbsp; [Support](#support) &nbsp;·&nbsp; [Report a bug](https://github.com/fruyorsan/Kiro/issues/new/choose)
+
+<br />
+
+<sub><b>Free and open source</b> under GPLv3 · <b>no telemetry, no account, no analytics</b> · every feature ships to everyone, sponsored or not</sub>
 
 </div>
 
-<img src="docs/screenshots/season-winter.webp" alt="Kiro's notch, dock and Control Center with the winter theme over a fullscreen game" />
+<img src="docs/screenshots/season-winter.webp" alt="Kiro's notch, dock and Control Center with the Snow &amp; Ice seasonal effect over a fullscreen game" />
 
-<div align="center"><sub>Winter on the notch rim and the dock edge — one of four seasons, each with its own rim decoration and falling particles. Go fullscreen and it all steps aside at the OS level, so the game keeps its direct-to-screen flip.</sub></div>
+<div align="center"><sub>Snow &amp; Ice on the notch rim and the dock edge — one of four seasonal effects, each with its own rim decoration and falling particles. Go fullscreen and it all steps aside at the OS level, so the game keeps its direct-to-screen flip.</sub></div>
 
 ## Why Kiro
 
 Windows gives you a taskbar and a notification area. Kiro gives you a desktop
 that reacts: a notch that holds music, system controls, your calendar, notes and
-a shelf; a dock that mirrors the apps you actually use; and a performance layer
-that gets out of the way the moment a game goes fullscreen.
+a shelf; a dock that mirrors the apps you actually use; themes that change with
+the season; an AI assistant one click away; and a performance layer that gets
+out of the way the moment a game goes fullscreen.
 
 - **One place for the small stuff.** Music, Wi-Fi, Bluetooth, volume, brightness,
   battery, weather, calendar and timers live in the notch.
 - **A dock that behaves like a dock.** Real icons, real window previews, pinned
   apps, running apps and notification dots, without the taskbar.
+- **Dressed for the season.** Four seasonal effects curl around the notch and dock
+  edges, four surface styles go from solid to liquid glass, and the accent, presets,
+  opacity and mascot are yours.
+- **AI without a browser tab.** Claude, ChatGPT and Gemini answer inside the notch,
+  screenshots included, and a long answer can be stopped mid-sentence.
 - **Frames when they matter.** Kiro stops its own work, hides its windows and
   boosts the game while you play, then puts everything back.
-- **Yours.** Your logo, your accent colour, your layout, your monitor.
+
+## Features
+
+| What you get | How it works |
+| --- | --- |
+| **A notch that does things** | Music, a Control Center you arrange yourself, status, a calendar and a file shelf in one spring-animated island. |
+| **A dock that replaces your taskbar** | Mirrors your real taskbar, same pinned apps and order, with real icons and names, and a dot on apps that want your attention. |
+| **Themes and seasons** | Solid, Frosted Glass, Liquid Glass or Material You; Snow &amp; Ice, Rain Ivy, Autumn or Blossom on every edge; nine colour presets, your own accent and your own mascot picture. |
+| **Ask AI from the notch** | Ask Claude, ChatGPT or Gemini a question, with up to four screenshots attached. The panel shows elapsed time and can be stopped at any moment. |
+| **A calendar that knows your day** | Day, week, month and agenda views, plus real events from Google, iCloud, Outlook, Proton, Nextcloud or any ICS/CalDAV feed. |
+| **Native where it counts** | The tray opens the real Windows flyout, and Quit ends an app like Task Manager's End task. |
+| **Out of your way** | Fixed, Smart or Peek modes, and both stay hidden over fullscreen games. |
+| **Made for your setup** | Every monitor, one monitor, or a specific one. English and Turkish. Every option lives in a plain `settings.json`. |
+| **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. Seasonal particles are compositor-only and stop in games. Memory Saver hands unused RAM back to Windows. |
+| **Notes with pictures** | A small notebook in the dock: name a note, give it a colour, attach up to six pictures and export it as text. Pictures are downscaled so the notebook stays light. |
+| **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, stops trimming memory, and hides its always-on-top windows at the OS level so the game keeps direct-to-screen flip. Everything returns on exit. |
+
+<div align="center"><sub>Kiro is free and has no paid tier. If it earns a place on your desktop, <a href="#support">sponsoring</a> or a star keeps the weekly releases coming.</sub></div>
+
+## Themes and seasons
+
+Kiro ships four surfaces and four seasonal effects that work together. Everything
+lives in **Settings › Appearance**, behind a live preview of the notch and dock.
+
+<img src="docs/screenshots/season-blossom.webp" width="360" alt="The notch with the Blossom seasonal effect" />
+
+**Surfaces.** Solid, Frosted Glass, Liquid Glass and Material You. The two glass
+styles can show a blurred copy of your wallpaper — and of the window behind the
+notch — inside the glass. Material You builds a whole palette from a single
+accent colour.
+
+**Colour.** Auto (match Windows), dark, light, custom or adaptive accent, nine
+one-click presets (Graphite, Midnight, Ocean, Forest, Plum, Rose, Ember, Latte,
+Mist), Windows accent, monochrome or your own colour, plus opacity, saturation
+and brightness sliders. Screen corners and a UI &amp; font scale round it out.
+
+**Seasons.** **Snow &amp; Ice** frosts the rim and hangs icicles you can break —
+they shatter into shards and slowly grow back. **Rain Ivy** grows stems,
+dew and wet leaves. **Autumn** hangs leaves and berries. **Blossom** adds petals
+and closed buds. **Automatic** follows the calendar month, or pin one effect, or
+turn the layer off. The effect is about twenty composited spans per window — no
+canvas, no timers, no per-frame React work — so it costs no measurable memory, and
+it stops during Automatic Performance Mode or when Windows' reduced-motion
+setting is on.
+
+**Your mark.** Drop in your own picture for the Kiro mascot; it is cropped to a
+square and scaled down automatically, then appears on the notch, the dock, the
+splash and Settings at once.
+
+## AI in the notch
+
+Open Control Center from the notch, press the AI button, and ask. Kiro supports
+Claude, ChatGPT and Gemini, keeps the last working model warm, shows how long a
+request has been running, and lets you stop it at any time. Attach up to four
+screenshots or images with the paperclip, or paste one straight into the panel.
+
+Claude is the one that can need no key at all: if you already have the Claude Code
+CLI installed and logged in, Kiro asks it directly. Add an API key and it uses the
+API instead. If the CLI is missing or logged out, the request falls through to
+another provider whose key you have saved, so the panel does not just sit there
+thinking.
+
+<img src="docs/screenshots/ai.webp" width="560" alt="Asking an AI model from the notch" />
+
+Provider keys stay in your local settings and are only sent to the provider you
+chose. The model is yours to pick, and Kiro remembers the one that worked last —
+Google retires model ids every few months, so Kiro follows the new one instead of
+failing.
 
 ## FPS Boost
 
@@ -73,18 +151,6 @@ instead of promising frames it cannot deliver.
 
 Read the full design in [docs/fps-boost.md](docs/fps-boost.md).
 
-## AI in the notch
-
-Open Control Center from the notch, press the AI button, and ask. Kiro supports
-Claude, ChatGPT and Gemini, keeps the last working model warm, shows how long a
-request has been running, and lets you stop it at any time. Attach a screenshot
-or an image with the paperclip; the image is sent with the question.
-
-<img src="docs/screenshots/ai.webp" width="560" alt="Asking an AI model from the notch" />
-
-Provider keys stay in your local settings and are only sent to the provider you
-chose.
-
 ## Screenshots
 
 <div align="center">
@@ -96,13 +162,6 @@ chose.
 <br />
 <br />
 
-<img src="docs/screenshots/notes.webp" width="560" alt="Notes" />
-<br />
-<sub><b>Notes</b> — a small notebook with colours, pictures and export.</sub>
-
-<br />
-<br />
-
 <img src="docs/screenshots/music.webp" width="560" alt="Music" />
 <br />
 <sub><b>Music</b> — album art, playback controls and a live visualizer.</sub>
@@ -110,9 +169,16 @@ chose.
 <br />
 <br />
 
-<img src="docs/screenshots/game.webp" width="560" alt="Kiro with the autumn theme over a fullscreen game" />
+<img src="docs/screenshots/notes.webp" width="560" alt="Notes" />
 <br />
-<sub><b>Autumn</b> — vines, leaves and a media card, over the game.</sub>
+<sub><b>Notes</b> — a small notebook with colours, pictures and export.</sub>
+
+<br />
+<br />
+
+<img src="docs/screenshots/game.webp" width="560" alt="Kiro with the Autumn seasonal effect over a fullscreen game" />
+<br />
+<sub><b>Autumn</b> — leaves, berries and a media card, over the game.</sub>
 
 <br />
 <br />
@@ -124,26 +190,11 @@ chose.
 <br />
 <br />
 
-<img src="docs/screenshots/season-blossom.webp" width="280" alt="The notch with the blossom theme" />
+<img src="docs/screenshots/season-blossom.webp" width="280" alt="The notch with the Blossom seasonal effect" />
 <br />
 <sub><b>Blossom</b> — petals drifting over the notch.</sub>
 
 </div>
-
-## Features
-
-| What you get | How it works |
-| --- | --- |
-| **A notch that does things** | Music, a Control Center you arrange yourself, status, a calendar and a file shelf in one spring-animated island. |
-| **A dock that replaces your taskbar** | Mirrors your real taskbar, same pinned apps and order, with real icons and names, and a dot on apps that want your attention. |
-| **Native where it counts** | The tray opens the real Windows flyout, and Quit ends an app like Task Manager's End task. |
-| **Out of your way** | Fixed, Smart or Peek modes, and both stay hidden over fullscreen games. |
-| **Made for your setup** | Every monitor, one monitor, or a specific one. Solid, glass or Material You styles with your own accent colour. English and Turkish. Every option lives in a plain `settings.json`. |
-| **Light on the system** | Audio capture, cursor tracking and thumbnail work pause themselves when nothing needs them. Memory Saver hands unused RAM back to Windows. |
-| **Ask AI from the notch** | Ask Claude, ChatGPT or Gemini a question, with screenshots attached. The panel shows elapsed time and can be stopped at any moment. |
-| **Make it yours** | Pick your own picture for the Kiro mascot; it is cropped and scaled automatically and appears on the notch, dock, splash and settings at once. |
-| **Notes with pictures** | A small notebook in the dock: name a note, give it a colour, attach up to six pictures and export it as text. Pictures are downscaled so the notebook stays light. |
-| **Automatic Performance Mode** | When a fullscreen game or app is in front, Kiro stops capturing previews/icons, slows background polling, disables blur and animation work, stops trimming memory, and hides its always-on-top windows at the OS level so the game keeps direct-to-screen flip. Everything returns on exit. |
 
 ## Install
 
@@ -199,9 +250,9 @@ at all, [build it from source](#build-from-source) — it takes two commands.
 | Panel | What it does |
 | --- | --- |
 | **Music** | Album art, track info, playback controls, a visualizer, and a switch between several playing apps. |
-| **Control Center** | Wi-Fi, Bluetooth, Do Not Disturb, volume and brightness. Drag tiles, buttons and sliders into your own layout. |
+| **Control Center** | Wi-Fi, Bluetooth, Do Not Disturb, volume and brightness. Drag tiles, buttons and sliders into your own layout, and open AI from here. |
 | **Status** | Battery (hidden on desktops without one) and weather, in a layout you choose. |
-| **Calendar** | Day, week, month and agenda views, a timer, a stopwatch and Pomodoro. |
+| **Calendar** | Day, week, month and agenda views, a timer, a stopwatch and Pomodoro, with synced events from Google, iCloud, Outlook, Proton, Nextcloud and any ICS or CalDAV feed. |
 | **Shelf** | Drop files, text or a picture from your browser and drag them out later. |
 
 **Visibility modes.** The notch and the dock each have their own.
@@ -253,6 +304,15 @@ Every window runs in its own WebView2 process, so each monitor adds a notch and 
 <br />
 
 External monitors are controlled over DDC/CI. Turn DDC/CI on in the monitor's own menu, and connect it directly if you use a dock or adapter, since some do not pass it on.
+
+</details>
+
+<details>
+<summary><b>A seasonal effect is distracting</b></summary>
+
+<br />
+
+Set **Settings › Appearance › Seasonal effect** to **Off**, or pick a single effect instead of Automatic. The layer only animates transforms and opacity, respects Windows' reduced-motion setting, and hides itself while Automatic Performance Mode is on.
 
 </details>
 
