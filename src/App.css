@@ -682,6 +682,8 @@ img {
 .calendar-column {
     flex: 1.2;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
     /* The month grid plus the selected-day agenda is taller than the old
        310/350 px panel, which clipped the last week of the month. The panel is
        taller now; this is the fallback if a locale or font still needs more. */
@@ -700,113 +702,150 @@ img {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    gap: 5px;
     border-left: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.1));
     padding-left: 16px;
 }
 
+/* Wall clock on top of the timer column: the notch hides seconds until the
+   user asks for them, so the panel is where the exact time lives. */
+.clock-now {
+    align-self: flex-end;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0.45;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 .calendar-container {
     width: 100%;
-}
-
-.calendar-header {
-    margin-bottom: 8px;
-}
-
-.month-year {
-    font-size: 13px;
-    font-weight: 600;
-    opacity: 0.9;
-}
-
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
-}
-
-.day-name {
-    font-size: 9px;
-    font-weight: 600;
-    opacity: 0.4;
-    text-align: center;
-    padding-bottom: 2px;
-}
-
-.calendar-day {
-    aspect-ratio: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    border-radius: 4px;
-    transition: background 0.2s ease;
+    flex-direction: column;
+    gap: 6px;
+    outline: none;
+    border-radius: 10px;
 }
 
-.calendar-day.today {
-    background: var(--kiro-highlight, var(--kiro-text, white));
-    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
-    font-weight: 600;
+.calendar-container:focus-visible {
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--kiro-text, white) 28%, transparent);
 }
 
-.calendar-container.with-agenda .calendar-header {
+/* Header: month/year on the left, quiet icon controls on the right. */
+.cal-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 4px;
+    gap: 6px;
+    min-height: 22px;
 }
 
-.cal-nav-group {
+.cal-title {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    padding: 2px 6px 2px 2px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--kiro-text, white);
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.cal-title:hover,
+.cal-title.open {
+    background: color-mix(in srgb, var(--kiro-text, white) 10%, transparent);
+}
+
+.cal-title-month {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cal-title-year {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--kiro-text-muted, color-mix(in srgb, var(--kiro-text, white) 60%, transparent));
+    font-variant-numeric: tabular-nums;
+}
+
+.cal-actions {
+    flex: none;
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 1px;
 }
 
 .cal-nav,
-.cal-open,
-.cal-today {
+.cal-open {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    width: 20px;
+    height: 20px;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
+    background: transparent;
     color: var(--kiro-text, white);
     cursor: pointer;
+    opacity: 0.55;
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.cal-foot .cal-open {
+    flex: none;
+    width: 17px;
+    height: 17px;
+    opacity: 0.4;
+}
+
+.cal-foot .cal-open:hover {
+    opacity: 1;
 }
 
 .cal-nav {
-    width: 20px;
-    height: 20px;
     font-size: 15px;
     line-height: 1;
-    opacity: 0.6;
-}
-
-.cal-open {
-    width: 20px;
-    height: 20px;
-    margin-right: 2px;
-    opacity: 0.6;
-}
-
-.cal-open:hover {
-    opacity: 1;
-    background: color-mix(in srgb, var(--kiro-text, white) 22%, transparent);
-}
-
-.cal-today {
-    height: 20px;
-    padding: 0 6px;
-    margin-right: 2px;
-    font-size: 10px;
-    font-weight: 600;
-    background: color-mix(in srgb, var(--kiro-text, white) 14%, transparent);
 }
 
 .cal-nav:hover,
-.cal-today:hover {
+.cal-open:hover {
     opacity: 1;
-    background: color-mix(in srgb, var(--kiro-text, white) 22%, transparent);
+    background: color-mix(in srgb, var(--kiro-text, white) 16%, transparent);
+}
+
+/* A dot instead of a label: jumping to today should not cost a word of width. */
+.cal-today-dot {
+    width: 18px;
+    height: 18px;
+    margin-right: 2px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+}
+
+.cal-today-dot::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: var(--kiro-highlight, var(--kiro-text, white));
+}
+
+.cal-today-dot:hover {
+    background: color-mix(in srgb, var(--kiro-text, white) 16%, transparent);
 }
 
 .cal-views {
@@ -843,65 +882,338 @@ img {
     color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
 }
 
-.calendar-container.with-agenda .calendar-day {
-    aspect-ratio: auto;
-    height: 24px;
+.cal-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.cal-dow,
+.cal-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    align-items: center;
+    gap: 1px;
+}
+
+/* ISO weeks only line up with rows that start on Monday, so Sunday-first
+   locales get the space back instead of a meaningless column. */
+.cal-grid.monday-first .cal-dow,
+.cal-grid.monday-first .cal-week {
+    grid-template-columns: 16px repeat(7, minmax(0, 1fr));
+}
+
+.cal-grid:not(.monday-first) .cal-weekno,
+.cal-grid:not(.monday-first) .cal-weekno-head {
+    display: none;
+}
+
+.cal-days {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+/* With no agenda below, the grid keeps compact rows; the panel is sized to
+   them instead of stretching a handful of numbers over a tall box. */
+.calendar-container:not(.with-agenda) {
+    height: 100%;
+}
+
+.cal-dow {
+    margin-bottom: 1px;
+}
+
+.cal-dow > span {
+    text-align: center;
+    font-size: 9px;
+    font-weight: 600;
+    opacity: 0.4;
+    padding-bottom: 2px;
+    white-space: nowrap;
+}
+
+.cal-weekno-head {
+    opacity: 0;
+}
+
+.cal-weekno {
+    text-align: center;
+    font-size: 8px;
+    font-weight: 600;
+    opacity: 0.28;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+}
+
+.cal-day {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    height: 26px;
+    padding: 0;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--kiro-text, white);
+    font: inherit;
+    font-size: 10.5px;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background 0.14s ease, color 0.14s ease;
+}
+
+.cal-day:hover {
+    background: color-mix(in srgb, var(--kiro-text, white) 10%, transparent);
+}
+
+/* The pill lives on the number, so a stretched cell (an empty calendar fills
+   the panel) does not turn today into a full-height block. */
+.cal-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 19px;
+    height: 19px;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+}
+
+.cal-day.today .event-dot {
+    /* The dot keeps its calendar colour on a normal day; on the filled today
+       cell that colour would vanish into the fill, so it turns into the
+       contrasting ink of that cell. */
+    background: currentColor !important;
+    box-shadow: none;
+    opacity: 0.85;
+}
+
+.cal-day.outside {
+    opacity: 0.3;
+}
+
+.cal-day.weekend .cal-num {
+    opacity: 0.72;
+}
+
+.cal-day.holiday .cal-num {
+    color: #ff8a80;
+    font-weight: 700;
+}
+
+.cal-day.today .cal-num {
+    background: var(--kiro-highlight, var(--kiro-text, white));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
+    font-weight: 700;
+    box-shadow: 0 2px 10px -3px color-mix(in srgb, var(--kiro-highlight, var(--kiro-text, white)) 70%, transparent);
+}
+
+.cal-day.today {
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
+}
+
+.cal-day.today.holiday .cal-num {
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
+}
+
+.cal-day.selected:not(.today) .cal-num {
+    background: color-mix(in srgb, var(--kiro-text, white) 20%, transparent);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--kiro-text, white) 65%, transparent);
+    font-weight: 700;
+}
+
+.cal-day.selected.today .cal-num {
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--kiro-text, white) 85%, transparent),
+        0 2px 10px -3px color-mix(in srgb, var(--kiro-highlight, var(--kiro-text, white)) 70%, transparent);
+}
+
+/* Footer: what the selected day actually is, plus week/day-of-year. */
+.cal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 5px;
+    border-top: 1px solid color-mix(in srgb, var(--kiro-text, white) 10%, transparent);
+    min-height: 14px;
+}
+
+.cal-foot-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 9.5px;
+    opacity: 0.5;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cal-foot-main {
+    min-width: 0;
+    font-size: 10.5px;
+    font-weight: 600;
+    opacity: 0.95;
+    color: var(--kiro-text, white);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cal-foot-holiday {
+    flex: none;
+    color: #ff8a80;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cal-dot-sep {
+    width: 2.5px;
+    height: 2.5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.6;
+}
+
+.cal-connect {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--kiro-text, white) 8%, transparent);
+    color: var(--kiro-text, white);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.cal-connect:hover {
+    background: color-mix(in srgb, var(--kiro-text, white) 15%, transparent);
+}
+
+.cal-connect > svg {
+    flex: none;
+    opacity: 0.7;
+}
+
+.cal-connect-hint {
+    margin-left: auto;
+    min-width: 0;
+    font-weight: 500;
+    opacity: 0.42;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Month/year picker replaces the grid, so the panel keeps its size. */
+.cal-picker {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 2px 0 4px;
+}
+
+.cal-picker-months {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.cal-picker-months button {
+    height: 30px;
+    border: none;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--kiro-text, white) 7%, transparent);
+    color: var(--kiro-text, white);
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.14s ease;
+}
+
+.cal-picker-months button:hover {
+    background: color-mix(in srgb, var(--kiro-text, white) 16%, transparent);
+}
+
+.cal-picker-months button.active {
+    background: var(--kiro-highlight, var(--kiro-text, white));
+    color: var(--kiro-on-highlight, var(--kiro-bg-expanded, black));
+}
+
+.cal-picker-year {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.cal-picker-year button {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--kiro-text, white);
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0.6;
     cursor: pointer;
 }
 
-.calendar-container.with-agenda .calendar-day.empty {
-    cursor: default;
+.cal-picker-year button:hover {
+    opacity: 1;
+    background: color-mix(in srgb, var(--kiro-text, white) 16%, transparent);
 }
 
-.calendar-day.has-events {
-    font-weight: 700;
-    padding-bottom: 5px;
-    box-sizing: border-box;
+/* With a calendar connected the day list needs the room, so the grid tightens. */
+.calendar-container.with-agenda .cal-day {
+    height: 24px;
+    font-size: 10px;
 }
 
-.calendar-day.has-events:not(.today) {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kiro-text, white) 16%, transparent);
+.calendar-container.with-agenda .cal-num {
+    width: 18px;
+    height: 18px;
 }
 
-.calendar-day.lvl-1:not(.today) {
-    background: color-mix(in srgb, var(--kiro-text, white) 12%, transparent);
-}
-
-.calendar-day.lvl-2:not(.today) {
-    background: color-mix(in srgb, var(--kiro-text, white) 22%, transparent);
-}
-
-.calendar-day.lvl-3:not(.today) {
-    background: color-mix(in srgb, var(--kiro-text, white) 32%, transparent);
-}
-
-.calendar-day.selected:not(.today) {
-    background: color-mix(in srgb, var(--kiro-text, white) 36%, transparent);
-    box-shadow: 0 0 0 2px var(--kiro-text, white);
-    font-weight: 700;
-}
-
-.calendar-day.selected.today {
-    box-shadow: 0 0 0 2px var(--kiro-bg-expanded, black), 0 0 0 3.5px var(--kiro-highlight, var(--kiro-text, white));
+.calendar-container.with-agenda .cal-dow > span {
+    font-size: 8px;
 }
 
 .event-dots {
-    position: absolute;
-    bottom: 2px;
-    left: 0;
-    right: 0;
     display: flex;
     justify-content: center;
     gap: 2px;
+    height: 5px;
     pointer-events: none;
 }
 
 .event-dot {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+    opacity: 0.95;
 }
 
 .calendar-agenda {
@@ -2372,6 +2684,23 @@ img {
 .tour-btn { height: 26px; border: 0; border-radius: 8px; padding: 0 14px; font-size: 12px; font-weight: 600; cursor: pointer; background: var(--kiro-text, rgba(255, 255, 255, 0.92)); color: var(--kiro-bg-expanded, #000); }
 .tour-btn.ghost { background: var(--kiro-group-bg, rgba(255, 255, 255, 0.1)); color: inherit; font-weight: 500; }
 .tour-btn:hover { filter: brightness(0.9); }
+
+/* "What's new" after an update: a short card, one screen, closable for good. */
+.whatsnew-content { position: absolute; top: 36px; left: 0; width: 100%; height: calc(100% - 36px); box-sizing: border-box; z-index: 2; padding: 6px 16px 12px; display: flex; flex-direction: column; gap: 7px; color: var(--kiro-text, rgba(255, 255, 255, 0.9)); pointer-events: auto; }
+.whatsnew-head { display: flex; align-items: center; gap: 9px; }
+.whatsnew-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9px; flex-shrink: 0; background: color-mix(in srgb, var(--kiro-accent, #007aff) 26%, transparent); color: var(--kiro-accent, #0a84ff); }
+.whatsnew-heading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.whatsnew-title { font-size: 12.5px; font-weight: 650; letter-spacing: 0.1px; }
+.whatsnew-sub { font-size: 10.5px; opacity: 0.55; }
+.whatsnew-close { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 7px; background: var(--kiro-group-bg, rgba(255, 255, 255, 0.1)); color: inherit; opacity: 0.75; cursor: pointer; flex-shrink: 0; }
+.whatsnew-close:hover { opacity: 1; }
+.whatsnew-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.whatsnew-list li { display: flex; align-items: flex-start; gap: 8px; font-size: 11.5px; line-height: 1.35; opacity: 0.88; white-space: normal; }
+.whatsnew-dot { display: flex; align-items: center; justify-content: center; width: 20px; height: 18px; flex-shrink: 0; opacity: 0.72; }
+.whatsnew-foot { display: flex; align-items: center; gap: 8px; }
+.whatsnew-hint { flex: 1; font-size: 10px; opacity: 0.45; white-space: normal; line-height: 1.25; }
+.whatsnew-btn { height: 25px; border: 0; border-radius: 8px; padding: 0 13px; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; background: var(--kiro-text, rgba(255, 255, 255, 0.92)); color: var(--kiro-bg-expanded, #000); flex-shrink: 0; }
+.whatsnew-btn:hover { filter: brightness(0.9); }
 .cc-classic-slider-label.clickable { cursor: pointer; border-radius: 6px; }
 .cc-classic-slider-label.clickable:hover { background: rgba(255, 255, 255, 0.08); }
 .cc-label-more { opacity: 0.55; margin-left: 2px; font-size: 12px; line-height: 1; }
@@ -3654,3 +3983,24 @@ img {
 }
 
 html.perf-lite .focus-moon-halo { animation: none; opacity: 0.75; }
+
+/* Low effects (Settings > General)
+   The reveal resizes the panel on every frame. Sampling the wallpaper backdrop,
+   compositing the album glow and advancing the season simulation all happen
+   inside that box, and on a weak GPU one of them drops frames. The tint stays,
+   so the surface still reads the same; only the moving parts go. */
+html.kiro-low-fx .notch-ambient-glow,
+html.kiro-low-fx .season-layer {
+  display: none !important;
+}
+
+html.kiro-low-fx .kiro > .surface-fill {
+  background-image: none !important;
+  background-color: var(--surface-color, var(--notch-bg, rgba(0, 0, 0, 0.9))) !important;
+}
+
+/* The visualizer redraws 24 bars every frame; a still accent bar is cheaper and
+   reads the same while the panel is being resized. */
+html.kiro-low-fx .bar-horizontal {
+  transition: none !important;
+}

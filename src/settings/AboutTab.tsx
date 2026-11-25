@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
-import { Compass, Download, FlaskConical, RefreshCw, FileDown, Upload, RotateCcw, Trash2, ClipboardCopy, FolderOpen, Crosshair, Image as ImageIcon } from "lucide-react";
+import { Compass, Download, FlaskConical, RefreshCw, FileDown, Upload, RotateCcw, Trash2, ClipboardCopy, FolderOpen, Crosshair, Image as ImageIcon, Coffee, HeartHandshake } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { SettingRow } from "./SettingRow";
 import { useT } from "../i18n";
 import { useKiroLogo } from "../kiroLogo";
@@ -196,7 +197,7 @@ export function AboutTab({
           </span>
         </div>
         <h1 className="about-title">Kiro</h1>
-        <p className="about-version">{t("about.version", { version: appVersion || "â€”" })}</p>
+        <p className="about-version">{t("about.version", { version: appVersion || "—" })}</p>
         <button
           className={`update-pill update-pill--${updateStatus || "idle"}`}
           disabled={pillBusy}
@@ -204,6 +205,32 @@ export function AboutTab({
         >
           {getPillLabel()}
         </button>
+      </div>
+
+      <div className="about-support">
+        <span className="about-support-icon" aria-hidden>
+          <Coffee size={16} strokeWidth={2.1} />
+        </span>
+        <div className="about-support-text">
+          <p className="about-support-title">{t("about.support.title")}</p>
+          <p className="about-support-desc">{t("about.support.desc")}</p>
+        </div>
+        <div className="about-support-actions">
+          <button
+            className="about-support-btn about-support-btn--sponsor"
+            onClick={() => void openUrl("https://github.com/sponsors/fruyorsan").catch(() => {})}
+          >
+            <HeartHandshake size={13} aria-hidden />
+            {t("about.support.sponsorCta")}
+          </button>
+          <button
+            className="about-support-btn"
+            onClick={() => void openUrl("https://buymeacoffee.com/fruyorsan").catch(() => {})}
+          >
+            <Coffee size={13} aria-hidden />
+            {t("about.support.cta")}
+          </button>
+        </div>
       </div>
 
       <div className="setting-group-label">{t("about.updates.group")}</div>

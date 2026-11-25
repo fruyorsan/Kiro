@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { CaldavState, CalEvent } from "../hooks/useCaldav";
-import { dateLocale, useT, weekdayNames } from "../i18n";
+import { dateLocale, useT, weekHeader, weekStartsOn } from "../i18n";
+import { dayOfYear, daysInYear, holidayOn, isoWeek } from "../holidays";
+import { openSettingsAt } from "../settingsNav";
 
 type View = "day" | "week" | "month" | "agenda";
 
@@ -17,6 +19,7 @@ const AGENDA_DAYS = 14;
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, d.getDate());
 const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
@@ -61,6 +64,9 @@ export function NotchCalendar({ caldav, hour12 }: Props) {
   const today = startOfDay(new Date());
   const [view, setViewState] = useState<View>(readView);
   const [anchor, setAnchor] = useState<Date>(today);
+  const [picking, setPicking] = useState(false);
+  const [pickerYear, setPickerYear] = useState(today.getFullYear());
+  const lastWheel = useRef(0);
 
   const time = (ms: number) => new Date(ms).toLocaleTimeString(dateLocale(), { hour: "numeric", minute: "2-digit", hour12 });
 
@@ -91,7 +97,8 @@ export function NotchCalendar({ caldav, hour12 }: Props) {
 
   let title: string;
   if (activeView === "week") {
-    const first = addDays(anchor, -anchor.getDay());
+    const start = weekStartsOn();
+    const first = addDays(anchor, -((anchor.getDay() - start + 7) % 7));
     const last = addDays(first, 6);
     const fmt = (d: Date) => d.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
     title = `${fmt(first)} – ${first.getMonth() === last.getMonth() ? last.getDate() : fmt(last)}`;
@@ -104,24 +111,78 @@ export function NotchCalendar({ caldav, hour12 }: Props) {
   }
 
   const showToday = activeView !== "agenda" && !sameDay(anchor, today);
+  const lang = dateLocale();
+  const anchorHoliday = activeView === "month" || activeView === "day" ? holidayOn(anchor, lang) : null;
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const key = e.key;
+    const step = key === "ArrowLeft" ? -1 : key === "ArrowRight" ? 1 : 0;
+    if (step !== 0) {
+      e.preventDefault();
+      setAnchor((d) => addDays(d, step));
+      return;
+    }
+    if (key === "ArrowUp" || key === "ArrowDown") {
+      e.preventDefault();
+      setAnchor((d) => addDays(d, key === "ArrowUp" ? -7 : 7));
+      return;
+    }
+    if (key === "PageUp" || key === "PageDown") {
+      e.preventDefault();
+      setAnchor((d) => addMonths(d, key === "PageUp" ? -1 : 1));
+      return;
+    }
+    if (key === "Home" || key === "t" || key === "T") {
+      e.preventDefault();
+      setAnchor(today);
+    }
+  };
+
+  // The notch never scrolls, so the wheel is free to page the month without
+  // stealing the scroll from anything. Debounced: one gesture is one month.
+  const onWheel = (e: React.WheelEvent) => {
+    if (activeView !== "month" || picking || Math.abs(e.deltaY) < 4) return;
+    const now = Date.now();
+    if (now - lastWheel.current < 180) return;
+    lastWheel.current = now;
+    shift(e.deltaY > 0 ? 1 : -1);
+  };
 
   return (
-    <div className={`calendar-container${connected ? " with-agenda" : ""}`}>
-      <div className="calendar-header">
-        <span className="month-year">{title}</span>
-        <span className="cal-nav-group">
-          <button className="cal-open" onClick={() => invoke("open_calendar_window").catch(() => {})} title={t("calendar.openFull")} aria-label={t("calendar.openFull")}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 3h6v6" />
-              <path d="M10 14L21 3" />
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-            </svg>
-          </button>
-          {showToday && (
-            <button className="cal-today" onClick={() => setAnchor(today)}>
-              {t("calendar.today")}
-            </button>
-          )}
+    <div
+      className={`calendar-container${connected ? " with-agenda" : ""}`}
+      tabIndex={0}
+      role="group"
+      aria-label={t("calendar.title")}
+      onKeyDown={onKeyDown}
+      onWheel={onWheel}
+    >
+      <div className="cal-head">
+        <button
+          className={`cal-title${picking ? " open" : ""}`}
+          onClick={() => {
+            setPickerYear(anchor.getFullYear());
+            setPicking((p) => !p);
+          }}
+          aria-expanded={picking}
+          aria-label={t("calendar.pickMonth")}
+          title={t("calendar.pickMonth")}
+        >
+          <span className="cal-title-month">
+            {activeView === "month"
+              ? anchor.toLocaleDateString(dateLocale(), { month: "long" })
+              : title}
+          </span>
+          {activeView === "month" && <span className="cal-title-year">{anchor.getFullYear()}</span>}
+        </button>
+        <span className="cal-actions">
+          <button
+            className="cal-today-dot"
+            onClick={() => setAnchor(today)}
+            title={t("calendar.today")}
+            aria-label={t("calendar.today")}
+            style={{ display: showToday ? undefined : "none" }}
+          />
           {activeView !== "agenda" && (
             <>
               <button className="cal-nav" onClick={() => shift(-1)} aria-label={t("calendar.previous")}>
@@ -143,7 +204,10 @@ export function NotchCalendar({ caldav, hour12 }: Props) {
               role="tab"
               aria-selected={view === v.id}
               className={view === v.id ? "active" : ""}
-              onClick={() => setView(v.id)}
+              onClick={() => {
+                setPicking(false);
+                setView(v.id);
+              }}
             >
               {t(v.labelKey)}
             </button>
@@ -151,21 +215,76 @@ export function NotchCalendar({ caldav, hour12 }: Props) {
         </div>
       )}
 
-      {activeView === "month" && (
+      {picking ? (
+        <MonthPicker
+          year={pickerYear}
+          selected={anchor}
+          onYear={setPickerYear}
+          onPick={(month) => {
+            const next = new Date(pickerYear, month, 1);
+            setAnchor(next.getFullYear() === today.getFullYear() && next.getMonth() === today.getMonth() ? today : next);
+            setPicking(false);
+          }}
+        />
+      ) : (
         <>
-          <MonthGrid anchor={anchor} today={today} events={caldav.events} connected={connected} onPick={setAnchor} />
-          {connected && (
-            <SelectedDay day={anchor} events={caldav.events} time={time} onOpen={() => openDay(anchor)} />
+          {activeView === "month" && (
+            <>
+              <MonthGrid anchor={anchor} today={today} events={caldav.events} connected={connected} onPick={setAnchor} />
+              {connected ? (
+                <SelectedDay day={anchor} events={caldav.events} time={time} onOpen={() => openDay(anchor)} />
+              ) : (
+                <button className="cal-connect" onClick={() => void openSettingsAt("calendar-sync")}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="3" y="4" width="18" height="17" rx="3" />
+                    <path d="M8 2v4M16 2v4M3 10h18M12 14v4M10 16h4" />
+                  </svg>
+                  <span>{t("calendar.connect")}</span>
+                  <span className="cal-connect-hint">{t("calendar.connectHint")}</span>
+                </button>
+              )}
+            </>
+          )}
+          {connected && activeView === "week" && (
+            <WeekList anchor={anchor} today={today} events={caldav.events} time={time} onOpen={openDay} />
+          )}
+          {connected && activeView === "day" && <DayList day={anchor} events={caldav.events} time={time} />}
+          {connected && activeView === "agenda" && (
+            <AgendaList today={today} events={caldav.events} time={time} onOpen={openDay} />
           )}
         </>
       )}
-      {connected && activeView === "week" && (
-        <WeekList anchor={anchor} today={today} events={caldav.events} time={time} onOpen={openDay} />
-      )}
-      {connected && activeView === "day" && <DayList day={anchor} events={caldav.events} time={time} />}
-      {connected && activeView === "agenda" && (
-        <AgendaList today={today} events={caldav.events} time={time} onOpen={openDay} />
-      )}
+
+      <div className="cal-foot">
+        <span className="cal-foot-text">
+          {anchorHoliday ? (
+            <>
+              <span className="cal-foot-main">
+                {anchor.toLocaleDateString(dateLocale(), { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </span>
+              <span className="cal-foot-holiday">{anchorHoliday}</span>
+            </>
+          ) : (
+            <>
+              {t("calendar.week", { week: isoWeek(anchor) })}
+              <span className="cal-dot-sep" />
+              {t("calendar.dayOfYear", { day: dayOfYear(anchor), total: daysInYear(anchor.getFullYear()) })}
+            </>
+          )}
+        </span>
+        <button
+          className="cal-open"
+          onClick={() => invoke("open_calendar_window").catch(() => {})}
+          title={t("calendar.openFull")}
+          aria-label={t("calendar.openFull")}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 3h6v6" />
+            <path d="M10 14L21 3" />
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
@@ -178,51 +297,119 @@ interface MonthProps {
   onPick: (day: Date) => void;
 }
 
+const WEEKDAYS_PER_MONTH = 42;
+
 function MonthGrid({ anchor, today, events, connected, onPick }: MonthProps) {
+  const lang = dateLocale();
   const year = anchor.getFullYear();
   const month = anchor.getMonth();
-  const totalDays = new Date(year, month + 1, 0).getDate();
-  const startDay = new Date(year, month, 1).getDay();
+  const offset = (new Date(year, month, 1).getDay() - weekStartsOn() + 7) % 7;
+  const gridStart = addDays(new Date(year, month, 1), -offset);
+  const days = useMemo(
+    () => Array.from({ length: WEEKDAYS_PER_MONTH }, (_, i) => addDays(gridStart, i)),
+    // gridStart is fully described by year/month/offset.
+    [year, month, offset]
+  );
 
-  const byDay = useMemo(() => {
-    if (!connected) return [];
-    return Array.from({ length: totalDays }, (_, i) => eventsOn(events, new Date(year, month, i + 1)));
-  }, [connected, events, year, month, totalDays]);
-
-  const cells = [];
-  for (let i = 0; i < startDay; i++) {
-    cells.push(<div key={`empty-${i}`} className="calendar-day empty" />);
-  }
-  for (let i = 1; i <= totalDays; i++) {
-    const day = new Date(year, month, i);
-    const list = byDay[i - 1] ?? [];
-    const classes = ["calendar-day"];
-    if (sameDay(day, today)) classes.push("today");
-    if (list.length) classes.push("has-events", list.length >= 4 ? "lvl-3" : list.length >= 2 ? "lvl-2" : "lvl-1");
-    if (sameDay(day, anchor)) classes.push("selected");
-    const colors = Array.from(new Set(list.map((e) => e.color ?? "currentColor"))).slice(0, 3);
-    cells.push(
-      <div key={i} className={classes.join(" ")} onClick={() => onPick(day)}>
-        {i}
-        {colors.length > 0 && (
-          <span className="event-dots">
-            {colors.map((c) => (
-              <span key={c} className="event-dot" style={{ background: c }} />
-            ))}
-          </span>
-        )}
-      </div>
-    );
-  }
+  const byDay = useMemo(
+    () => days.map((day) => (connected ? eventsOn(events, day) : [])),
+    [days, events, connected]
+  );
 
   return (
-    <div className="calendar-grid">
-      {weekdayNames("narrow").map((d, i) => (
-        <div key={`${d}-${i}`} className="day-name">
-          {d}
-        </div>
-      ))}
-      {cells}
+    <div className={`cal-grid${weekStartsOn() === 1 ? " monday-first" : ""}`}>
+      <div className="cal-dow">
+        <span className="cal-weekno-head" aria-hidden />
+        {weekHeader("short").map((d, i) => (
+          <span key={`${d}-${i}`}>{d}</span>
+        ))}
+      </div>
+      <div className="cal-days">
+        {Array.from({ length: WEEKDAYS_PER_MONTH / 7 }, (_, row) => (
+          <div key={`week-${row}`} className="cal-week">
+            <span className="cal-weekno" aria-hidden>
+              {isoWeek(days[row * 7])}
+            </span>
+            {days.slice(row * 7, row * 7 + 7).map((day, col) => {
+              const index = row * 7 + col;
+              const list = byDay[index] ?? [];
+              const outside = day.getMonth() !== month;
+              const weekend = day.getDay() === 0 || day.getDay() === 6;
+              const holiday = holidayOn(day, lang);
+              const classes = ["cal-day"];
+              if (outside) classes.push("outside");
+              if (weekend) classes.push("weekend");
+              if (holiday && !outside) classes.push("holiday");
+              if (sameDay(day, today)) classes.push("today");
+              if (sameDay(day, anchor)) classes.push("selected");
+              const colors = Array.from(new Set(list.map((e) => e.color ?? "currentColor"))).slice(0, 3);
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  className={classes.join(" ")}
+                  onClick={() => onPick(day)}
+                  title={holiday ?? undefined}
+                  aria-current={sameDay(day, today) ? "date" : undefined}
+                >
+                  <span className="cal-num">{day.getDate()}</span>
+                  {colors.length > 0 && !outside && (
+                    <span className="event-dots">
+                      {colors.map((c) => (
+                        <span key={c} className="event-dot" style={{ background: c }} />
+                      ))}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MonthPicker({
+  year,
+  selected,
+  onYear,
+  onPick,
+}: {
+  year: number;
+  selected: Date;
+  onYear: (year: number) => void;
+  onPick: (month: number) => void;
+}) {
+  const t = useT();
+  const months = Array.from({ length: 12 }, (_, i) =>
+    new Date(year, i, 1).toLocaleDateString(dateLocale(), { month: "short" })
+  );
+  return (
+    <div className="cal-picker">
+      <div className="cal-picker-months" role="listbox" aria-label={t("calendar.pickMonth")}>
+        {months.map((label, i) => (
+          <button
+            key={label + i}
+            type="button"
+            role="option"
+            aria-selected={selected.getFullYear() === year && selected.getMonth() === i}
+            className={selected.getFullYear() === year && selected.getMonth() === i ? "active" : ""}
+            onClick={() => onPick(i)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="cal-picker-year">
+        <button type="button" onClick={() => onYear(year - 1)} aria-label={t("calendar.previous")}>
+          &#8249;
+        </button>
+        <span>{year}</span>
+        <button type="button" onClick={() => onYear(year + 1)} aria-label={t("calendar.next")}>
+          &#8250;
+        </button>
+      </div>
     </div>
   );
 }
@@ -272,7 +459,7 @@ function Chip({ event, time }: TimeProps & { event: CalEvent }) {
 
 function WeekList({ anchor, today, events, time, onOpen }: TimeProps & { anchor: Date; today: Date; events: CalEvent[]; onOpen: (d: Date) => void }) {
   const t = useT();
-  const first = addDays(anchor, -anchor.getDay());
+  const first = addDays(anchor, -((anchor.getDay() - weekStartsOn() + 7) % 7));
   return (
     <div className="cal-scroll">
       {Array.from({ length: 7 }, (_, i) => {

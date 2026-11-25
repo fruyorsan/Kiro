@@ -1079,6 +1079,19 @@ const Dock = memo(function Dock() {
     
     const matchedRunningKeys = new Set<string>();
 
+    // A packaged (MSIX) app's running entry carries its AUMID as the path
+    // ("Claude_pzs8sxrjxfjjc!Claude") while a pin stores the exe path, so the
+    // exe-name fallbacks below have to be allowed to see those entries. Only
+    // accept them when the package family itself names the exe: browser PWAs also
+    // run under opaque ids and must keep matching exactly.
+    const packagedExeMatch = (run: AppInfo, exe: string) => {
+      if (!isIdentifier(run.path) || !run.path.includes("!")) return false;
+      const family = run.path.toLowerCase().split("!")[0];
+      const stem = exe.replace(/\.exe$/, "").toLowerCase();
+      if (stem.length < 3) return false;
+      return family.includes(stem) && run.executable?.toLowerCase() === exe;
+    };
+
     const findRunningApp = (p: AppInfo) => {
       // 1. Try exact match by identity
       const id = appIdentity(p.path, p.executable, p.name);
@@ -1099,7 +1112,11 @@ const Dock = memo(function Dock() {
       // 3. Try fallback match by executable name if defined
       if (p.executable) {
         const targetExe = p.executable.toLowerCase();
-        const found = activeApps.find(a => !isIdentifier(a.path) && a.executable?.toLowerCase() === targetExe);
+        const found = activeApps.find(
+          a =>
+            (a.executable?.toLowerCase() === targetExe && !isIdentifier(a.path)) ||
+            packagedExeMatch(a, targetExe)
+        );
         if (found) {
           matchedRunningKeys.add(appIdentity(found.path, found.executable, found.name));
           return found;
@@ -1110,7 +1127,7 @@ const Dock = memo(function Dock() {
       const pinFilename = p.path.split('/').pop()?.split('\\').pop()?.toLowerCase() || "";
       if (pinFilename) {
         const found = activeApps.find(a => {
-          if (isIdentifier(a.path)) return false;
+          if (isIdentifier(a.path)) return packagedExeMatch(a, pinFilename);
           const runExe = a.executable?.toLowerCase() || a.path.split('/').pop()?.split('\\').pop()?.toLowerCase() || "";
           return runExe === pinFilename || runExe === `${pinFilename}.exe` || `${runExe}.exe` === pinFilename;
         });

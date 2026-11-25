@@ -119,6 +119,12 @@ export function useSettings() {
   const [timeFormat24h, setTimeFormat24h] = useState(
     () => localStorage.getItem("kiro-time-format-24h") !== "false"
   );
+  const [clockSeconds, setClockSeconds] = useState(
+    () => localStorage.getItem("kiro-clock-seconds") === "true"
+  );
+  const [lowFx, setLowFx] = useState(
+    () => localStorage.getItem("kiro-low-fx") === "true"
+  );
   const [legacyMode, setLegacyMode] = useState(
     () => localStorage.getItem("kiro-legacy-mode") === "true"
   );
@@ -321,6 +327,8 @@ export function useSettings() {
       apply(getVal("kiro-media-artwork-theme"), setMediaArtworkThemeEnabled, (v) => v === "true");
       apply(getVal("kiro-corners-enabled"), setCornersEnabled, readBool);
       apply(getVal("kiro-time-format-24h"), setTimeFormat24h, readBool);
+      apply(getVal("kiro-clock-seconds"), setClockSeconds, (v) => v === "true");
+    apply(getVal("kiro-low-fx"), setLowFx, (v) => v === "true");
       apply(getVal("kiro-legacy-mode"), setLegacyMode, readBool);
       apply(getVal("kiro-show-update-indicator"), setShowUpdateIndicator, readBool);
       apply(getVal("kiro-ram-saver"), setRamSaver, (v) => v !== "false");
@@ -498,6 +506,8 @@ export function useSettings() {
     "kiro-corners-enabled": setCornersEnabled,
     "kiro-show-update-indicator": setShowUpdateIndicator,
     "kiro-time-format-24h": setTimeFormat24h,
+    "kiro-clock-seconds": (v) => setClockSeconds(v === true || v === "true"),
+    "kiro-low-fx": (v) => setLowFx(v === true || v === "true"),
     "kiro-legacy-mode": setLegacyMode,
     "kiro-ram-saver": (v) => setRamSaver(v !== false && v !== "false"),
     "kiro-ram-ultra": (v) => setRamUltra(v === true || v === "true"),
@@ -793,6 +803,18 @@ export function useSettings() {
     const next = !timeFormat24h;
     setTimeFormat24h(next);
     saveSetting("kiro-time-format-24h", String(next));
+  };
+
+  const toggleClockSeconds = () => {
+    const next = !clockSeconds;
+    setClockSeconds(next);
+    saveSetting("kiro-clock-seconds", String(next));
+  };
+
+  const toggleLowFx = () => {
+    const next = !lowFx;
+    setLowFx(next);
+    saveSetting("kiro-low-fx", String(next));
   };
 
   const toggleLegacyMode = () => {
@@ -1320,6 +1342,10 @@ export function useSettings() {
     handleThresholdChange,
     timeFormat24h,
     toggleTimeFormat24h,
+    clockSeconds,
+    toggleClockSeconds,
+    lowFx,
+    toggleLowFx,
     legacyMode,
     toggleLegacyMode,
     showUpdateIndicator,

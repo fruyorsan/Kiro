@@ -395,6 +395,29 @@ button {
   border-bottom: 1px solid var(--cw-line);
 }
 
+.cw-dow.monday-first,
+.cw-grid.monday-first {
+  grid-template-columns: 24px repeat(7, 1fr);
+}
+
+.cw-weekno,
+.cw-weekno-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cw-muted);
+  opacity: 0.6;
+}
+
+.cw-weekno-head {
+  padding: 0;
+  opacity: 0;
+}
+
 .cw-grid {
   flex: 1;
   min-height: 0;

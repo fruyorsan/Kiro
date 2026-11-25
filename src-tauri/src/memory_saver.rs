@@ -39,8 +39,10 @@ const MEDIA_RETRIM_MS: i64 = 120_000;
 const STARTUP_GRACE_MS: i64 = 8_000;
 
 // The cursor being this close to a hot edge means a reveal is seconds away, so
-// paging its renderer out now would only make that reveal stutter.
-const EDGE_GUARD_PX: i32 = 48;
+// paging its renderer out now would only make that reveal stutter. 48 px was
+// one mouse movement short: the pointer was already past the guard when the
+// worker looked, the tree got trimmed, and the very next hover paid for it.
+const EDGE_GUARD_PX: i32 = 180;
 
 static BUSY: AtomicBool = AtomicBool::new(false);
 
@@ -235,7 +237,17 @@ fn trim_pid(pid: u32) -> bool {
 
 pub fn trim_tree() -> usize {
     let mut trimmed = 0;
+    let me = std::process::id();
     for pid in tree_pids() {
+        // Never trim our own process. It owns the low-level mouse and keyboard
+        // hooks, and Windows blocks the whole machine's input queue until those
+        // callbacks return: paging the hook thread's code out of the working set
+        // turns the first mouse movement in a game into a multi-second freeze
+        // (the cursor sticks, then jumps). The renderers are the ones holding
+        // the hundreds of megabytes; our own process is a few tens.
+        if pid == me {
+            continue;
+        }
         if trim_pid(pid) {
             trimmed += 1;
         }
@@ -291,7 +303,14 @@ fn set_priority_pid(pid: u32, low: bool) -> bool {
 }
 
 fn set_tree_priority(low: bool) {
+    let me = std::process::id();
     for pid in tree_pids() {
+        // Same reason as `trim_tree`: the process that owns the input hooks
+        // stays at NORMAL memory priority so the hook thread can never be the
+        // page the trimmer picks while a game is running.
+        if pid == me {
+            continue;
+        }
         set_priority_pid(pid, low);
     }
 }

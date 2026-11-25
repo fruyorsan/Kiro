@@ -5,10 +5,52 @@ import { formatStopwatch, parseDuration } from "../clockFormat";
 import { useT } from "../i18n";
 import { setVisibleInterval } from "../hooks/visibleInterval";
 
-type Tab = "timer" | "stopwatch";
+export type Tab = "timer" | "stopwatch";
 
 const TAB_KEY = "kiro-clock-tab";
+const TAB_EVENT = "kiro-clock-tab-request";
 const PRESETS = [5, 15, 25, 50];
+
+/** Ask an already-mounted clock column to switch tabs. A click on the notch
+ *  clock turns seconds on and brings the stopwatch along; when the column is
+ *  mounted in the same render (already in calendar mode) the stored tab alone
+ *  would not re-render it. */
+export function requestClockTab(tab: Tab) {
+  remember(TAB_KEY, tab);
+  try {
+    window.dispatchEvent(new CustomEvent(TAB_EVENT, { detail: tab }));
+  } catch {
+    /* A missing window (tests) is not worth failing a click over. */
+  }
+}
+
+/** The wall clock in the timer column, seconds included: the notch itself only
+ *  reveals seconds on a click, and the panel is where a precise time is handy. */
+function NowClock() {
+  const [text, setText] = useState(() =>
+    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+  );
+
+  useEffect(() => {
+    // Own timer (rather than the shared visible interval) so the seconds flip
+    // right on the boundary instead of drifting from the mount time.
+    let timer: number;
+    const schedule = () => {
+      timer = window.setTimeout(() => {
+        setText(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+        schedule();
+      }, 1000 - (Date.now() % 1000) + 10);
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="clock-now" aria-hidden>
+      {text}
+    </div>
+  );
+}
 
 export function StopwatchReadout({ base, startedAt, precise }: { base: number; startedAt: number | null; precise: boolean }) {
   const [now, setNow] = useState(() => Date.now());
@@ -73,6 +115,17 @@ export function NotchClock({
   const setKeyboardFocus = (enabled: boolean) => invoke("set_window_keyboard_focus", { enabled }).catch(() => {});
   useEffect(() => () => void setKeyboardFocus(false), []);
 
+  // The notch clock asks for the stopwatch when it is clicked; listen so the
+  // request also lands while the column is already on screen.
+  useEffect(() => {
+    const onRequest = (event: Event) => {
+      const next = (event as CustomEvent).detail;
+      if (next === "timer" || next === "stopwatch") setSavedTab(next);
+    };
+    window.addEventListener(TAB_EVENT, onRequest);
+    return () => window.removeEventListener(TAB_EVENT, onRequest);
+  }, []);
+
   const tab: Tab = savedTab === "stopwatch" && stopwatchEnabled ? "stopwatch" : timerEnabled ? "timer" : "stopwatch";
 
   const pickTab = (next: Tab) => {
@@ -100,6 +153,7 @@ export function NotchClock({
 
   return (
     <div className={`timer-column${solo ? " solo" : ""}`}>
+      <NowClock />
       <div className="timer-section-new">
         {timerEnabled && stopwatchEnabled && (
           <div className="clock-tabs" role="tablist">

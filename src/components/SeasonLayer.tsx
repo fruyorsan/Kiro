@@ -90,6 +90,20 @@ const MAX_RIPPLES = 8;
 const DRIFT_BIN_PX = 2;
 const PERIM_PAD = 18;
 
+/**
+ * How far the surface has to move before the decorative geometry is rebuilt.
+ *
+ * The notch spends ~15 frames growing from a 36 px pill into a 268 px panel, and
+ * rebuilding the vine on each of those frames was the heaviest part of opening
+ * it. The markup now follows the box in ~24 px steps instead (a dozen rebuilds
+ * instead of ~35) and always lands on the exact size once the surface settles,
+ * so the resting look is unchanged; while opening, the vine trails the free edge
+ * by less than one step.
+ */
+const MARKUP_STEP_PX = 24;
+/** Quiet time after the last resize before the exact size is committed. */
+const MARKUP_SETTLE_MS = 140;
+
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
@@ -1196,9 +1210,52 @@ export function SeasonLayer({
     return () => mo.disconnect();
   }, []);
 
+  // Live box of the surface, kept out of React state on purpose: the notch grows
+  // through ~35 sizes on the way open, and every one of them used to re-render
+  // this layer, rebuild the vine (hundreds of path points, masks and gradients)
+  // and restart the particle loop. The geometry that actually reaches React is
+  // therefore committed coarsely while the surface moves -- see `commitGeom`.
+  const liveGeomRef = useRef<{ w: number; h: number; open: boolean; corners?: CornerRadii }>({
+    w: 0,
+    h: 0,
+    open: false,
+  });
+  const settleTimerRef = useRef<number | undefined>(undefined);
+
   useEffect(() => {
     const el = layerRef.current;
     if (!el) return;
+
+    const sameCorners = (a?: CornerRadii, b?: CornerRadii) =>
+      a?.tl === b?.tl && a?.tr === b?.tr && a?.br === b?.br && a?.bl === b?.bl;
+
+    const commit = (next: { w: number; h: number; open: boolean; corners?: CornerRadii }) => {
+      liveGeomRef.current = next;
+      setGeom((prev) => {
+        if (prev.w === next.w && prev.h === next.h && prev.open === next.open && sameCorners(prev.corners, next.corners)) {
+          return prev;
+        }
+        // A contour that changes shape (pill <-> panel) or a corner radius that
+        // changes with the calendar must land immediately; a plain growth spurt
+        // is allowed to wait for the next coarse step.
+        const shapeChanged = prev.open !== next.open || !sameCorners(prev.corners, next.corners);
+        const moved =
+          Math.abs(next.w - prev.w) >= MARKUP_STEP_PX || Math.abs(next.h - prev.h) >= MARKUP_STEP_PX;
+        return shapeChanged || moved ? next : prev;
+      });
+      // Whatever the animation does, the last size always wins: the vine must sit
+      // exactly on the edge once the surface has stopped moving.
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = window.setTimeout(() => {
+        const live = liveGeomRef.current;
+        setGeom((prev) =>
+          prev.w === live.w && prev.h === live.h && prev.open === live.open && sameCorners(prev.corners, live.corners)
+            ? prev
+            : live
+        );
+      }, MARKUP_SETTLE_MS);
+    };
+
     const sync = () => {
       const rect = el.getBoundingClientRect();
       const w = Math.round(rect.width);
@@ -1216,27 +1273,20 @@ export function SeasonLayer({
             hostCorners = { tl, tr, br, bl };
           }
         }
-        setGeom((prev) => {
-          const sameSize = prev.w === w && prev.h === h;
-          const sameCorners =
-            prev.corners?.tl === hostCorners?.tl &&
-            prev.corners?.tr === hostCorners?.tr &&
-            prev.corners?.br === hostCorners?.br &&
-            prev.corners?.bl === hostCorners?.bl;
-          // A surface that touches the screen edge on one side is a "panel":
-          // it must not be drawn as a closed rounded rectangle. The notch pill
-          // (36-48 px tall) is the only closed shape, everything taller hugs
-          // the attachment edge instead of faking corners in empty space.
-          const isOpen = openBottom || h > 60;
-          if (sameSize && sameCorners && prev.open === isOpen) return prev;
-          return { w, h, open: isOpen, corners: hostCorners };
-        });
+        // A surface that touches the screen edge on one side is a "panel": it
+        // must not be drawn as a closed rounded rectangle. The notch pill
+        // (36-48 px tall) is the only closed shape, everything taller hugs the
+        // attachment edge instead of faking corners in empty space.
+        commit({ w, h, open: openBottom || h > 60, corners: hostCorners });
       }
     };
     sync();
     const ro = new ResizeObserver(sync);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      window.clearTimeout(settleTimerRef.current);
+    };
   }, [season, openBottom]);
 
   const corners = useMemo(
@@ -1494,8 +1544,25 @@ export function SeasonLayer({
 
     let rafId = 0;
     let lastTs = performance.now();
+    // Falling leaves, snow and rain are slow, decorative motion: 30 fps looks
+    // the same as 60 and costs half the style writes. On a laptop the season
+    // layer used to keep the main thread busy on every frame of the notch
+    // reveal, which is what made opening the panel feel heavy.
+    let lastFrame = 0;
+    const FRAME_MS = 1000 / 30;
 
     const step = (now: number) => {
+      rafId = requestAnimationFrame(step);
+      // A hidden window (minimised, on another virtual desktop, or behind a
+      // fullscreen game) never needs the simulation; resuming repaints from the
+      // stored state, so nothing is lost.
+      if (document.hidden) {
+        lastTs = now;
+        lastFrame = now;
+        return;
+      }
+      if (now - lastFrame < FRAME_MS) return;
+      lastFrame = now;
       const dt = Math.min(0.05, (now - lastTs) / 1000);
       lastTs = now;
       const sim = simRef.current;
@@ -1524,7 +1591,9 @@ export function SeasonLayer({
         const p = sim.falling[i];
         const el = fallingRefs.current[i];
         if (!p.active || !el) {
-          if (el) el.style.opacity = "0";
+          // Writing "0" again every frame dirtied the style for every idle slot
+          // (up to 66 elements); only the transition matters.
+          if (el && el.style.opacity !== "0") el.style.opacity = "0";
           continue;
         }
 
@@ -1604,7 +1673,9 @@ export function SeasonLayer({
         const sp = sim.scattered[i];
         const el = scatteredRefs.current[i];
         if (!sp.active || !el) {
-          if (el) el.style.opacity = "0";
+          // Writing "0" again every frame dirtied the style for every idle slot
+          // (up to 66 elements); only the transition matters.
+          if (el && el.style.opacity !== "0") el.style.opacity = "0";
           continue;
         }
 
@@ -1634,7 +1705,9 @@ export function SeasonLayer({
         const rp = sim.ripples[i];
         const el = rippleRefs.current[i];
         if (!rp.active || !el) {
-          if (el) el.style.opacity = "0";
+          // Writing "0" again every frame dirtied the style for every idle slot
+          // (up to 66 elements); only the transition matters.
+          if (el && el.style.opacity !== "0") el.style.opacity = "0";
           continue;
         }
 
@@ -1650,8 +1723,6 @@ export function SeasonLayer({
         el.style.opacity = ((1 - p) * 0.55).toFixed(2);
         el.style.transform = `translate3d(${rp.x.toFixed(1)}px, ${rp.y.toFixed(1)}px, 0) scale(${(rad / 10).toFixed(2)}, ${(rad / 24).toFixed(2)})`;
       }
-
-      rafId = requestAnimationFrame(step);
     };
 
     rafId = requestAnimationFrame(step);

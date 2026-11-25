@@ -223,6 +223,7 @@ fn main() {
             open_file_with,
             set_menu_open,
             ai::ai_ask,
+            ai::ai_warm,
             ai::ai_open_console,
             set_window_keyboard_focus,
             get_drives,
@@ -337,6 +338,9 @@ fn main() {
             // Undo a notification mute left behind by a killed session.
             crate::fps_boost::init(app.handle());
             agent_api::start(app.handle().clone());
+            // Warm the assistant's TLS connection now, so the first question
+            // does not pay for a handshake on top of the model's own latency.
+            ai::warm_up(app.handle().clone());
 
             #[cfg(not(debug_assertions))]
             std::thread::spawn(crate::uninstall_registry::heal_uninstall_registration);

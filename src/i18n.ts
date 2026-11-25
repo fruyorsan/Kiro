@@ -47,6 +47,10 @@ const LAZY_LOCALES: Record<string, () => Promise<{ default: Messages }>> = {
 };
 
 const loaded: Record<string, Messages> = { en: en as Messages };
+// `loaded[lang] = {}` marks a download in flight, so it cannot double-start.
+// It cannot stand for "messages are here" either: the snapshot needs the real
+// moment the chunk arrived to re-render with it.
+const arrived = new Set<string>(["en"]);
 
 function loadIfNeeded(lang: string) {
   if (loaded[lang] || !LAZY_LOCALES[lang]) return;
@@ -54,6 +58,7 @@ function loadIfNeeded(lang: string) {
   LAZY_LOCALES[lang]()
     .then((mod) => {
       loaded[lang] = mod.default as Messages;
+      arrived.add(lang);
       listeners.forEach((l) => l());
     })
     .catch(() => {
@@ -131,6 +136,22 @@ export function weekdayNames(width: "short" | "narrow"): string[] {
   return Array.from({ length: 7 }, (_, i) => new Date(2023, 0, 1 + i).toLocaleDateString(dateLocale(), { weekday: width }));
 }
 
+// Locales that read a month as Monday-first. English and the east-Asian
+// locales keep Sunday first, which is what their weekday names imply.
+const MONDAY_FIRST = new Set(["tr", "de", "fr", "es", "it", "pt", "nl", "pl", "ru", "uk"]);
+
+/** First day of the week as `Date#getDay()` numbers: 0 = Sunday, 1 = Monday. */
+export function weekStartsOn(): number {
+  return MONDAY_FIRST.has(dateLocale()) ? 1 : 0;
+}
+
+/** Weekday names rotated so the first entry is the first day of the week. */
+export function weekHeader(width: "short" | "narrow"): string[] {
+  const names = weekdayNames(width);
+  const start = weekStartsOn();
+  return Array.from({ length: 7 }, (_, i) => names[(start + i) % 7]);
+}
+
 export function timeAgo(ms: number | null, translate: (key: string, params?: Record<string, string | number>) => string): string {
   if (!ms) return translate("common.ago.never");
   const mins = Math.round((Date.now() - ms) / 60000);
@@ -159,9 +180,19 @@ function subscribe(listener: () => void) {
   };
 }
 
+// A lazy locale arrives after the first paint. `useSyncExternalStore` only
+// re-renders when the snapshot changes, and the preference itself did not, so
+// the finished download went unnoticed and the UI stayed in English. The
+// snapshot therefore also says whether that locale's messages are in memory.
+function snapshot(): string {
+  const preference = readPreference();
+  const lang = resolve(preference);
+  return `${preference}:${arrived.has(lang) ? 1 : 0}`;
+}
+
 /** Re-renders the calling component when the language changes; returns the translate function. */
 export function useT() {
-  useSyncExternalStore(subscribe, readPreference);
+  useSyncExternalStore(subscribe, snapshot);
   return t;
 }
 

@@ -260,6 +260,10 @@ function SettingsApp() {
               toggleAutostart={settings.toggleAutostart}
               timeFormat24h={settings.timeFormat24h}
               toggleTimeFormat24h={settings.toggleTimeFormat24h}
+              clockSeconds={settings.clockSeconds}
+              toggleClockSeconds={settings.toggleClockSeconds}
+              lowFx={settings.lowFx}
+              toggleLowFx={settings.toggleLowFx}
               legacyMode={settings.legacyMode}
               toggleLegacyMode={settings.toggleLegacyMode}
               showUpdateIndicator={settings.showUpdateIndicator}

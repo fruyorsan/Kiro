@@ -456,6 +456,23 @@ pub async fn init_notch_window(app: &AppHandle, main_win: tauri::WebviewWindow, 
 }
 
 #[cfg(kiro_windows)]
+/// Runs `f` with COM ready on this thread. Shell enumeration (the AppsFolder walk)
+/// fails with CO_E_NOTINITIALIZED on a thread that never joined an apartment, and
+/// the dock's click handlers run on blocking-pool threads that are not guaranteed
+/// to have one.
+fn with_com<T>(f: impl FnOnce() -> T) -> T {
+    use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
+    unsafe {
+        let initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
+        let out = f();
+        if initialized {
+            CoUninitialize();
+        }
+        out
+    }
+}
+
+#[cfg(kiro_windows)]
 fn get_uwp_launch_cmd(exe_path: &str) -> Option<String> {
     let path = std::path::Path::new(exe_path);
     let mut is_windows_apps = false;
@@ -476,12 +493,19 @@ fn get_uwp_launch_cmd(exe_path: &str) -> Option<String> {
     
     if !package_folder.is_empty() {
         // package_folder format: PackageName_Version_Architecture__PublisherId
-        // We want: PackageName_PublisherId!App
+        // We want: PackageFamilyName!ApplicationId
         if let Some(publisher_idx) = package_folder.rfind("__") {
             let publisher_id = &package_folder[publisher_idx + 2..];
             if let Some(first_underscore) = package_folder.find('_') {
                 let package_name = &package_folder[..first_underscore];
-                return Some(format!("shell:AppsFolder\\{}_{}!App", package_name, publisher_id));
+                let family = format!("{}_{}", package_name, publisher_id);
+                // The application id is not always "App". Desktop-bridge packages
+                // ship their own (Claude publishes "!Claude"), so a hardcoded guess
+                // pointed at an id that does not exist and the click did nothing.
+                if let Some(aumid) = with_com(|| find_aumid_by_family(&family)) {
+                    return Some(format!("shell:AppsFolder\\{}", aumid));
+                }
+                return Some(format!("shell:AppsFolder\\{}!App", family));
             }
         }
     }
@@ -1252,7 +1276,22 @@ pub async fn activate_app(app: AppInfo) -> Result<(), String> {
         return Ok(());
     }
 
-    if let Some(hwnd) = app.hwnd.filter(|value| *value != 0) {
+    // Pins saved before the window existed carry no hwnd of their own, while the
+    // dock still knows the handles it polled (all_hwnds). Falling straight through
+    // to a launch made an already-running app look dead: packaged apps only honour
+    // their exact AUMID, so a guessed one opened nothing at all.
+    let hwnd = app
+        .hwnd
+        .filter(|value| *value != 0)
+        .or_else(|| {
+            app.all_hwnds
+                .as_ref()?
+                .iter()
+                .map(|(handle, _)| *handle)
+                .find(|handle| *handle != 0)
+        });
+
+    if let Some(hwnd) = hwnd {
         let alive = unsafe {
             use windows::Win32::Foundation::HWND;
             use windows::Win32::UI::WindowsAndMessaging::{IsWindow, IsWindowVisible};

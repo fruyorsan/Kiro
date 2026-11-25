@@ -2256,6 +2256,14 @@ static MH_NOTCH_FIXED: AtomicBool = AtomicBool::new(true);
 /// True when the notch lives in the bottom-right corner instead of the top edge.
 static MH_NOTCH_BOTTOM_RIGHT: AtomicBool = AtomicBool::new(false);
 
+/// Show-desktop corner and dock-enabled, sampled once a second with the rest.
+/// `in_show_desktop_corner` runs inside the low-level mouse hook, so it must not
+/// take the settings-cache mutex: a click delivered while another thread is
+/// rewriting that map stalls the whole system's mouse queue behind it, because
+/// Windows waits for a low-level hook to return before it delivers the event.
+static MH_SHOW_DESKTOP_CORNER: AtomicBool = AtomicBool::new(false);
+static MH_DOCK_ENABLED: AtomicBool = AtomicBool::new(true);
+
 /// Size of the small bottom-right notch window, in logical pixels. Wide enough
 /// for the widest expanded notch (calendar, ~480 logical px) with room to spare.
 pub const NOTCH_BR_WINDOW_W: f64 = 720.0;
@@ -2302,6 +2310,14 @@ fn refresh_mouse_caches(app: &AppHandle) {
         Ordering::Relaxed,
     );
     MH_NOTCH_BOTTOM_RIGHT.store(notch_bottom_right(app), Ordering::Relaxed);
+    MH_SHOW_DESKTOP_CORNER.store(
+        crate::utils::get_setting_str(app, "kiro-dock-show-desktop-corner").as_deref() == Some("true"),
+        Ordering::Relaxed,
+    );
+    MH_DOCK_ENABLED.store(
+        crate::utils::get_setting_str(app, "kiro-dock-enabled").as_deref() != Some("false"),
+        Ordering::Relaxed,
+    );
 }
 
 fn top_edge_armed(app_handle: &AppHandle, label: &str, in_band: bool, now: i64) -> bool {
@@ -2399,6 +2415,35 @@ fn start_mouse_worker(app_handle: AppHandle) {
 fn start_mouse_hook_thread() {
     let _ = std::thread::Builder::new().name("mouse-hook".into()).spawn(|| unsafe {
         use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageW, GetMessageW, TranslateMessage, MSG};
+        use windows::Win32::System::Threading::{
+            GetCurrentThread, SetThreadInformation, SetThreadPriority, ThreadPowerThrottling,
+            THREAD_POWER_THROTTLING_CURRENT_VERSION, THREAD_POWER_THROTTLING_EXECUTION_SPEED,
+            THREAD_POWER_THROTTLING_STATE, THREAD_PRIORITY_TIME_CRITICAL,
+        };
+
+        // Windows hands every mouse event on the machine to this thread and
+        // waits for it to return before the event reaches any other app. While
+        // a game runs Kiro is deliberately demoted (BELOW_NORMAL + EcoQoS, low
+        // memory priority, trimmed working set), so this callback could sit in
+        // a run queue behind the game: the cursor freezes and then jumps when
+        // the events finally drain. A low-level input hook must never be
+        // scheduled like that, so it runs in the 15 band and opts out of the
+        // power manager's throttling for this thread only (the rest of the
+        // process keeps its efficiency settings).
+        let thread = GetCurrentThread();
+        let _ = SetThreadPriority(thread, THREAD_PRIORITY_TIME_CRITICAL);
+        let unthrottled = THREAD_POWER_THROTTLING_STATE {
+            Version: THREAD_POWER_THROTTLING_CURRENT_VERSION,
+            ControlMask: THREAD_POWER_THROTTLING_EXECUTION_SPEED,
+            StateMask: 0,
+        };
+        let _ = SetThreadInformation(
+            thread,
+            ThreadPowerThrottling,
+            &unthrottled as *const _ as *const core::ffi::c_void,
+            std::mem::size_of::<THREAD_POWER_THROTTLING_STATE>() as u32,
+        );
+
         if let Err(e) = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_hook_proc), None, 0) {
             crate::diagnostics::log(&format!("mouse hook install failed: {e}"));
             return;
@@ -2532,23 +2577,10 @@ fn in_show_desktop_corner(x: i32, y: i32) -> bool {
     if CURRENT_FOREGROUND_FULLSCREEN.load(Ordering::Relaxed) {
         return false;
     }
-    // settings.json can hold a real boolean (imported profile, older build or a
-    // hand edit). `as_str()` returned None for those, which made the corner
-    // look disabled and turned off the feature for no visible reason.
-    let flag = |key: &str| {
-        crate::state::SETTINGS_CACHE
-            .get()
-            .and_then(|cache| cache.lock().ok())
-            .and_then(|guard| {
-                guard.get(key).map(|v| match v {
-                    serde_json::Value::Bool(b) => *b,
-                    serde_json::Value::String(s) => s == "true",
-                    serde_json::Value::Number(n) => n.as_f64().is_some_and(|n| n != 0.0),
-                    _ => false,
-                })
-            })
-    };
-    if !flag("kiro-dock-show-desktop-corner").unwrap_or(false) || flag("kiro-dock-enabled") == Some(false) {
+    // Called from the low-level mouse hook: atomics only. Reading the settings
+    // cache here meant a mutex per click, and every mouse event queued behind
+    // this callback (for every app on the machine) waited for that lock.
+    if !MH_SHOW_DESKTOP_CORNER.load(Ordering::Relaxed) || !MH_DOCK_ENABLED.load(Ordering::Relaxed) {
         return false;
     }
     let (Some((mx, my)), Some((mw, mh))) = (

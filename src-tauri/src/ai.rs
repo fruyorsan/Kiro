@@ -146,6 +146,44 @@ fn gemini_mark_up(model: &str) {
     }
 }
 
+/// The reasoning setting the provider accepted last time, together with the
+/// model it was accepted for. A model that rejects `thinkingBudget` answers with
+/// an error, and the retry chain costs two extra round-trips — which the user
+/// reads as "the first answer of a session is slow". Remembering the working
+/// mode makes that first question as fast as every later one.
+///
+/// The model id is part of the memory because the two families accept opposite
+/// fields: a mode remembered for `gemini-3.8-flash` is rejected by a 2.5 model,
+/// and trusting it blindly cost the extra round-trip it was meant to avoid.
+static GEMINI_THINKING: std::sync::Mutex<Option<(String, ThinkingMode)>> =
+    std::sync::Mutex::new(None);
+
+/// The remembered thinking form, but only when it was learned from the same
+/// model family the request is going to.
+fn remembered_thinking(model: &str) -> Option<ThinkingMode> {
+    let slot = GEMINI_THINKING.lock().ok()?;
+    let (remembered_model, mode) = slot.as_ref()?;
+    let same_family = thinking_family(remembered_model) == thinking_family(model);
+    same_family.then_some(*mode)
+}
+
+fn remember_thinking(model: &str, mode: ThinkingMode) {
+    if let Ok(mut slot) = GEMINI_THINKING.lock() {
+        let already = matches!(slot.as_ref(), Some((m, known)) if m == model && *known == mode);
+        if !already {
+            *slot = Some((model.to_string(), mode));
+        }
+    }
+}
+
+/// The coarse family that decides which thinking field a model accepts.
+fn thinking_family(model: &str) -> &'static str {
+    match preferred_thinking(model) {
+        ThinkingMode::LevelLow => "level",
+        _ => "budget",
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Provider {
     Claude,
@@ -268,9 +306,9 @@ struct GeminiPart {
     thought: bool,
 }
 
-/// How to ask a Gemini model not to think. Gemini 3 Flash has `thinking: true`,
-/// so every question first spends its budget on invisible reasoning: the notch
-/// sits on "Düşünüyor…" for ten seconds and the thoughts are charged against
+/// How to ask a Gemini model not to think. Gemini 3+ has thinking on, so every
+/// question would first spend its budget on invisible reasoning: the notch sits
+/// on "Düşünüyor…" for ten seconds and the thoughts are charged against
 /// `maxOutputTokens`, which can leave no visible answer at all. Custom ids
 /// disagree about the field name, so the next form is tried when the API
 /// rejects this one.
@@ -281,12 +319,41 @@ enum ThinkingMode {
     Off,
 }
 
-impl ThinkingMode {
-    fn next(self) -> Self {
-        match self {
-            ThinkingMode::BudgetZero => ThinkingMode::LevelLow,
-            ThinkingMode::LevelLow | ThinkingMode::Off => ThinkingMode::Off,
-        }
+/// Which form to try first for a model id. The two ways of switching thinking
+/// off are not interchangeable: Gemini 3 and later know `thinkingLevel` and
+/// reject `thinkingBudget: 0`, while the older ids do the opposite. Guessing
+/// wrong costs a failed request plus the retry, which is exactly the slow first
+/// answer. Every current Gemini 3/4 text model accepts `low`, and `low` is the
+/// lowest latency level on the ones that do not offer `minimal`.
+fn preferred_thinking(model: &str) -> ThinkingMode {
+    let id = model.to_ascii_lowercase();
+    if id.contains("gemini-3")
+        || id.contains("gemini-4")
+        || id.contains("flash-latest")
+        || id.contains("pro-latest")
+    {
+        ThinkingMode::LevelLow
+    } else {
+        ThinkingMode::BudgetZero
+    }
+}
+
+/// The order to try the thinking forms in. A wrong family guess is cheap: the
+/// second entry is the other supported form, so a model never falls straight
+/// from a rejected setting to "thinking on" (the slow default) before it has
+/// had its correct form tried.
+fn thinking_chain(model: &str) -> [ThinkingMode; 3] {
+    match preferred_thinking(model) {
+        ThinkingMode::LevelLow => [
+            ThinkingMode::LevelLow,
+            ThinkingMode::BudgetZero,
+            ThinkingMode::Off,
+        ],
+        _ => [
+            ThinkingMode::BudgetZero,
+            ThinkingMode::LevelLow,
+            ThinkingMode::Off,
+        ],
     }
 }
 
@@ -574,6 +641,14 @@ fn friendly_error(provider: &str, status: u16, text: &str) -> String {
         || lower.contains("too many requests")
         || lower.contains("resource_exhausted")
         || status == 429;
+    // Google answers a busy model with 503 and "experiencing high demand".
+    // Passing that English sentence through to the notch reads like a crash, so
+    // it gets the same short, actionable line as the rest.
+    let busy = status == 503
+        || lower.contains("high demand")
+        || lower.contains("overloaded")
+        || lower.contains("temporarily unavailable")
+        || lower.contains("service unavailable");
     let model = lower.contains("not found")
         || lower.contains("does not exist")
         || lower.contains("unsupported")
@@ -588,6 +663,8 @@ fn friendly_error(provider: &str, status: u16, text: &str) -> String {
         "kota doldu. Faturalama sayfasından limiti artır ya da üstteki çiplerden başka bir sağlayıcıya geç"
     } else if rate {
         "çok fazla istek. Birkaç saniye bekleyip tekrar dene"
+    } else if busy {
+        "sunucu şu an yoğun. Birkaç saniye sonra tekrar dene"
     } else if auth {
         "anahtar geçersiz ya da yetkisiz. Anahtar düğmesinden yenile"
     } else if model {
@@ -600,6 +677,11 @@ fn friendly_error(provider: &str, status: u16, text: &str) -> String {
 
     if hint.is_empty() {
         return format!("{provider} API hatası: {raw}");
+    }
+    // Google's overload sentence is long and English; the hint already says
+    // everything the user needs, so the raw text is left out.
+    if busy {
+        return format!("{provider} API hatası: {hint}");
     }
     format!("{provider} API hatası: {hint} ({raw})")
 }
@@ -924,14 +1006,27 @@ async fn ask_gemini(
     let mut answer = String::new();
 
     for round in 0..=MAX_CONTINUATIONS {
-        // Ask the model not to think first. Gemini 3 Flash reports
-        // `thinking: true`, so by default every question spends its whole
-        // budget on invisible reasoning: the notch sits on "Düşünüyor..."
-        // for ten-plus seconds, and the thoughts are charged against
-        // `maxOutputTokens`, which can leave no visible answer at all.
-        // Custom ids disagree about the field name, so a rejected request
-        // downgrades the setting and tries the same round again.
-        let mut thinking = ThinkingMode::BudgetZero;
+        // Ask the model not to think much first. Gemini 3+ reports
+        // `thinking: true`, so by default every question spends its budget on
+        // invisible reasoning: the notch sits on "Düşünüyor..." for ten-plus
+        // seconds, and the thoughts are charged against `maxOutputTokens`,
+        // which can leave no visible answer at all. Custom ids disagree about
+        // the field name, so a rejected request steps to the next form and
+        // tries the same round again. Start from the form this model family
+        // accepts and from whatever worked last time, so the common path is a
+        // single request.
+        let remembered = remembered_thinking(model);
+        let mut attempts: Vec<ThinkingMode> = Vec::with_capacity(4);
+        if let Some(mode) = remembered {
+            attempts.push(mode);
+        }
+        for mode in thinking_chain(model) {
+            if !attempts.contains(&mode) {
+                attempts.push(mode);
+            }
+        }
+        let mut attempt = 0;
+        let mut thinking = attempts[0];
         let mut budget = MAX_OUTPUT_TOKENS;
         let (text, finish_reason) = 'attempt: loop {
             let request = client
@@ -958,15 +1053,30 @@ async fn ask_gemini(
             let status = response.status();
             if !status.is_success() {
                 let body = response.text().await.unwrap_or_default();
+                // A remembered form can be wrong after a model change; walk the
+                // chain rather than jumping straight to "thinking on".
                 if thinking != ThinkingMode::Off && thinking_rejected(&body) {
-                    thinking = thinking.next();
-                    continue;
+                    attempt += 1;
+                    match attempts.get(attempt) {
+                        Some(next) => {
+                            thinking = *next;
+                            continue;
+                        }
+                        None => {
+                            return Err(friendly_error("Gemini", status.as_u16(), &body));
+                        }
+                    }
                 }
                 if round > 0 && !answer.trim().is_empty() {
                     break 'attempt (String::new(), None);
                 }
                 return Err(friendly_error("Gemini", status.as_u16(), &body));
             }
+
+            // The request body was accepted: remember this thinking form (for
+            // this model family) so the next session's first question skips the
+            // rejected attempt.
+            remember_thinking(model, thinking);
 
             if let Some(sink) = stream {
                 let mut round_text = String::new();
@@ -1000,6 +1110,18 @@ async fn ask_gemini(
                 {
                     budget = (budget * 4).min(MAX_GEMINI_TOKENS);
                     continue;
+                }
+                // A model can also accept the "think less" field and still spend
+                // its whole answer on thoughts, which reached the user as
+                // "Gemini boş yanıt döndürdü". The plain form (no thinking field
+                // at all) is the last rung of the chain, so try it instead of
+                // failing with nothing to show.
+                if round_text.trim().is_empty() {
+                    if let Some(next_attempt) = off_attempt(&attempts, attempt) {
+                        attempt = next_attempt;
+                        thinking = attempts[attempt];
+                        continue;
+                    }
                 }
                 break 'attempt (round_text, reason);
             }
@@ -1056,6 +1178,14 @@ async fn ask_gemini(
     }
 
     Ok(answer.trim().to_string())
+}
+
+/// The index of the "no thinking field at all" attempt in the chain, if it has
+/// not been tried yet. The chain always ends with `Off`, so this either returns
+/// the last rung or `None` — which is what stops the retry from looping.
+fn off_attempt(attempts: &[ThinkingMode], current: usize) -> Option<usize> {
+    let off = attempts.iter().position(|mode| *mode == ThinkingMode::Off)?;
+    (off > current).then_some(off)
 }
 
 fn claude_candidates() -> Vec<PathBuf> {
@@ -1173,6 +1303,37 @@ fn ask_cli(prompt: &str) -> Result<String, String> {
         });
     }
     Ok(answer)
+}
+
+/// Warm the connection the assistant will use. Building the pool on the first
+/// question put a DNS lookup plus a TLS handshake in front of the first token,
+/// which is the most visible delay in the whole panel: the answer arrives fast
+/// on the second question and slow on the first. A cheap HEAD to the provider's
+/// host (no key, no tokens) leaves a pooled connection ready.
+pub fn warm_up(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let Ok(client) = http_client() else { return };
+        let requested =
+            Provider::from_setting(&setting(&app, "kiro-ai-provider").unwrap_or_default());
+        let root = match requested {
+            Provider::OpenAI => "https://api.openai.com/",
+            Provider::Gemini => "https://generativelanguage.googleapis.com/",
+            Provider::Claude => "https://api.anthropic.com/",
+        };
+        let _ = client
+            .head(root)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await;
+    });
+}
+
+/// Called when the assistant panel opens, so typing a question does not race a
+/// DNS lookup and a TLS handshake. Cheap and idempotent: the pool keeps the
+/// socket, and a second call reuses it.
+#[tauri::command]
+pub fn ai_warm(app: AppHandle) {
+    warm_up(app);
 }
 
 #[tauri::command]
@@ -1376,18 +1537,32 @@ async fn ask_one(
                 candidates.push(model.clone());
             }
             let mut index = 0;
+            // Set when the configured model itself turned out to be retired.
+            // Only then does the winner replace it in Settings: without this
+            // guard a remembered fallback quietly overwrote a model the user had
+            // picked, so the choice appeared to reset by itself.
+            let mut replaced_configured = false;
             loop {
                 let current = candidates[index].clone();
                 let emitted_before = sink.map(|sink| sink.emitted()).unwrap_or(0);
                 match ask_gemini(&key, &current, prompt, images, sink).await {
                     Ok(answer) => {
                         // Remember the winner so the next question skips the
-                        // fallback chain entirely.
+                        // fallback chain entirely. Also write it to settings, so
+                        // a retired id does not cost the same three failures on
+                        // the next launch: the in-memory slot dies with the app.
                         gemini_mark_up(&current);
                         if let Ok(mut slot) = GEMINI_MODEL.lock() {
                             if slot.as_deref() != Some(current.as_str()) {
-                                *slot = Some(current);
+                                *slot = Some(current.clone());
                             }
+                        }
+                        if replaced_configured && current != model {
+                            let _ = crate::commands::save_setting(
+                                app.clone(),
+                                "kiro-ai-model-gemini".into(),
+                                serde_json::Value::String(current.clone()),
+                            );
                         }
                         return Ok(answer);
                     }
@@ -1401,6 +1576,7 @@ async fn ask_one(
                         // Retired/unknown ids and overloaded models can be
                         // retried; a bad key or a quota error cannot.
                         let retryable = is_retired_model_error(&error)
+                            || is_empty_answer_error(&error)
                             || error.to_ascii_lowercase().contains("high demand")
                             || error.to_ascii_lowercase().contains("bağlantı hatası");
                         if !retryable {
@@ -1418,6 +1594,15 @@ async fn ask_one(
                             if !candidates.iter().any(|c| c == &next) {
                                 candidates.insert(index + 1, next);
                             }
+                        }
+                        // Only a retired id earns a new entry in Settings: that
+                        // failure is permanent, and without the write every
+                        // launch would re-discover it. An overloaded or silent
+                        // model is a bad minute, not a bad choice — its
+                        // replacement is remembered in memory for this session
+                        // and the user's picked id comes back next start.
+                        if current == model && is_retired_model_error(&error) {
+                            replaced_configured = true;
                         }
                         if index + 1 >= candidates.len() {
                             return Err(error);
@@ -1460,6 +1645,13 @@ fn is_retired_model_error(message: &str) -> bool {
         || lower.contains("not found")
         || lower.contains("does not exist")
         || lower.contains("not supported")
+}
+
+/// A model that answers with nothing at all (only silence, or only thoughts) is
+/// as unusable for this question as a retired id: the next model in the chain
+/// usually replies. Retrying the same id would just repeat the wait.
+fn is_empty_answer_error(message: &str) -> bool {
+    message.contains("boş yanıt")
 }
 
 #[cfg(test)]
@@ -1560,10 +1752,46 @@ mod tests {
         let body = gemini_body(&contents, ThinkingMode::Off, 1024);
         assert!(body["generationConfig"].get("thinkingConfig").is_none());
         assert_eq!(body["generationConfig"]["maxOutputTokens"], 1024);
+    }
 
-        assert_eq!(ThinkingMode::BudgetZero.next(), ThinkingMode::LevelLow);
-        assert_eq!(ThinkingMode::LevelLow.next(), ThinkingMode::Off);
-        assert_eq!(ThinkingMode::Off.next(), ThinkingMode::Off);
+    #[test]
+    fn thinking_chain_starts_with_the_form_the_family_accepts() {
+        // Gemini 3 and newer reject `thinkingBudget`, so the first request must
+        // use `thinkingLevel`; a wrong guess would make the first answer of a
+        // session pay for a rejected round-trip.
+        assert_eq!(
+            thinking_chain("gemini-flash-latest"),
+            [
+                ThinkingMode::LevelLow,
+                ThinkingMode::BudgetZero,
+                ThinkingMode::Off
+            ]
+        );
+        assert_eq!(
+            thinking_chain("gemini-3.8-flash"),
+            [
+                ThinkingMode::LevelLow,
+                ThinkingMode::BudgetZero,
+                ThinkingMode::Off
+            ]
+        );
+        assert_eq!(
+            thinking_chain("gemini-4-hydrogen"),
+            [
+                ThinkingMode::LevelLow,
+                ThinkingMode::BudgetZero,
+                ThinkingMode::Off
+            ]
+        );
+        // A legacy/custom id keeps the older form first.
+        assert_eq!(
+            thinking_chain("gemini-2.5-flash"),
+            [
+                ThinkingMode::BudgetZero,
+                ThinkingMode::LevelLow,
+                ThinkingMode::Off
+            ]
+        );
     }
 
     #[test]
@@ -1576,6 +1804,25 @@ mod tests {
         ));
         assert!(!thinking_rejected(r#"{"error":{"message":"API key not valid."}}"#));
         assert!(!thinking_rejected(r#"{"error":{"message":"Quota exceeded."}}"#));
+    }
+
+    #[test]
+    fn a_busy_gemini_says_so_in_turkish() {
+        // The raw Google sentence is not a useful thing to show in the notch.
+        let message = friendly_error(
+            "Gemini",
+            503,
+            r#"{"error":{"code":503,"message":"This model is currently experiencing high demand."}}"#,
+        );
+        assert!(message.contains("sunucu şu an yoğun"), "{message}");
+        assert!(!message.contains("high demand"), "{message}");
+        // A retired id keeps the model hint, not the busy one.
+        let message = friendly_error(
+            "Gemini",
+            404,
+            r#"{"error":{"message":"models/gemini-2.0-flash is not found for API version v1beta"}}"#,
+        );
+        assert!(message.contains("seçili model"), "{message}");
     }
 
     #[test]

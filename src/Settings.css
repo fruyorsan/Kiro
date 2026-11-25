@@ -1112,6 +1112,104 @@ input:checked + .slider:before {
   margin: 0;
 }
 
+/* One warm line between the version and the setting groups: Kiro is free, and
+   the only thing asking for money is this card, so it has to look friendly
+   rather than like a banner ad. */
+.about-support {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 14px 14px;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--kiro-border, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  background: var(--kiro-group-bg, rgba(255, 255, 255, 0.05));
+}
+
+.about-support-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 221, 0, 0.14);
+  color: #ffd60a;
+}
+
+.about-support-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.about-support-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.about-support-desc {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  opacity: 0.9;
+}
+
+.about-support-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.about-support-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: #ffdd00;
+  color: #1b1b1b;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+.about-support-btn--sponsor {
+  background: #ea4aaa;
+  color: #fff;
+}
+
+.about-support-btn:hover {
+  filter: brightness(1.05);
+}
+
+.about-support-btn:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 430px) {
+  .about-support {
+    flex-wrap: wrap;
+  }
+
+  .about-support-actions {
+    width: 100%;
+  }
+
+  .about-support-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 .about-fork-credit {
   margin-top: 4px !important;
 }

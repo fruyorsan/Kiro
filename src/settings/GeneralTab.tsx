@@ -238,6 +238,10 @@ interface GeneralTabProps {
   toggleAutostart: () => void;
   timeFormat24h: boolean;
   toggleTimeFormat24h: () => void;
+  clockSeconds: boolean;
+  toggleClockSeconds: () => void;
+  lowFx: boolean;
+  toggleLowFx: () => void;
   legacyMode: boolean;
   toggleLegacyMode: () => void;
   showUpdateIndicator: boolean;
@@ -362,6 +366,10 @@ export function GeneralTab({
   toggleAutostart,
   timeFormat24h,
   toggleTimeFormat24h,
+  clockSeconds,
+  toggleClockSeconds,
+  lowFx,
+  toggleLowFx,
   legacyMode,
   toggleLegacyMode,
   showUpdateIndicator,
@@ -411,6 +419,20 @@ export function GeneralTab({
         <SettingRow icon={Clock} label={t("general.time24h")} desc={t("general.time24h.desc")}>
           <label className="toggle-switch">
             <input type="checkbox" checked={timeFormat24h} onChange={toggleTimeFormat24h} />
+            <span className="slider"></span>
+          </label>
+        </SettingRow>
+
+        <SettingRow icon={Clock} label={t("general.clockSeconds")} desc={t("general.clockSeconds.desc")}>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={clockSeconds} onChange={toggleClockSeconds} />
+            <span className="slider"></span>
+          </label>
+        </SettingRow>
+
+        <SettingRow icon={Sparkles} label={t("general.lowFx")} desc={t("general.lowFx.desc")}>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={lowFx} onChange={toggleLowFx} />
             <span className="slider"></span>
           </label>
         </SettingRow>

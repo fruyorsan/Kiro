@@ -42,7 +42,7 @@ use windows::Win32::System::Registry::{
 };
 use windows::Win32::System::Threading::{
     GetPriorityClass, GetProcessInformation, OpenProcess, QueryFullProcessImageNameW,
-    SetPriorityClass, SetProcessInformation, ABOVE_NORMAL_PRIORITY_CLASS, HIGH_PRIORITY_CLASS,
+    SetPriorityClass, SetProcessInformation, ABOVE_NORMAL_PRIORITY_CLASS,
     MEMORY_PRIORITY, MEMORY_PRIORITY_INFORMATION, PROCESS_CREATION_FLAGS, PROCESS_NAME_WIN32,
     PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
     PROCESS_POWER_THROTTLING_STATE, PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
@@ -406,19 +406,12 @@ fn set_process_boost(pid: u32) -> Option<SavedProcess> {
         )
         .is_ok();
 
-        // HIGH is only safe when the machine actually has cores to spare.
-        // On a small laptop it can starve audio and the compositor, which
-        // shows up as stutter instead of the win we are after, so 8 cores is
-        // the line. Everything else only goes one step above normal.
-        let cores = std::thread::available_parallelism()
-            .map(|c| c.get())
-            .unwrap_or(4);
-        let target = if cores >= 8 {
-            HIGH_PRIORITY_CLASS
-        } else {
-            ABOVE_NORMAL_PRIORITY_CLASS
-        };
-        let _ = SetPriorityClass(process, target);
+        // ABOVE_NORMAL, never HIGH. HIGH (13) lets the game's threads preempt
+        // DWM, audiodg and the input devices, which shows up as cursor stalls
+        // and audio crackle instead of a frame-time win — the classic "booster
+        // made it worse" report. ABOVE_NORMAL (10) already wins against every
+        // ordinary app, which is all this feature ever needed to do.
+        let _ = SetPriorityClass(process, ABOVE_NORMAL_PRIORITY_CLASS);
 
         if throttle_ok {
             let cleared = PROCESS_POWER_THROTTLING_STATE {

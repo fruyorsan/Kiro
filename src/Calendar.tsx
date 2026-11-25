@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Effect, EffectState } from "@tauri-apps/api/window";
@@ -8,7 +8,8 @@ import { WindowControls } from "./components/WindowControls";
 import { initTheme } from "./theme";
 import { openSettingsAt } from "./settingsNav";
 import { useCaldav, type CalEvent } from "./hooks/useCaldav";
-import { dateLocale, timeAgo, useT, weekdayNames } from "./i18n";
+import { dateLocale, timeAgo, useT, weekHeader, weekStartsOn } from "./i18n";
+import { isoWeek } from "./holidays";
 import "./Calendar.css";
 
 type View = "day" | "week" | "month" | "agenda";
@@ -28,6 +29,7 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const startOfWeek = (d: Date) => addDays(d, -((d.getDay() - weekStartsOn() + 7) % 7));
 
 function eventsOn(events: CalEvent[], day: Date): CalEvent[] {
   const from = day.getTime();
@@ -141,7 +143,7 @@ function CalendarWindow() {
 
   let title: string;
   if (view === "week") {
-    const first = addDays(anchor, -anchor.getDay());
+    const first = startOfWeek(anchor);
     const last = addDays(first, 6);
     const fmt = (d: Date) => d.toLocaleDateString(dateLocale(), { month: "short", day: "numeric" });
     title = `${fmt(first)} – ${first.getMonth() === last.getMonth() ? last.getDate() : fmt(last)}`;
@@ -303,11 +305,12 @@ interface HoverCard {
 
 const CARD_WIDTH = 236;
 
-function MonthView({ anchor, today, events, time, onSelect, onOpen }: MonthProps) {
+export function MonthView({ anchor, today, events, time, onSelect, onOpen }: MonthProps) {
   const t = useT();
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  const gridStart = addDays(first, -first.getDay());
+  const gridStart = startOfWeek(first);
   const days = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+  const mondayFirst = weekStartsOn() === 1;
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -346,13 +349,14 @@ function MonthView({ anchor, today, events, time, onSelect, onOpen }: MonthProps
 
   return (
     <div ref={wrapRef} className="cw-month">
-      <div className="cw-dow">
-        {weekdayNames("short").map((d) => (
-          <div key={d}>{d}</div>
+      <div className={`cw-dow${mondayFirst ? " monday-first" : ""}`}>
+        {mondayFirst && <div className="cw-weekno-head" />}
+        {weekHeader("short").map((d, i) => (
+          <div key={i}>{d}</div>
         ))}
       </div>
-      <div ref={gridRef} className="cw-grid">
-        {days.map((day) => {
+      <div ref={gridRef} className={`cw-grid${mondayFirst ? " monday-first" : ""}`}>
+        {days.map((day, index) => {
           const list = eventsOn(events, day);
           const inMonth = day.getMonth() === anchor.getMonth();
           const classes = ["cw-cell"];
@@ -374,7 +378,7 @@ function MonthView({ anchor, today, events, time, onSelect, onOpen }: MonthProps
           }
           const colors = Array.from(new Set(list.map((e) => e.color ?? "currentColor"))).slice(0, 4);
 
-          return (
+          const cell = (
             <div
               key={day.getTime()}
               className={classes.join(" ")}
@@ -399,6 +403,17 @@ function MonthView({ anchor, today, events, time, onSelect, onOpen }: MonthProps
                 )}
               </div>
             </div>
+          );
+
+          // ISO weeks only line up with Monday-first rows, so the column exists
+          // exactly when the locale starts the week on Monday.
+          return mondayFirst && index % 7 === 0 ? (
+            <Fragment key={day.getTime()}>
+              <div className="cw-weekno">{isoWeek(day)}</div>
+              {cell}
+            </Fragment>
+          ) : (
+            cell
           );
         })}
       </div>
@@ -426,7 +441,7 @@ function MonthView({ anchor, today, events, time, onSelect, onOpen }: MonthProps
 
 function WeekView({ anchor, today, events, time, onOpen }: { anchor: Date; today: Date; events: CalEvent[]; time: (ms: number) => string; onOpen: (d: Date) => void }) {
   const t = useT();
-  const first = addDays(anchor, -anchor.getDay());
+  const first = startOfWeek(anchor);
   return (
     <div className="cw-week">
       {Array.from({ length: 7 }, (_, i) => {
@@ -517,8 +532,11 @@ function AgendaView({ today, events, time, onOpen }: { today: Date; events: CalE
   );
 }
 
-createRoot(document.getElementById("root") as HTMLElement).render(
-  <StrictMode>
-    <CalendarWindow />
-  </StrictMode>,
-);
+const rootEl = document.getElementById("root");
+if (rootEl) {
+  createRoot(rootEl).render(
+    <StrictMode>
+      <CalendarWindow />
+    </StrictMode>,
+  );
+}

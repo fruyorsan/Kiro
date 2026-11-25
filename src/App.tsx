@@ -2,6 +2,7 @@ import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { UpdateCheckResult } from "./updater";
 import "./App.css";
@@ -16,10 +17,11 @@ import { useSettingsSync } from "./hooks/useSettingsSync";
 import { useTrailingThrottle } from "./hooks/useTrailingThrottle";
 import { useCaldav } from "./hooks/useCaldav";
 import { NotchCalendar } from "./components/NotchCalendar";
-import { NotchClock, StopwatchReadout } from "./components/NotchClock";
+import { NotchClock, StopwatchReadout, requestClockTab } from "./components/NotchClock";
 import { MediaSourceButton, type MediaSession } from "./components/MediaSourceButton";
 import { ConnectionsView } from "./components/ConnectionsView";
 import { NotchTour } from "./components/NotchTour";
+import { NotchWhatsNew } from "./components/NotchWhatsNew";
 import { useStopwatch } from "./hooks/useStopwatch";
 import { t as translate, useT, dateLocale } from "./i18n";
 import { NotchShelf, useShelf } from "./components/NotchShelf";
@@ -432,28 +434,30 @@ const TitleMarquee = ({ title }: { title: string }) => {
 
 
 
-function TimeDisplay({ hour12 }: { hour12: boolean }) {
+function TimeDisplay({ hour12, seconds }: { hour12: boolean; seconds: boolean }) {
   const format = () => new Date().toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
+    ...(seconds ? { second: "2-digit" } : {}),
     hour12,
   });
   const [text, setText] = useState(format);
 
   useEffect(() => {
     let timer: number;
-    // The display only has hour and minute, so there is nothing to repaint
-    // until the next minute boundary. Ticking once a second kept the renderer
-    // awake 60x more than needed. A reveal after the window was hidden also
-    // refreshes, otherwise the first frame shows a stale minute.
+    // With seconds on, the clock ticks once a second; otherwise there is
+    // nothing to repaint until the next minute boundary. Ticking once a second
+    // kept the renderer awake 60x more than needed. A reveal after the window
+    // was hidden also refreshes, otherwise the first frame shows a stale time.
+    const period = seconds ? 1000 : 60_000;
     const schedule = () => {
       timer = window.setTimeout(() => {
         setText(format());
         schedule();
-      }, 60_000 - (Date.now() % 60_000) + 50);
+      }, period - (Date.now() % period) + 50);
     };
-    // Repaint immediately: this effect also runs when the 24-hour setting
-    // changes, and waiting for the next minute left the old format on screen.
+    // Repaint immediately: this effect also runs when the 24-hour or seconds
+    // setting changes, and waiting for the next tick left the old format up.
     setText(format());
     schedule();
     const onVisibility = () => {
@@ -464,7 +468,7 @@ function TimeDisplay({ hour12 }: { hour12: boolean }) {
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [hour12]);
+  }, [hour12, seconds]);
 
   return <>{text}</>;
 }
@@ -482,6 +486,41 @@ function App() {
   const [isReady, setIsReady] = useState(false);
   const [scale, setScale] = useState(() => parseFloat(localStorage.getItem("kiro-scale") || "1.0"));
   const [timeFormat24h, setTimeFormat24h] = useState(() => localStorage.getItem("kiro-time-format-24h") !== "false");
+  // Clicking the notch clock turns seconds on; the choice survives a restart.
+  const [clockSeconds, setClockSeconds] = useState(() => localStorage.getItem("kiro-clock-seconds") === "true");
+  // Decorative effects (season particles, ambient glow, wallpaper glass) are what
+  // a weak GPU struggles to composite while the notch resizes. Errors > General >
+  // "Low effects" drops them without touching the tint, so the surface still
+  // reads the same.
+  const [lowFx, setLowFx] = useState(() => localStorage.getItem("kiro-low-fx") === "true");
+  // The clock panel (seconds + stopwatch) stays requested until the user closes
+  // it: a notch that collapses mid-countdown has to come back to the stopwatch,
+  // not to the quick settings. Deliberately session-only -- when this flag was
+  // persisted, the notch reopened on its own after every restart.
+  const [clockPanelOpen, setClockPanelOpen] = useState(() => {
+    // Older builds persisted this; forget whatever they left behind.
+    try {
+      localStorage.removeItem("kiro-clock-panel-open");
+    } catch {
+      /* storage disabled */
+    }
+    return false;
+  });
+  const rememberClockPanel = useCallback((open: boolean) => {
+    setClockPanelOpen(open);
+  }, []);
+
+  // Mirror the choice onto <html> so plain CSS can drop the expensive layers,
+  // and keep it for the next launch: a machine that stuttered once will
+  // stutter again on the very first reveal.
+  useEffect(() => {
+    document.documentElement.classList.toggle("kiro-low-fx", lowFx);
+    try {
+      localStorage.setItem("kiro-low-fx", String(lowFx));
+    } catch {
+      /* storage disabled */
+    }
+  }, [lowFx]);
 
 
   const [batteryLevel, setBatteryLevel] = useState(100);
@@ -702,7 +741,7 @@ function App() {
   const dockModeInitial = useRef(true);
   const notchModeInitial = useRef(true);
 
-  const [kiroMode, setKiroMode] = useState<'music' | 'calendar' | 'command-center' | 'status' | 'shelf' | 'tour' | 'agent'>('status');
+  const [kiroMode, setKiroMode] = useState<'music' | 'calendar' | 'command-center' | 'status' | 'shelf' | 'tour' | 'agent' | 'whats-new'>('status');
 
   const isAnyInteraction = isHovered || isNotchHovered || isEdgeHovered;
   const [notchBottomRight, setNotchBottomRight] = useState(() => localStorage.getItem("kiro-notch-position") === "bottom-right");
@@ -717,7 +756,7 @@ function App() {
   // fullscreen video players put their controls, so it gets out of the way
   // whenever an app owns the whole screen, whatever the notch mode.
   const isHidden = ((notchMode === 'smart' || notchMode === 'peek' || notchBottomRight) && isFullscreen) ||
-    (!startupAnimating && kiroMode !== 'tour' && !(agentActivity && isNotchWindow) && notchIdleHidden);
+    (!startupAnimating && kiroMode !== 'tour' && kiroMode !== 'whats-new' && !(agentActivity && isNotchWindow) && notchIdleHidden);
 
   useEffect(() => {
     if (isAnyInteraction) {
@@ -914,11 +953,15 @@ function App() {
       if (!delta) return;
       aiStreamBufferRef.current += delta;
       if (aiStreamFlushRef.current !== null) return;
+      // The stream id is captured with the timer: a flush that was already
+      // scheduled when the user cancelled (or asked again) must not append its
+      // text to the new answer.
+      const forStream = event.payload.id;
       aiStreamFlushRef.current = window.setTimeout(() => {
         aiStreamFlushRef.current = null;
         const pending = aiStreamBufferRef.current;
         aiStreamBufferRef.current = "";
-        if (!pending) return;
+        if (!pending || aiStreamRef.current !== forStream) return;
         setAiAnswer((current) => current + pending);
       }, 70);
     })
@@ -1077,30 +1120,44 @@ function App() {
 
   useEffect(() => {
     let lastSent = "";
+    let frame = 0;
+    const send = () => {
+      frame = 0;
+      if (!kiroRef.current || !isNotchWindow) return;
+      const rect = kiroRef.current.getBoundingClientRect();
+      const next = {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      };
+      const key = `${next.x},${next.y},${next.width},${next.height}`;
+      if (key === lastSent) return;
+      lastSent = key;
+      invoke('update_notch_rect', { rect: next }).catch(() => { lastSent = ""; });
+    };
+    // The expand/collapse spring changes the content box on almost every frame,
+    // and each change resizes the native window. Sending one IPC per frame
+    // instead of one per ResizeObserver callback keeps a single resize in flight
+    // per frame, which is what halves the stutter when the panel opens.
     const updateRect = () => {
-      if (kiroRef.current && isNotchWindow) {
-        const rect = kiroRef.current.getBoundingClientRect();
-        const next = {
-          x: Math.round(rect.x),
-          y: Math.round(rect.y),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height)
-        };
-        const key = `${next.x},${next.y},${next.width},${next.height}`;
-        if (key === lastSent) return;
-        lastSent = key;
-        invoke('update_notch_rect', { rect: next }).catch(() => { lastSent = ""; });
-      }
+      if (frame) return;
+      frame = requestAnimationFrame(send);
     };
 
     updateRect();
     window.addEventListener('resize', updateRect);
-    const observer = new ResizeObserver(updateRect);
+    // The observer callback runs after layout and before paint, so the box it
+    // reports is exactly the one about to be drawn: measuring there costs
+    // nothing, while measuring in a rAF could force a second layout of the whole
+    // expanded tree when framer-motion had not written its styles yet.
+    const observer = new ResizeObserver(() => send());
     if (kiroRef.current) observer.observe(kiroRef.current);
 
     const poll = setVisibleInterval(updateRect, 500);
 
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('resize', updateRect);
       observer.disconnect();
       clearInterval(poll);
@@ -1194,7 +1251,51 @@ function App() {
   const [settingsStopwatchEnabled, setSettingsStopwatchEnabled] = useState(
     () => (localStorage.getItem("kiro-stopwatch-enabled") ?? localStorage.getItem("kiro-calendar-enabled")) !== "false",
   );
-  const showClockColumn = settingsTimerEnabled || settingsStopwatchEnabled;
+  // Clicking the notch clock asks for a precise time, so the clock column is
+  // allowed on screen even while the timer and stopwatch widgets are switched
+  // off. It goes away again when the panel does.
+  const [clockColumnPeek, setClockColumnPeek] = useState(false);
+  // Panel the click replaced, so a second click can go back to it. Kept in
+  // storage too: the notch may collapse (or the app restart) between the two
+  // clicks, and the second click still has to land on the panel it came from.
+  const clockPeekReturnRef = useRef<typeof kiroMode | null>(null);
+  const CLOCK_RETURN_KEY = "kiro-clock-peek-return";
+  const readClockReturn = (): typeof kiroMode | null => {
+    if (clockPeekReturnRef.current) return clockPeekReturnRef.current;
+    try {
+      return (localStorage.getItem(CLOCK_RETURN_KEY) as typeof kiroMode | null) ?? null;
+    } catch {
+      return null;
+    }
+  };
+  const rememberClockReturn = (mode: typeof kiroMode) => {
+    clockPeekReturnRef.current = mode;
+    try {
+      localStorage.setItem(CLOCK_RETURN_KEY, mode);
+    } catch {
+      /* storage disabled: the in-memory ref still works for this session */
+    }
+  };
+  const clearClockReturn = () => {
+    clockPeekReturnRef.current = null;
+    try {
+      localStorage.removeItem(CLOCK_RETURN_KEY);
+    } catch {
+      /* storage disabled */
+    }
+  };
+  const showClockColumn = settingsTimerEnabled || settingsStopwatchEnabled || clockColumnPeek;
+  // The peek lives only as long as the calendar panel: leaving it must not
+  // leave the timer/stopwatch columns on screen against the user's settings.
+  useEffect(() => {
+    if (kiroMode !== 'calendar') {
+      setClockColumnPeek(false);
+      // A clock panel the user asked for keeps its origin so that closing the
+      // seconds after a collapse still returns to that panel.
+      if (!clockPanelOpen) clearClockReturn();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kiroMode, clockPanelOpen]);
   const [settingsDualClockEnabled, setSettingsDualClockEnabled] = useState(() => localStorage.getItem("kiro-dual-clock-enabled") === "true");
   const [dualClockZone, setDualClockZone] = useState(() => localStorage.getItem("kiro-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE);
   const [dualClockLabel, setDualClockLabel] = useState(() => localStorage.getItem("kiro-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE);
@@ -1303,6 +1404,8 @@ function App() {
       setSettingsTimerSoundEnabled(getVal("kiro-timer-sound-enabled", "true") !== "false");
       setSettingsStopwatchEnabled((getVal("kiro-stopwatch-enabled") ?? getVal("kiro-calendar-enabled", "true")) !== "false");
       setSettingsDualClockEnabled(getVal("kiro-dual-clock-enabled", "false") === "true");
+      setClockSeconds(getVal("kiro-clock-seconds", "false") === "true");
+      setLowFx(getVal("kiro-low-fx", "false") === "true");
       setDualClockZone(getVal("kiro-dual-clock-zone") || DEFAULT_DUAL_CLOCK_ZONE);
       setDualClockLabel(getVal("kiro-dual-clock-label") || DEFAULT_DUAL_CLOCK_ZONE);
       setSettingsMusicModeEnabled(getVal("kiro-music-mode-enabled", "true") !== "false");
@@ -1460,6 +1563,14 @@ function App() {
       "kiro-timer-sound-enabled": setSettingsTimerSoundEnabled,
       "kiro-notch-timer-progress": setSettingsTimerProgressEnabled,
       "kiro-stopwatch-enabled": setSettingsStopwatchEnabled,
+      "kiro-clock-seconds": (value) => {
+        const on = value === true || value === "true";
+        setClockSeconds(on);
+        // Turning the seconds off in Settings also drops the panel they brought
+        // up, so the notch does not keep a stopwatch the user just switched off.
+        if (!on) rememberClockPanel(false);
+      },
+      "kiro-low-fx": (value) => setLowFx(value === true || value === "true"),
       "kiro-dual-clock-enabled": setSettingsDualClockEnabled,
       "kiro-dual-clock-zone": (value) => setDualClockZone(String(value)),
       "kiro-dual-clock-label": (value) => setDualClockLabel(String(value)),
@@ -1566,6 +1677,55 @@ function App() {
     const unlisten = listen("start-tour", startTour);
     return () => { unlisten.then(f => f()); };
   }, [windowLabel, startTour]);
+
+  // "What's new" after an update: only for someone who was already using Kiro,
+  // once per version, and only until the card is dismissed. A fresh install has
+  // nothing to be updated from, so it seeds the marker silently instead of
+  // greeting a first-time user with a changelog.
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [whatsNewVersion, setWhatsNewVersion] = useState("");
+  const whatsNewCheckedRef = useRef(false);
+
+  const markWhatsNewSeen = useCallback((version: string) => {
+    if (!version) return;
+    localStorage.setItem("kiro-whats-new-version", version);
+    invoke("save_setting", { key: "kiro-whats-new-version", value: version }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (windowLabel !== 'main' || !isReady || whatsNewCheckedRef.current) return;
+    whatsNewCheckedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      const current = await getVersion().catch(() => "");
+      if (cancelled || !current) return;
+      setWhatsNewVersion(current);
+      const seen = localStorage.getItem("kiro-whats-new-version");
+      if (seen === current) return;
+      const freshInstall = localStorage.getItem("kiro-first-run") === null;
+      if (freshInstall) {
+        // First launch ever: record the version and never show anything.
+        markWhatsNewSeen(current);
+        return;
+      }
+      // Already on the app from an older version. Mark it seen immediately, so
+      // the card cannot reappear after a restart even if it was never closed.
+      markWhatsNewSeen(current);
+      setWhatsNewOpen(true);
+    })();
+    return () => { cancelled = true; };
+  }, [windowLabel, isReady, markWhatsNewSeen]);
+
+  const closeWhatsNew = useCallback(() => {
+    setWhatsNewOpen(false);
+    // Land on the quick settings the notch would have shown anyway, so closing
+    // the card does not drop the user on an empty strip.
+    setKiroMode((prev) => {
+      if (prev !== 'whats-new') return prev;
+      return availableNotchModes().includes('command-center') ? 'command-center' : 'status';
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (ccView !== 'main' && (!isHovered || kiroMode !== 'command-center')) setCcView('main');
@@ -2202,6 +2362,10 @@ function App() {
       resetTimer();
       return;
     }
+    // The date opens the calendar for browsing, not the stopwatch panel.
+    rememberClockPanel(false);
+    setClockColumnPeek(false);
+    clearClockReturn();
 
     setKiroMode(prev => {
       if (prev === 'calendar') {
@@ -2212,13 +2376,51 @@ function App() {
     });
   };
 
-  const toggleControlCenter = (e: React.MouseEvent) => {
+  const toggleClockSeconds = (e: React.MouseEvent) => {
+    // While a countdown owns the clock, a click keeps its old meaning: open the
+    // panel so the timer can be managed.
+    if (isCompactTimerVisible || isTimerFinished) {
+      toggleControlCenter(e);
+      return;
+    }
     e.stopPropagation();
+    const next = !clockSeconds;
+    setClockSeconds(next);
+    localStorage.setItem("kiro-clock-seconds", String(next));
+    invoke("save_setting", { key: "kiro-clock-seconds", value: String(next) }).catch(() => {});
+    if (next) {
+      // A click asks for a precise time, so bring the clock column along: that
+      // is where the stopwatch lives, and both readouts then appear together.
+      // The assistant panel keeps the notch; it must not be replaced underneath.
+      rememberClockPanel(true);
+      if (aiOpen) return;
+      setClockColumnPeek(true);
+      requestClockTab(settingsStopwatchEnabled || !settingsTimerEnabled ? "stopwatch" : "timer");
+      if (kiroMode !== "calendar") {
+        rememberClockReturn(kiroMode);
+        setKiroMode("calendar");
+      }
+      return;
+    }
+    // Turning the seconds off should also take away the panel they brought in,
+    // but only if this click is what opened it.
+    // Read the origin before closing the panel: closing it drops the memory.
+    const back = clockColumnPeek ? readClockReturn() : null;
+    rememberClockPanel(false);
+    if (clockColumnPeek) {
+      setClockColumnPeek(false);
+      clearClockReturn();
+      if (kiroMode === "calendar" && back) setKiroMode(back);
+    }
+  };
+
+  const toggleControlCenter = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (isTimerFinished) {
       resetTimer();
       return;
     }
-    if (kiroMode === 'tour') return;
+    if (kiroMode === 'tour' || kiroMode === 'whats-new') return;
     const modes = availableNotchModes();
     if (!modes.includes('command-center')) {
       cycleNotchMode(e);
@@ -2226,6 +2428,7 @@ function App() {
     }
     // Click opens the control center, clicking the clock again closes it and
     // falls back to whatever the notch was showing before.
+    rememberClockPanel(false);
     if (kiroMode === 'command-center') {
       const home = settingsMusicModeEnabled && mediaInfo.has_media && isPlaying ? 'music' : 'status';
       setKiroMode(modes.includes(home) ? home : modes[0]);
@@ -2242,17 +2445,23 @@ function App() {
       resetTimer();
       return;
     }
-    if (kiroMode === 'tour') return;
-    if (availableNotchModes().includes('status')) setKiroMode('status');
+    if (kiroMode === 'tour' || kiroMode === 'whats-new') return;
+    if (availableNotchModes().includes('status')) {
+      rememberClockPanel(false);
+      setKiroMode('status');
+    }
   };
 
-  const cycleNotchMode = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const cycleNotchMode = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (isTimerFinished) {
       resetTimer();
       return;
     }
-    if (kiroMode === 'tour') return;
+    if (kiroMode === 'tour' || kiroMode === 'whats-new') return;
+    // Switching the panel ends the clock panel request: it was asked for as the
+    // stopwatch, not as a new default view.
+    rememberClockPanel(false);
     // Clicking the clock opens the quick-settings panel (Wi-Fi, Bluetooth,
     // volume, brightness). Scrolling still cycles through every panel.
     const allModes = availableNotchModes();
@@ -2429,6 +2638,7 @@ function App() {
   const getDynamicWidth = () => {
     if (aiVisible) return 470;
     if (kiroMode === 'tour') return 380;
+    if (kiroMode === 'whats-new') return 420;
     if (kiroMode === 'agent') return 340;
     if (kiroMode === 'shelf') return Math.max(300, Math.min(120 + shelf.items.length * 70, 460));
     if (isCalendarMode) return Math.max(calendarColumn && showClockColumn ? 480 : calendarColumn ? 310 : 270, 140 + dualClockExtra);
@@ -2444,6 +2654,8 @@ function App() {
     if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse) && !isHovered) return 200;
 
     let w = 140 + dualClockExtra + (agentWings ? (isMusicMode ? 24 : 34) : 0);
+    // "17:19:42" needs a little more room than "17:19" in the collapsed pill.
+    if (clockSeconds) w += 34;
     if (isMusicMode) {
       if (settingsVisualizerEnabled && isPlaying) w += 30;
       if (settingsAlbumArtEnabled) w += 30;
@@ -2465,9 +2677,10 @@ function App() {
     // notch window is 420 px tall, so 320 still fits.
     if (aiVisible) return aiAnswer || aiError ? 320 : 250;
     if (kiroMode === 'tour') return 210;
+    if (kiroMode === 'whats-new') return 272;
     if (kiroMode === 'agent') return agentActivity?.ask ? 184 : agentActivity?.detail ? 160 : 130;
     if (kiroMode === 'shelf') return shelf.items.length === 0 ? 96 : 156;
-    if (kiroMode === 'calendar') return calendarColumn ? (caldav.connected ? 392 : 316) : 262;
+    if (kiroMode === 'calendar') return calendarColumn ? (caldav.connected ? 372 : 330) : 262;
     if (kiroMode === 'command-center') {
       if (!isHovered) return 36;
       const tileRows = Math.ceil(ccResolved.tiles.length / 2);
@@ -2576,6 +2789,12 @@ function App() {
           clearTimeout(shelfCollapseTimer.current);
           setIsHovered(true);
           if (aiOpen) return;
+          // An update card that has not been dismissed yet owns the first
+          // reveal: it is the reason the user is looking at the notch.
+          if (whatsNewOpen && kiroMode !== 'whats-new') {
+            setKiroMode('whats-new');
+            return;
+          }
           if (kiroMode !== 'tour' && kiroMode !== 'shelf') {
             const modes = availableNotchModes();
             const remembered = settingsRememberMode ? rememberedModeRef.current : null;
@@ -2584,6 +2803,13 @@ function App() {
               // screen: show it again instead of the quick settings.
               setKiroMode('shelf');
             } else if (agentNeedsYou) setKiroMode('agent');
+            // The clock panel was asked for on purpose (a click on the clock,
+            // or a countdown the user started). Coming back to the notch has to
+            // show the stopwatch again instead of the quick settings.
+            else if (clockPanelOpen) {
+              setClockColumnPeek(true);
+              setKiroMode('calendar');
+            }
             // Opening the notch shows the quick settings panel (Wi-Fi,
             // Bluetooth, volume, brightness). A playing track wins, and
             // scrolling still reaches every other panel.
@@ -2597,6 +2823,15 @@ function App() {
           // Keep the notch open while the AI conversation is on screen so the
           // user can type and read without the panel collapsing under them.
           if (aiOpen) return;
+          // "Fixed" is a notch that does not hide itself. A stopwatch or timer
+          // the user is actually running is part of that promise: it stays on
+          // screen when the pointer leaves instead of collapsing mid-count.
+          // Merely having peeked at the seconds does not, or the panel would
+          // stick to the screen with no way back.
+          const clockRunning =
+            clockPanelOpen &&
+            (stopwatch.running || stopwatch.base > 0 || isTimerRunning || isTimerFinished);
+          if (notchMode === 'fixed' && clockRunning) return;
           wasShelfRef.current = kiroMode === 'shelf';
           if (kiroMode === 'shelf' && shelfHoldsOpen()) {
             deferShelfCollapse();
@@ -2607,7 +2842,7 @@ function App() {
           const targetMode = mediaInfo.has_media && isPlaying && settingsMusicCompactNotch ? 'music' : 'status';
           if (kiroMode === 'music') {
             setKiroMode(targetMode);
-          } else if (kiroMode === 'command-center' || kiroMode === 'calendar' || kiroMode === 'status' || kiroMode === 'shelf' || kiroMode === 'agent') {
+          } else if (kiroMode === 'command-center' || kiroMode === 'calendar' || kiroMode === 'status' || kiroMode === 'shelf' || kiroMode === 'agent' || kiroMode === 'whats-new') {
             setKiroMode(targetMode);
           }
         }}
@@ -2628,7 +2863,7 @@ function App() {
         <SeasonLayer
           density={14}
           pile={13}
-          paused={isHidden}
+          paused={isHidden || lowFx}
           radius={isCalendarMode ? 28 : 18}
           edge={notchBottomRight ? "top" : "bottom"}
         />
@@ -2636,7 +2871,7 @@ function App() {
 
 
         <AnimatePresence>
-          {isMusicMode && settingsAmbienceEnabled && !settingsArtworkTheme && albumArtUrl && isHovered && !isCalendarMode && (
+          {isMusicMode && settingsAmbienceEnabled && !settingsArtworkTheme && albumArtUrl && isHovered && !isCalendarMode && !lowFx && (
             <motion.div
               className="notch-ambient-glow"
               initial={{ opacity: 0 }}
@@ -2952,7 +3187,8 @@ function App() {
                               )}
                               <div
                                 className="time-flip-container"
-                                onClick={toggleControlCenter}
+                                onClick={toggleClockSeconds}
+                                onContextMenu={toggleControlCenter}
                                 data-tooltip={t("notch.clockTooltip")}
                                 style={dualClockSize ? { minWidth: dualClockSize.main } : undefined}
                               >
@@ -2979,7 +3215,7 @@ function App() {
                                       exit={{ rotateX: 90, opacity: 0 }}
                                       transition={{ type: "spring", stiffness: 600, damping: 30 }}
                                     >
-                                      <TimeDisplay hour12={!timeFormat24h} />
+                                      <TimeDisplay hour12={!timeFormat24h} seconds={clockSeconds} />
                                     </motion.span>
                                   )}
                                 </AnimatePresence>
@@ -3461,6 +3697,9 @@ function App() {
                           e.stopPropagation();
                           setAiOpen(true);
                           setAiError(null);
+                          // Prime DNS + TLS now: the user is about to type, and
+                          // the first question should not wait for a handshake.
+                          invoke("ai_warm").catch(() => {});
                           if (aiProvider !== "claude" && !aiHasKey(aiProvider)) openAiSetup(aiProvider);
                         }}
                       >
@@ -3497,18 +3736,6 @@ function App() {
                         onClick={(e) => { e.stopPropagation(); invoke("open_notification_center"); }}
                       >
                         <BellIcon />
-                      </button>
-                      {/* Always available: switches the notch to the calendar
-                          panel even when the quick-settings layout was
-                          customised so the calendar mode stays reachable. */}
-                      <button
-                        className="cc-circular-btn"
-                        style={{ order: Math.max(0, ccResolved.buttons.indexOf("settings")) - 0.5 }}
-                        aria-label={t("calendar.title")}
-                        {...tip(t("calendar.title"))}
-                        onClick={(e) => { e.stopPropagation(); setKiroMode("calendar"); }}
-                      >
-                        <CalendarIcon />
                       </button>
                       <button
                         className="cc-circular-btn"
@@ -3638,6 +3865,20 @@ function App() {
               </AnimatePresence>
 
               <AnimatePresence>
+                {kiroMode === 'whats-new' && (
+                  <motion.div
+                    key="whats-new"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  >
+                    <NotchWhatsNew version={whatsNewVersion} onClose={closeWhatsNew} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
                 {kiroMode === 'agent' && agentActivity && (
                   <motion.div
                     key="agent-panel"
@@ -3731,15 +3972,6 @@ function BluetoothIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.9 }}>
-      <rect x="3" y="5" width="18" height="16" rx="3" />
-      <path d="M8 3v4M16 3v4M3 11h18" />
     </svg>
   );
 }
