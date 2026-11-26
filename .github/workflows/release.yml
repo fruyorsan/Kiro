@@ -7,6 +7,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      hotfix:
+        description: "Backdate pub_date so the 24 hour rollout gate does not delay this release (use when replacing a broken build)"
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -331,6 +336,29 @@ jobs:
               exit 1
             fi
           done
+
+      # A build that shipped a regression cannot wait out the 24 hour rollout
+      # gate, and the broken build's own binary has no way to know it is broken.
+      # Letting the release be declared "old" does exactly that: every client
+      # compares `pub_date` against its clock, so backdating the manifest makes
+      # the fix install on the next launch of the affected version while every
+      # other version sees nothing to do (they are already newer).
+      - name: Bypass the rollout gate for a hotfix
+        if: matrix.target == 'linux' && inputs.hotfix == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MANIFEST=$(gh release download "${{ github.ref_name }}" --pattern latest.json --output -)
+          PUB_DATE=$(date -u -d '26 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          UPDATED=$(printf "%s" "$MANIFEST" | sed -E "s/\"pub_date\": *\"[^\"]*\"/\"pub_date\": \"$PUB_DATE\"/g")
+          if [ "$UPDATED" = "$MANIFEST" ]; then
+            echo "::error::latest.json has no pub_date to adjust"
+            exit 1
+          fi
+          printf "%s" "$UPDATED" > latest.json
+          echo "pub_date is now $PUB_DATE"
+          gh release upload "${{ github.ref_name }}" latest.json --clobber
 
       # tauri-action only uploads the NSIS installer (which now offers a
       # "just me" / "all users" choice via installMode: "both" in
