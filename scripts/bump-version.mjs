@@ -34,7 +34,13 @@ function updateCargoLock(relativePath, packageName) {
   );
   const next = content.replace(pattern, `$1${version}$2`);
   if (next === content) {
-    throw new Error(`Could not update ${relativePath}: package "${packageName}" not found`);
+    // Already at this version (a manual bump, or a re-run after the lock was
+    // rewritten by cargo): that is the desired state, not a failure. Only throw
+    // when the package itself is missing, which means the path is wrong.
+    if (!new RegExp(`\\[\\[package\\]\\]\\r?\\nname = "${packageName}"`).test(content)) {
+      throw new Error(`Could not update ${relativePath}: package "${packageName}" not found`);
+    }
+    return;
   }
   writeFileSync(path, next);
 }
