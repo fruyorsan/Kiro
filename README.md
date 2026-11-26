@@ -217,18 +217,23 @@ Kiro updates itself: a green dot on the notch means an update is ready, and **Au
 
 On Linux the notch and dock are ordinary always-on-top windows placed at the top and bottom of the screen, the panels use `nmcli`, `bluetoothctl`, `pactl` and `playerctl` for hardware, and fullscreen games get the same step-aside behaviour by hiding the windows instead of unregistering an appbar.
 
-> **Antivirus warnings:** the installer is not code-signed yet, so Windows SmartScreen and a few antivirus engines flag it. Kiro is open source, has no telemetry or tracking, and every installer is built by the release workflow in this repository. You can read every line, [build it yourself](#build-from-source), or drop the installer into [VirusTotal](https://www.virustotal.com/) before running it.
+**Code signing.** Kiro's Windows installers are code-signed through the
+[SignPath Foundation](https://signpath.org/), a non-profit that provides free code
+signing to open-source projects. A signed installer shows a verified publisher
+instead of an unknown one.
+
+> **Antivirus warnings:** a freshly signed installer can still be flagged by Windows SmartScreen and by a few heuristic antivirus engines until reputation builds up. Kiro is open source, has no telemetry or tracking, and every installer is built by the release workflow in this repository. You can read every line, [build it yourself](#build-from-source), or drop the installer into [VirusTotal](https://www.virustotal.com/) before running it.
 
 <details>
 <summary><b>Why a couple of VirusTotal engines flag the installer</b></summary>
 
 <br />
 
-Kiro's installer is unsigned, and an unsigned installer that unpacks itself and writes to Program Files is exactly the shape heuristic engines look for. A release normally lands at around **2 detections out of ~70**, and it is almost always the same two machine-learning engines: **SecureAge** ("Malicious") and **Trapmine** ("Suspicious.low.ml.score"). Neither has a signature for the file; they score its structure and score it low.
+Kiro's Windows builds are code-signed through the SignPath Foundation, but a packed installer that unpacks itself and writes to Program Files is exactly the shape heuristic engines look for, and SmartScreen reputation builds up over time. A release normally lands at around **2 detections out of ~70**, and it is almost always the same two machine-learning engines: **SecureAge** ("Malicious") and **Trapmine** ("Suspicious.low.ml.score"). Neither has a real signature for the file; they score its structure and score it low.
 
-This is not specific to Kiro. LibreWolf, ungoogled-chromium and other unsigned Windows builds collect the same verdicts, and they come back on every new build because VirusTotal scores files, not projects — each release gets a new hash and a new scan, so clearing one installer does not clear the next.
+This is not specific to Kiro. LibreWolf, ungoogled-chromium and other Windows builds collect the same verdicts, and they come back on every new build because VirusTotal scores files, not projects — each release gets a new hash and a new scan, so clearing one installer does not clear the next.
 
-What actually fixes it is code signing, which is on the roadmap. Until then you can confirm a download three ways: check its hash against the release notes, run it through VirusTotal and read the per-engine details, or build Kiro from this repository in two commands.
+Code signing, which Kiro now uses, is what fixes SmartScreen; the remaining detections are the machine-learning engines scoring structure rather than the publisher. You can confirm a download three ways: check its signature and hash, run it through VirusTotal and read the per-engine details, or build Kiro from this repository in two commands.
 
 </details>
 
@@ -382,6 +387,9 @@ Kiro is open source under the [GPLv3](LICENSE). Third-party notices are listed i
 [NOTICE.md](NOTICE.md). The Kiro name, logo and mascot are covered by the
 [trademark policy](TRADEMARK.md) — fork the code freely, but ship your fork under
 its own name.
+
+Using Kiro in a closed-source product, or shipping it under your own brand, needs
+a [commercial or OEM licence](COMMERCIAL.md).
 
 <div align="center">
 <br />

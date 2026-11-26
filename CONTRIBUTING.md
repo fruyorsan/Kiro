@@ -47,6 +47,10 @@ the variable.
 
 ## Pull requests
 
+By opening a pull request you agree to the [contributor licence agreement](docs/CLA.md):
+you keep your copyright, and you allow the project to license your contribution
+under the GPLv3 as well as under a commercial licence.
+
 - Keep one change per pull request. A small, focused change is reviewed much faster.
 - Say what changed and why, and which Windows version and monitor setup you tested on.
 - Test on a real build. Many things, like the dock, the taskbar and the tray flyout, behave differently in a dev server than in the real app.

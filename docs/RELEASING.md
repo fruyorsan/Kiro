@@ -128,6 +128,11 @@ must be the matching public key. If the two disagree, the release still builds
 and publishes, but every install fails with "signature verification failed" —
 which is exactly what the verification steps in the workflow exist to catch.
 
+That key only covers the **updater** signature. The Windows SmartScreen publisher
+warning needs a separate Authenticode certificate, and signing the installer after
+the updater signature was produced invalidates it. The order of operations is in
+[docs/SIGNING.md](SIGNING.md).
+
 The same key signs both platforms: the signature is verified against the pubkey
 compiled into the binary, so a Windows-only key rotation would break Linux
 updates and the Linux job's verification step would fail the release.
