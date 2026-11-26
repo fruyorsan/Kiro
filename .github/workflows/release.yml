@@ -344,7 +344,10 @@ jobs:
       # the fix install on the next launch of the affected version while every
       # other version sees nothing to do (they are already newer).
       - name: Bypass the rollout gate for a hotfix
-        if: matrix.target == 'linux' && inputs.hotfix == 'true'
+        # `hotfix` is declared as a boolean input, and GitHub compares a boolean
+        # against the string 'true' as 1 == NaN (false). Check both shapes so a
+        # tagged run still picks up a `workflow_dispatch` value.
+        if: matrix.target == 'linux' && (inputs.hotfix == true || inputs.hotfix == 'true')
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
