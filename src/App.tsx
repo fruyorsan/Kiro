@@ -1120,44 +1120,30 @@ function App() {
 
   useEffect(() => {
     let lastSent = "";
-    let frame = 0;
-    const send = () => {
-      frame = 0;
-      if (!kiroRef.current || !isNotchWindow) return;
-      const rect = kiroRef.current.getBoundingClientRect();
-      const next = {
-        x: Math.round(rect.x),
-        y: Math.round(rect.y),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height)
-      };
-      const key = `${next.x},${next.y},${next.width},${next.height}`;
-      if (key === lastSent) return;
-      lastSent = key;
-      invoke('update_notch_rect', { rect: next }).catch(() => { lastSent = ""; });
-    };
-    // The expand/collapse spring changes the content box on almost every frame,
-    // and each change resizes the native window. Sending one IPC per frame
-    // instead of one per ResizeObserver callback keeps a single resize in flight
-    // per frame, which is what halves the stutter when the panel opens.
     const updateRect = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(send);
+      if (kiroRef.current && isNotchWindow) {
+        const rect = kiroRef.current.getBoundingClientRect();
+        const next = {
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height)
+        };
+        const key = `${next.x},${next.y},${next.width},${next.height}`;
+        if (key === lastSent) return;
+        lastSent = key;
+        invoke('update_notch_rect', { rect: next }).catch(() => { lastSent = ""; });
+      }
     };
 
     updateRect();
     window.addEventListener('resize', updateRect);
-    // The observer callback runs after layout and before paint, so the box it
-    // reports is exactly the one about to be drawn: measuring there costs
-    // nothing, while measuring in a rAF could force a second layout of the whole
-    // expanded tree when framer-motion had not written its styles yet.
-    const observer = new ResizeObserver(() => send());
+    const observer = new ResizeObserver(updateRect);
     if (kiroRef.current) observer.observe(kiroRef.current);
 
     const poll = setVisibleInterval(updateRect, 500);
 
     return () => {
-      cancelAnimationFrame(frame);
       window.removeEventListener('resize', updateRect);
       observer.disconnect();
       clearInterval(poll);

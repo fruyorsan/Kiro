@@ -2401,7 +2401,7 @@ dependencies = [
 
 [[package]]
 name = "kiro"
-version = "1.10.6"
+version = "1.10.7"
 dependencies = [
  "base64 0.22.1",
  "chrono",

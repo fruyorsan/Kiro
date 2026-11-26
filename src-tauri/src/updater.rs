@@ -149,6 +149,19 @@ pub fn release_is_old_enough(result: &UpdateCheckResult) -> bool {
     }
 }
 
+/// Builds that must be replaced without waiting for the rollout gate and
+/// without asking. 1.10.6 shipped a season-layer regression (the notch showed a
+/// ghost outline over the top icons, the vine re-seeded itself on every size and
+/// the decorations ran at double speed), so every install of it is moved to the
+/// fixed build as soon as it starts, even with auto-update turned off.
+const BROKEN_VERSIONS: &[&str] = &["1.10.6"];
+
+/// True when the running build is one of `BROKEN_VERSIONS`.
+pub fn running_build_is_broken(app: &AppHandle) -> bool {
+    let current = app.package_info().version.to_string();
+    BROKEN_VERSIONS.contains(&current.as_str())
+}
+
 /// Checks for an update at most once per `CHECK_INTERVAL_SECS` unless `force`
 /// is set. Development builds skip the automatic network check because their
 /// version never tracks releases; manual checks still work.
@@ -307,17 +320,25 @@ async fn install_inner(app: &AppHandle) -> Result<(), String> {
 }
 
 /// Startup entry point: always checks so the UI can show an update badge, and
-/// auto-installs only when the user enabled it and the release has aged.
+/// auto-installs only when the user enabled it and the release has aged -- except
+/// on a build listed in `BROKEN_VERSIONS`, which is replaced immediately whether
+/// or not auto-update is on, since leaving people on it is worse than a surprise
+/// restart.
 pub async fn run_startup_check(app: AppHandle) {
-    let auto_update = crate::utils::get_setting_str(&app, "kiro-auto-update").as_deref() == Some("true");
+    let forced = running_build_is_broken(&app);
+    let auto_update = forced || crate::utils::get_setting_str(&app, "kiro-auto-update").as_deref() == Some("true");
 
     if auto_update {
         let _ = app.emit("auto-update-status", serde_json::json!({ "status": "checking" }));
     }
 
-    let ready_to_install = |result: &UpdateCheckResult| prerelease_channel(&app) || release_is_old_enough(result);
+    let ready_to_install = |result: &UpdateCheckResult| {
+        forced || prerelease_channel(&app) || release_is_old_enough(result)
+    };
 
-    let result = match check(&app, false).await {
+    // A broken build must not trust the cached "no update" answer it stored a
+    // minute ago: that cache is exactly what would keep everyone on it for a day.
+    let result = match check(&app, forced).await {
         Ok(result) => result,
         Err(_) => {
             if auto_update {
@@ -555,5 +576,14 @@ mod tests {
     fn computes_civil_days() {
         assert_eq!(days_from_civil(1970, 1, 1), 0);
         assert_eq!(days_from_civil(2026, 9, 13), 20_709);
+    }
+
+    #[test]
+    fn broken_build_list_is_narrow() {
+        // The forced-update list must never contain the build that ships the fix,
+        // otherwise every launch would reinstall the same version in a loop.
+        let running = env!("CARGO_PKG_VERSION");
+        assert!(!super::BROKEN_VERSIONS.contains(&running));
+        assert!(super::BROKEN_VERSIONS.contains(&"1.10.6"));
     }
 }
