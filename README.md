@@ -217,23 +217,24 @@ Kiro updates itself: a green dot on the notch means an update is ready, and **Au
 
 On Linux the notch and dock are ordinary always-on-top windows placed at the top and bottom of the screen, the panels use `nmcli`, `bluetoothctl`, `pactl` and `playerctl` for hardware, and fullscreen games get the same step-aside behaviour by hiding the windows instead of unregistering an appbar.
 
-**Code signing.** Kiro's Windows installers are code-signed through the
-[SignPath Foundation](https://signpath.org/), a non-profit that provides free code
-signing to open-source projects. A signed installer shows a verified publisher
-instead of an unknown one.
+**Code signing.** Kiro uses the [SignPath Foundation](https://signpath.org/) for
+free code signing of its Windows installers. The signing setup is not live yet, so
+Windows still shows an unknown-publisher warning the first time you run an
+installer. This paragraph changes to "signed" when the first signed installer
+ships, and not before.
 
-> **Antivirus warnings:** a freshly signed installer can still be flagged by Windows SmartScreen and by a few heuristic antivirus engines until reputation builds up. Kiro is open source, has no telemetry or tracking, and every installer is built by the release workflow in this repository. You can read every line, [build it yourself](#build-from-source), or drop the installer into [VirusTotal](https://www.virustotal.com/) before running it.
+> **Antivirus warnings:** an unsigned installer is flagged by Windows SmartScreen, and a few heuristic antivirus engines flag it too, until reputation builds up. Kiro is open source, has no telemetry or tracking, and every installer is built by the release workflow in this repository. You can read every line, [build it yourself](#build-from-source), or drop the installer into [VirusTotal](https://www.virustotal.com/) before running it.
 
 <details>
 <summary><b>Why a couple of VirusTotal engines flag the installer</b></summary>
 
 <br />
 
-Kiro's Windows builds are code-signed through the SignPath Foundation, but a packed installer that unpacks itself and writes to Program Files is exactly the shape heuristic engines look for, and SmartScreen reputation builds up over time. A release normally lands at around **2 detections out of ~70**, and it is almost always the same two machine-learning engines: **SecureAge** ("Malicious") and **Trapmine** ("Suspicious.low.ml.score"). Neither has a real signature for the file; they score its structure and score it low.
+An unsigned packed installer that unpacks itself and writes to Program Files is exactly the shape heuristic engines look for, and SmartScreen reputation builds up over time. A release normally lands at around **2 detections out of ~70**, and it is almost always the same two machine-learning engines: **SecureAge** ("Malicious") and **Trapmine** ("Suspicious.low.ml.score"). Neither has a real signature for the file; they score its structure and score it low.
 
 This is not specific to Kiro. LibreWolf, ungoogled-chromium and other Windows builds collect the same verdicts, and they come back on every new build because VirusTotal scores files, not projects — each release gets a new hash and a new scan, so clearing one installer does not clear the next.
 
-Code signing, which Kiro now uses, is what fixes SmartScreen; the remaining detections are the machine-learning engines scoring structure rather than the publisher. You can confirm a download three ways: check its signature and hash, run it through VirusTotal and read the per-engine details, or build Kiro from this repository in two commands.
+Code signing is what fixes SmartScreen and it is not in place yet; the remaining detections are the machine-learning engines scoring structure rather than the publisher. You can confirm a download three ways: check its signature and hash, run it through VirusTotal and read the per-engine details, or build Kiro from this repository in two commands.
 
 </details>
 

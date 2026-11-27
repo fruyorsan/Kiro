@@ -131,10 +131,11 @@ jobs:
             COMPARE=$(printf "\n\n**Full Changelog**: https://github.com/%s/compare/%s...%s" "$GITHUB_REPOSITORY" "$PREV_TAG" "$TAG")
           fi
 
-          # Every release page is a download page, and the SignPath Foundation
-          # requires the download page to say that the project is signed through
-          # them. Keep this in one place so both note paths carry it.
-          SIGNING=$(printf "\n\n---\n\n<sub>Windows installers are code-signed through the [SignPath Foundation](https://signpath.org/), which provides free code signing to open-source projects.</sub>")
+          # The SignPath Foundation requires the download page to say that the
+          # project uses them for code signing, so this footer stays on every
+          # release. It says the setup is not live yet on purpose: until the first
+          # signed build ships, a plain "code-signed" claim would be false.
+          SIGNING=$(printf "\n\n---\n\n<sub>Kiro uses the [SignPath Foundation](https://signpath.org/) for free code signing of its Windows installers. Signing is being set up; until the first signed build ships, Windows shows an unknown-publisher warning.</sub>")
 
           HEAD_BODY=$(git log -1 --pretty=format:"%b" --no-merges)
           if [ "$COMMIT_COUNT" -eq 1 ] || printf "%s" "$HEAD_BODY" | grep -qE "^(### |What's New:?$|Improvements:?$|Changed:?$|Bug Fixes:?$)"; then
