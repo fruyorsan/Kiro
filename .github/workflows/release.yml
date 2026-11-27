@@ -131,6 +131,11 @@ jobs:
             COMPARE=$(printf "\n\n**Full Changelog**: https://github.com/%s/compare/%s...%s" "$GITHUB_REPOSITORY" "$PREV_TAG" "$TAG")
           fi
 
+          # Every release page is a download page, and the SignPath Foundation
+          # requires the download page to say that the project is signed through
+          # them. Keep this in one place so both note paths carry it.
+          SIGNING=$(printf "\n\n---\n\n<sub>Windows installers are code-signed through the [SignPath Foundation](https://signpath.org/), which provides free code signing to open-source projects.</sub>")
+
           HEAD_BODY=$(git log -1 --pretty=format:"%b" --no-merges)
           if [ "$COMMIT_COUNT" -eq 1 ] || printf "%s" "$HEAD_BODY" | grep -qE "^(### |What's New:?$|Improvements:?$|Changed:?$|Bug Fixes:?$)"; then
             BODY=$(git log "$RANGE" -1 --pretty=format:"%b" --no-merges)
@@ -138,7 +143,7 @@ jobs:
               BODY=$(git log "$RANGE" -1 --pretty=format:"%s" --no-merges)
             fi
             BODY=$(printf "%s" "$BODY" | sed -E "s/^(What's New|Improvements|Changed|Bug Fixes|Other):?$/### \1/")
-            NOTES=$(printf "%s%s\n" "$BODY" "$COMPARE")
+            NOTES=$(printf "%s%s%s\n" "$BODY" "$COMPARE" "$SIGNING")
             echo "body<<EOF" >> "$GITHUB_OUTPUT"
             echo "$NOTES" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
@@ -171,7 +176,7 @@ jobs:
           if [ -n "$OTHER" ]; then
             NOTES+=$(printf "\n\n### Other%s\n" "$OTHER")
           fi
-          NOTES=$(printf "%s%s\n" "$NOTES" "$COMPARE" | sed '/./,$!d')
+          NOTES=$(printf "%s%s%s\n" "$NOTES" "$COMPARE" "$SIGNING" | sed '/./,$!d')
           echo "body<<EOF" >> "$GITHUB_OUTPUT"
           echo "$NOTES" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
